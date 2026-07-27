@@ -1,4 +1,4 @@
-ARG BASE_IMAGE
+ARG BASE_IMAGE=lmsysorg/sglang:v0.5.16
 FROM ${BASE_IMAGE}
 
 COPY docker/99-server-tool.conf /etc/ssh/sshd_config.d/99-server-tool.conf
