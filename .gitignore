@@ -1,7 +1,8 @@
-# Local temporary files
-.tmp/
+# Task-local work, generated files, and fetched artifacts
+work/
 
-# Local secrets and environment overrides
+# Local profiles and credentials
+profiles/*.local.env
 .env
 .env.*
 !.env.example

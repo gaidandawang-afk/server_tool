@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-image_repository="${SSH_IMAGE_REPOSITORY:-server-tool/sglang-ssh}"
-versions=("v0.5.13.post1" "v0.5.16")
+if (( $# == 0 )); then
+  echo "usage: $0 <sglang-version> [<sglang-version> ...]" >&2
+  exit 2
+fi
 
-for version in "${versions[@]}"; do
+skill_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+context="${skill_root}/assets/sglang-ssh"
+image_repository="${SSH_IMAGE_REPOSITORY:-server-tool/sglang-ssh}"
+
+for version in "$@"; do
   base_image="lmsysorg/sglang:${version}"
   target_image="${image_repository}:${version}"
 
@@ -15,8 +20,8 @@ for version in "${versions[@]}"; do
   fi
 
   docker build \
-    --file "${repo_root}/docker/Dockerfile.ssh" \
+    --file "${context}/Dockerfile" \
     --build-arg "BASE_IMAGE=${base_image}" \
     --tag "${target_image}" \
-    "${repo_root}"
+    "${context}"
 done
