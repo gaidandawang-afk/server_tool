@@ -1,5 +1,6 @@
 # Task-local work, generated files, and fetched artifacts
 work/
+.tmp/
 
 # Local profiles and credentials
 profiles/*.local.env
