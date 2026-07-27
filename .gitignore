@@ -1,0 +1,13 @@
+# Local temporary files
+.tmp/
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+
+# Common editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
