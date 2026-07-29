@@ -69,6 +69,18 @@ class ServerToolTests(unittest.TestCase):
             heads = server_tool.run_local(["git", "bundle", "list-heads", str(bundle)], MODULE_PATH.parents[1])
             self.assertIn("refs/heads/", heads)
 
+    def test_input_hashes_include_attached_tree(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "nested").mkdir()
+            payload = root / "nested" / "unit.sh"
+            payload.write_text("echo stable\n", encoding="utf-8")
+            hashes = server_tool.input_hashes([root])
+            self.assertEqual(
+                hashes[str(payload)],
+                "ff0d284a5747332f75fef9d40f91eceb09aba268a589be6f1d9f805e34cb4b65",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -420,7 +420,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     with tempfile.TemporaryDirectory(prefix="server-tool-") as temp_text:
         temp = Path(temp_text)
         bundle = temp / "source.bundle"
-        create_source_bundle(profile, bundle)
         paths_for_hash = [script, test_md, *(local for local, _ in attachments)]
         invocation = {
             "profile": str(profile.path),
@@ -432,11 +431,28 @@ def cmd_run(args: argparse.Namespace) -> int:
         }
         with Remote(profile) as remote:
             verify_task_owner(remote, profile, create=True)
+            project_check = (
+                f"if [ ! -e {shell_quote(profile.project_root)} ]; then echo absent; exit 0; fi; "
+                f"test -d {shell_quote(profile.project_root + '/.git')}; "
+                f"test -f {shell_quote(profile.project_root + '/.git/server-tool-owner')}; "
+                f"grep -Fqx {shell_quote('profile=' + profile.require('PROFILE_NAME'))} "
+                f"{shell_quote(profile.project_root + '/.git/server-tool-owner')}; "
+                f"test \"$(git -C {shell_quote(profile.project_root)} rev-parse HEAD)\" = {shell_quote(head)}; "
+                f"test -z \"$(git -C {shell_quote(profile.project_root)} status --porcelain)\"; "
+                "echo reuse"
+            )
+            _, project_out, _ = remote.run(project_check)
+            source_mode = project_out.strip()
+            if source_mode not in {"absent", "reuse"}:
+                raise ToolError(f"unexpected remote source mode: {source_mode}")
+            invocation["remote_source_mode"] = source_mode
             code, _, _ = remote.run(f"test ! -e {shell_quote(root)}", check=False)
             if code:
                 raise ToolError(f"run already exists: {root}")
             remote.run(f"umask 077; mkdir -p {shell_quote(root + '/input')} {shell_quote(root + '/control')}")
-            remote.put_file(bundle, root + "/input/source.bundle", 0o600)
+            if source_mode == "absent":
+                create_source_bundle(profile, bundle)
+                remote.put_file(bundle, root + "/input/source.bundle", 0o600)
             remote.put_file(script, root + "/input/run.sh", 0o700)
             remote.put_file(test_md, root + "/input/TEST.md", 0o600)
             remote.put_file(REMOTE_RUNNER, root + "/input/remote_runner.sh", 0o700)
