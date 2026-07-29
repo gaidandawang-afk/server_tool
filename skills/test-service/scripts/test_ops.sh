@@ -5,11 +5,11 @@ st_log() {
 }
 
 st_assert() {
-  local label="$1"
-  local passed="$2"
-  local expected="${3:-}"
-  local actual="${4:-}"
-  python3 - "$SERVER_TOOL_OUTPUT_ROOT/assertions.jsonl" "$label" "$passed" "$expected" "$actual" <<'PY'
+  local st_label="$1"
+  local st_passed="$2"
+  local st_expected="${3:-}"
+  local st_actual="${4:-}"
+  python3 - "$SERVER_TOOL_OUTPUT_ROOT/assertions.jsonl" "$st_label" "$st_passed" "$st_expected" "$st_actual" <<'PY'
 import json
 import sys
 
@@ -23,19 +23,19 @@ record = {
 with open(path, "a", encoding="utf-8") as handle:
     handle.write(json.dumps(record, sort_keys=True) + "\n")
 PY
-  st_log "ASSERT label=$label pass=$passed expected=$expected actual=$actual"
-  test "$passed" = true
+  st_log "ASSERT label=$st_label pass=$st_passed expected=$st_expected actual=$st_actual"
+  test "$st_passed" = true
 }
 
 st_record_python_package() {
-  local distribution="$1"
-  local module="$2"
-  local expected_version="$3"
-  local expected_root="$4"
-  local required_symbol="${5:-}"
-  local output="$SERVER_TOOL_OUTPUT_ROOT/python-${distribution}.json"
+  local st_distribution="$1"
+  local st_module="$2"
+  local st_expected_version="$3"
+  local st_expected_root="$4"
+  local st_required_symbol="${5:-}"
+  local st_output="$SERVER_TOOL_OUTPUT_ROOT/python-${st_distribution}.json"
   set +e
-  python3 - "$distribution" "$module" "$expected_version" "$expected_root" "$required_symbol" "$output" <<'PY'
+  python3 - "$st_distribution" "$st_module" "$st_expected_version" "$st_expected_root" "$st_required_symbol" "$st_output" <<'PY'
 import importlib
 import importlib.metadata
 import json
@@ -66,60 +66,60 @@ pathlib.Path(output).write_text(json.dumps(record, indent=2, sort_keys=True) + "
 print(json.dumps(record, sort_keys=True))
 raise SystemExit(0 if record["pass"] else 1)
 PY
-  local code=$?
+  local st_code=$?
   set -e
-  if [[ "$code" -eq 0 ]]; then
-    st_assert "python_package_${distribution}" true "$expected_version@$expected_root" "matched"
+  if [[ "$st_code" -eq 0 ]]; then
+    st_assert "python_package_${st_distribution}" true "$st_expected_version@$st_expected_root" "matched"
   else
-    st_assert "python_package_${distribution}" false "$expected_version@$expected_root" "mismatch"
+    st_assert "python_package_${st_distribution}" false "$st_expected_version@$st_expected_root" "mismatch"
   fi
 }
 
 st_http_json() {
-  local method="$1"
-  local url="$2"
-  local request_path="$3"
-  local response_path="$4"
-  local expected_code="$5"
-  local label="$6"
-  local timeout_sec="${7:-60}"
-  local -a args=(
-    curl -sS --connect-timeout 5 --max-time "$timeout_sec"
-    -o "$response_path" -w "%{http_code}" -X "$method"
+  local st_method="$1"
+  local st_url="$2"
+  local st_request_path="$3"
+  local st_response_path="$4"
+  local st_expected_code="$5"
+  local st_label="$6"
+  local st_timeout_sec="${7:-60}"
+  local -a st_args=(
+    curl -sS --connect-timeout 5 --max-time "$st_timeout_sec"
+    -o "$st_response_path" -w "%{http_code}" -X "$st_method"
   )
-  if [[ -n "$request_path" ]]; then
-    args+=(-H "Content-Type: application/json" --data-binary "@$request_path")
+  if [[ -n "$st_request_path" ]]; then
+    st_args+=(-H "Content-Type: application/json" --data-binary "@$st_request_path")
   fi
-  local code rc
+  local st_code st_rc
   set +e
-  code="$("${args[@]}" "$url")"
-  rc=$?
+  st_code="$("${st_args[@]}" "$st_url")"
+  st_rc=$?
   set -e
-  if [[ "$rc" -eq 0 && "$code" == "$expected_code" ]]; then
-    st_assert "$label" true "HTTP $expected_code" "HTTP $code"
+  if [[ "$st_rc" -eq 0 && "$st_code" == "$st_expected_code" ]]; then
+    st_assert "$st_label" true "HTTP $st_expected_code" "HTTP $st_code"
   else
-    st_assert "$label" false "HTTP $expected_code" "curl_rc=$rc HTTP=${code:-none}"
+    st_assert "$st_label" false "HTTP $st_expected_code" "curl_rc=$st_rc HTTP=${st_code:-none}"
   fi
 }
 
 st_wait_http_ready() {
-  local port="$1"
-  local timeout_sec="$2"
-  local end=$((SECONDS + timeout_sec))
-  while (( SECONDS < end )); do
-    if curl -fsS --connect-timeout 2 --max-time 5 "http://127.0.0.1:${port}/health" >/dev/null; then
+  local st_port="$1"
+  local st_timeout_sec="$2"
+  local st_end=$((SECONDS + st_timeout_sec))
+  while (( SECONDS < st_end )); do
+    if curl -fsS --connect-timeout 2 --max-time 5 "http://127.0.0.1:${st_port}/health" >/dev/null; then
       st_assert server_ready true "HTTP 200" "HTTP 200"
       return 0
     fi
     sleep 1
   done
-  st_assert server_ready false "HTTP 200 within ${timeout_sec}s" timeout
+  st_assert server_ready false "HTTP 200 within ${st_timeout_sec}s" timeout
 }
 
 st_launch_process_group() {
-  local log_path="$1"
+  local st_log_path="$1"
   shift
-  setsid "$@" >"$log_path" 2>&1 &
+  setsid "$@" >"$st_log_path" 2>&1 &
   ST_LAST_PGID="$!"
   export ST_LAST_PGID
   printf '%s\n' "$ST_LAST_PGID" >>"$SERVER_TOOL_OUTPUT_ROOT/owned-pgids.txt"
@@ -127,67 +127,67 @@ st_launch_process_group() {
 }
 
 st_process_group_rows() {
-  local pgid="$1"
-  ps -eo pid=,ppid=,pgid=,stat=,args= --sort=pid | awk -v pg="$pgid" '$3 == pg'
+  local st_pgid="$1"
+  ps -eo pid=,ppid=,pgid=,stat=,args= --sort=pid | awk -v pg="$st_pgid" '$3 == pg'
 }
 
 st_assert_process_count() {
-  local pgid="$1"
-  local pattern="$2"
-  local expected="$3"
-  local label="$4"
-  local actual
-  actual="$(st_process_group_rows "$pgid" | grep -c -- "$pattern" || true)"
-  if [[ "$actual" == "$expected" ]]; then
-    st_assert "$label" true "$expected" "$actual"
+  local st_pgid="$1"
+  local st_pattern="$2"
+  local st_expected="$3"
+  local st_label="$4"
+  local st_actual
+  st_actual="$(st_process_group_rows "$st_pgid" | grep -c -- "$st_pattern" || true)"
+  if [[ "$st_actual" == "$st_expected" ]]; then
+    st_assert "$st_label" true "$st_expected" "$st_actual"
   else
-    st_process_group_rows "$pgid" || true
-    st_assert "$label" false "$expected" "$actual"
+    st_process_group_rows "$st_pgid" || true
+    st_assert "$st_label" false "$st_expected" "$st_actual"
   fi
 }
 
 st_kill_owned_process() {
-  local pgid="$1"
-  local pattern="$2"
-  local signal="$3"
-  local label="$4"
-  local pid
-  pid="$(
-    st_process_group_rows "$pgid" |
-      awk -v pattern="$pattern" 'index($0, pattern) {print $1; exit}'
+  local st_pgid="$1"
+  local st_pattern="$2"
+  local st_signal="$3"
+  local st_label="$4"
+  local st_pid
+  st_pid="$(
+    st_process_group_rows "$st_pgid" |
+      awk -v pattern="$st_pattern" 'index($0, pattern) {print $1; exit}'
   )"
-  test -n "$pid"
-  test "$(ps -o pgid= -p "$pid" | tr -d ' ')" = "$pgid"
-  kill "-$signal" "$pid"
-  st_log "PROCESS_KILL label=$label pid=$pid pgid=$pgid signal=$signal"
+  test -n "$st_pid"
+  test "$(ps -o pgid= -p "$st_pid" | tr -d ' ')" = "$st_pgid"
+  kill "-$st_signal" "$st_pid"
+  st_log "PROCESS_KILL label=$st_label pid=$st_pid pgid=$st_pgid signal=$st_signal"
 }
 
 st_stop_owned_pgid() {
-  local pgid="$1"
-  local label="$2"
-  [[ "$pgid" =~ ^[1-9][0-9]*$ ]]
-  local actual
-  actual="$(ps -o pgid= -p "$pgid" 2>/dev/null | tr -d ' ')"
-  if [[ -z "$actual" ]]; then
-    st_assert "$label" true gone gone
+  local st_pgid="$1"
+  local st_label="$2"
+  [[ "$st_pgid" =~ ^[1-9][0-9]*$ ]]
+  local st_actual
+  st_actual="$(ps -o pgid= -p "$st_pgid" 2>/dev/null | tr -d ' ')"
+  if [[ -z "$st_actual" ]]; then
+    st_assert "$st_label" true gone gone
     return
   fi
-  test "$actual" = "$pgid"
-  tr '\0' '\n' <"/proc/$pgid/environ" | grep -Fqx "SERVER_TOOL_RUN_ID=$SERVER_TOOL_RUN_ID"
-  kill -TERM -- "-$pgid"
-  local end=$((SECONDS + 30))
-  while (( SECONDS < end )); do
-    if ! ps -g "$pgid" >/dev/null 2>&1; then
-      st_assert "$label" true gone gone
+  test "$st_actual" = "$st_pgid"
+  tr '\0' '\n' <"/proc/$st_pgid/environ" | grep -Fqx "SERVER_TOOL_RUN_ID=$SERVER_TOOL_RUN_ID"
+  kill -TERM -- "-$st_pgid"
+  local st_end=$((SECONDS + 30))
+  while (( SECONDS < st_end )); do
+    if ! ps -g "$st_pgid" >/dev/null 2>&1; then
+      st_assert "$st_label" true gone gone
       return
     fi
     sleep 1
   done
-  kill -KILL -- "-$pgid"
+  kill -KILL -- "-$st_pgid"
   sleep 1
-  if ps -g "$pgid" >/dev/null 2>&1; then
-    st_assert "$label" false gone still_running
+  if ps -g "$st_pgid" >/dev/null 2>&1; then
+    st_assert "$st_label" false gone still_running
   else
-    st_assert "$label" true gone killed
+    st_assert "$st_label" true gone killed
   fi
 }
