@@ -1,5 +1,6 @@
 import json
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -54,6 +55,25 @@ class SGLangCaseContractTests(unittest.TestCase):
                 for item in expanded:
                     with self.subTest(script=run_sh.parent.name, oracle=item):
                         self.assertIn(item, oracle_ids)
+
+    def test_shared_launcher_ignores_callers_readonly_port(self):
+        unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        command = f"""
+set -Eeuo pipefail
+readonly port=6220
+export SERVER_TOOL_PROJECT_ROOT=.
+export MODEL_PATH=/unused/model
+st_launch_process_group() {{ :; }}
+st_assert() {{ test "$2" = true; }}
+source {unit.as_posix()!r}
+sg_launch_dp4_ft continue 6220 /tmp/unused.log
+"""
+        completed = subprocess.run(
+            ["bash", "-c", command],
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
 
 if __name__ == "__main__":

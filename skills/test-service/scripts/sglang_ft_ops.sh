@@ -22,23 +22,23 @@ sg_prepare_dp4_runtime() {
 }
 
 sg_launch_dp4_ft() {
-  local strategy="$1"
-  local port="$2"
-  local log_path="$3"
-  case "$strategy" in
+  local sg_strategy="$1"
+  local sg_port="$2"
+  local sg_log_path="$3"
+  case "$sg_strategy" in
     pause|continue) ;;
     *)
-      st_assert launch_strategy false "pause|continue" "$strategy"
+      st_assert launch_strategy false "pause|continue" "$sg_strategy"
       return 1
       ;;
   esac
 
   cd "$SERVER_TOOL_PROJECT_ROOT"
-  st_launch_process_group "$log_path" \
+  st_launch_process_group "$sg_log_path" \
     python3 -u -m sglang.launch_server \
     --model-path "$MODEL_PATH" \
     --host 0.0.0.0 \
-    --port "$port" \
+    --port "$sg_port" \
     --dtype auto \
     --load-format auto \
     --tp-size 4 \
@@ -69,15 +69,15 @@ sg_launch_dp4_ft() {
     --disable-piecewise-cuda-graph \
     --skip-server-warmup \
     --enable-fault-tolerance \
-    --fault-tolerance-on-error-strategy "$strategy" \
+    --fault-tolerance-on-error-strategy "$sg_strategy" \
     --fault-tolerance-timeout 600
 }
 
 sg_write_rank_request() {
-  local path="$1"
-  local rank="$2"
-  local max_tokens="${3:-10}"
-  python3 - "$path" "$rank" "$max_tokens" <<'PY'
+  local sg_request_path="$1"
+  local sg_rank="$2"
+  local sg_max_tokens="${3:-10}"
+  python3 - "$sg_request_path" "$sg_rank" "$sg_max_tokens" <<'PY'
 import json
 import sys
 
@@ -97,39 +97,39 @@ PY
 }
 
 sg_wait_ft_status() {
-  local port="$1"
-  local output="$2"
-  local expected="$3"
-  local timeout_sec="$4"
-  local label="$5"
-  local end=$((SECONDS + timeout_sec))
-  local actual=""
-  while (( SECONDS < end )); do
+  local sg_port="$1"
+  local sg_output="$2"
+  local sg_expected="$3"
+  local sg_timeout_sec="$4"
+  local sg_label="$5"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_actual=""
+  while (( SECONDS < sg_end )); do
     if curl -fsS --connect-timeout 2 --max-time 5 \
-      "http://127.0.0.1:${port}/fault_tolerance/status" -o "$output"; then
-      actual="$(python3 - "$output" <<'PY'
+      "http://127.0.0.1:${sg_port}/fault_tolerance/status" -o "$sg_output"; then
+      sg_actual="$(python3 - "$sg_output" <<'PY'
 import json
 import sys
 data = json.load(open(sys.argv[1], encoding="utf-8"))
 print(",".join(f"{item['rank']}={item['state']}" for item in data["ranks"]))
 PY
 )"
-      if [[ "$actual" == "$expected" ]]; then
-        st_assert "$label" true "$expected" "$actual"
+      if [[ "$sg_actual" == "$sg_expected" ]]; then
+        st_assert "$sg_label" true "$sg_expected" "$sg_actual"
         return 0
       fi
     fi
     sleep 1
   done
-  st_assert "$label" false "$expected" "${actual:-unavailable}"
+  st_assert "$sg_label" false "$sg_expected" "${sg_actual:-unavailable}"
 }
 
 sg_apply_scale_down() {
-  local port="$1"
-  local rank="$2"
-  local request="$3"
-  local response="$4"
-  python3 - "$request" "$rank" <<'PY'
+  local sg_port="$1"
+  local sg_rank="$2"
+  local sg_request="$3"
+  local sg_response="$4"
+  python3 - "$sg_request" "$sg_rank" <<'PY'
 import json
 import sys
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
@@ -144,15 +144,15 @@ with open(sys.argv[1], "w", encoding="utf-8") as handle:
     )
     handle.write("\n")
 PY
-  st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
-    "$request" "$response" 200 scale_down_apply 180
+  st_http_json POST "http://127.0.0.1:${sg_port}/fault_tolerance/apply" \
+    "$sg_request" "$sg_response" 200 scale_down_apply 180
 }
 
 sg_apply_retry() {
-  local port="$1"
-  local request="$2"
-  local response="$3"
-  python3 - "$request" <<'PY'
+  local sg_port="$1"
+  local sg_request="$2"
+  local sg_response="$3"
+  python3 - "$sg_request" <<'PY'
 import json
 import sys
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
@@ -166,37 +166,37 @@ with open(sys.argv[1], "w", encoding="utf-8") as handle:
     )
     handle.write("\n")
 PY
-  st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
-    "$request" "$response" 200 retry_apply 180
+  st_http_json POST "http://127.0.0.1:${sg_port}/fault_tolerance/apply" \
+    "$sg_request" "$sg_response" 200 retry_apply 180
 }
 
 sg_assert_log_count() {
-  local log_path="$1"
-  local pattern="$2"
-  local expected="$3"
-  local label="$4"
-  local actual
-  actual="$(grep -c -- "$pattern" "$log_path" 2>/dev/null || true)"
-  if [[ "$actual" == "$expected" ]]; then
-    st_assert "$label" true "$expected" "$actual"
+  local sg_log_path="$1"
+  local sg_pattern="$2"
+  local sg_expected="$3"
+  local sg_label="$4"
+  local sg_actual
+  sg_actual="$(grep -c -- "$sg_pattern" "$sg_log_path" 2>/dev/null || true)"
+  if [[ "$sg_actual" == "$sg_expected" ]]; then
+    st_assert "$sg_label" true "$sg_expected" "$sg_actual"
   else
-    st_assert "$label" false "$expected" "$actual"
+    st_assert "$sg_label" false "$sg_expected" "$sg_actual"
   fi
 }
 
 sg_assert_output_ids() {
-  local response="$1"
-  local oracle_id="$2"
-  local result="$3"
+  local sg_response="$1"
+  local sg_oracle_id="$2"
+  local sg_result="$3"
   set +e
   python3 "$SERVER_TOOL_INPUT_ROOT/units/assert_output_ids.py" \
     --registry "$SERVER_TOOL_INPUT_ROOT/assets/precision_oracles.json" \
-    --oracle "$oracle_id" --response "$response" --output "$result"
-  local code=$?
+    --oracle "$sg_oracle_id" --response "$sg_response" --output "$sg_result"
+  local sg_code=$?
   set -e
-  if [[ "$code" -eq 0 ]]; then
-    st_assert "precision_${oracle_id}" true exact_token_ids matched
+  if [[ "$sg_code" -eq 0 ]]; then
+    st_assert "precision_${sg_oracle_id}" true exact_token_ids matched
   else
-    st_assert "precision_${oracle_id}" false exact_token_ids mismatch
+    st_assert "precision_${sg_oracle_id}" false exact_token_ids mismatch
   fi
 }
