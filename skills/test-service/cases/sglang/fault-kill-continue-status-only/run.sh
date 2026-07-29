@@ -39,7 +39,7 @@ for rank in 0 1 2 3; do
   sg_write_rank_request "${requests[$rank]}" "$rank" 10
 done
 
-sg_launch_dp4_ft pause "$port" "$log_path"
+sg_launch_dp4_ft continue "$port" "$log_path"
 server_pgid="$ST_LAST_PGID"
 
 st_wait_http_ready "$port" 180
@@ -48,26 +48,20 @@ sg_wait_ft_status "$port" "$run_dir/status-initial.json" \
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
 
 st_kill_owned_process "$server_pgid" "_TP1_EP" KILL kill_dp1
-sg_wait_ft_status "$port" "$run_dir/status-paused.json" \
-  "0=paused,1=dead,2=paused,3=paused" 120 status_paused
+sg_wait_ft_status "$port" "$run_dir/status-after-kill.json" \
+  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_after_kill
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 schedulers_after_kill
+sg_assert_log_count "$log_path" "FT command dispatch:.*command=pause" 0 continue_has_no_pause
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[0]}" "$run_dir/paused-generate.json" 503 paused_blocks_generate 180
-sg_apply_scale_down "$port" 1 "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
-sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
-  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_scaled_down
-st_assert_process_count "$server_pgid" "sglang::scheduler" 3 logical_scale_down_retains_survivors
-
-st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[1]}" "$run_dir/scaled-down-dp1.json" 400 scaled_down_dp1_closed 180
+  "${requests[1]}" "$run_dir/dead-dp1.json" 400 dead_dp1_closed 180
 for rank in 0 2 3; do
-  response="$run_dir/after-scale-down-dp${rank}.json"
+  response="$run_dir/after-fault-dp${rank}.json"
   st_http_json POST "http://127.0.0.1:${port}/generate" \
     "${requests[$rank]}" "$response" 200 "generate_dp${rank}" 180
   sg_assert_output_ids \
     "$response" "qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128" \
-    "$run_dir/after-scale-down-dp${rank}-precision.json"
+    "$run_dir/after-fault-dp${rank}-precision.json"
 done
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"

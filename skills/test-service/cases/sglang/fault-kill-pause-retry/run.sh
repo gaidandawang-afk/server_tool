@@ -54,20 +54,20 @@ st_assert_process_count "$server_pgid" "sglang::scheduler" 3 schedulers_after_ki
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "${requests[0]}" "$run_dir/paused-generate.json" 503 paused_blocks_generate 180
-sg_apply_scale_down "$port" 1 "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
-sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
-  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_scaled_down
-st_assert_process_count "$server_pgid" "sglang::scheduler" 3 logical_scale_down_retains_survivors
+sg_apply_retry "$port" "$run_dir/retry-request.json" "$run_dir/retry-response.json"
+sg_wait_ft_status "$port" "$run_dir/status-after-retry.json" \
+  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_after_retry
+st_assert_process_count "$server_pgid" "sglang::scheduler" 3 retry_keeps_survivors
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[1]}" "$run_dir/scaled-down-dp1.json" 400 scaled_down_dp1_closed 180
+  "${requests[1]}" "$run_dir/dead-dp1.json" 400 dead_dp1_closed 180
 for rank in 0 2 3; do
-  response="$run_dir/after-scale-down-dp${rank}.json"
+  response="$run_dir/after-retry-dp${rank}.json"
   st_http_json POST "http://127.0.0.1:${port}/generate" \
     "${requests[$rank]}" "$response" 200 "generate_dp${rank}" 180
   sg_assert_output_ids \
     "$response" "qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128" \
-    "$run_dir/after-scale-down-dp${rank}-precision.json"
+    "$run_dir/after-retry-dp${rank}-precision.json"
 done
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"
