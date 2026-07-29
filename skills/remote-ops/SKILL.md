@@ -21,3 +21,14 @@ artifact retrieval and targeted cleanup.
 
 This skill owns operational behavior. Generic SSH/SFTP and task-state mechanics belong
 in `tools/`, not in skill-specific orchestration scripts.
+
+Use `tools/server_tool.py` for committed-input runs:
+
+- `check` verifies the profile, source HEAD, connection and container manifest.
+- `run` uploads a Git bundle, `TEST.md`, `run.sh` and explicit attachments, then starts
+  `tools/remote_runner.sh` in a detached process group.
+- `status`, `logs`, `wait` and `fetch` use bounded short connections.
+- `stop` signals only the recorded process group after checking its run identity.
+
+Never invoke another project's runner. A reference project may inform implementation, but
+server_tool must transport and execute only files committed here or in the selected source repo.

@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""Invoke the generic runner with the committed test-service bundle."""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--profile", required=True)
+    parser.add_argument("--case", required=True)
+    parser.add_argument("--name", required=True)
+    parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--timeout", type=int, default=900)
+    args = parser.parse_args()
+
+    skill_root = Path(__file__).resolve().parents[1]
+    repo_root = skill_root.parents[1]
+    case_root = (skill_root / "cases" / args.case).resolve()
+    run_sh = case_root / "run.sh"
+    if not run_sh.is_file() or not (case_root / "TEST.md").is_file():
+        print(f"invalid committed case: {case_root}", file=sys.stderr)
+        return 2
+    if args.repeat < 1:
+        print("--repeat must be at least 1", file=sys.stderr)
+        return 2
+    cli = [sys.executable, str(repo_root / "tools" / "server_tool.py"), "--profile", args.profile]
+    for index in range(1, args.repeat + 1):
+        name = args.name if args.repeat == 1 else f"{args.name}-{index:02d}"
+        run_command = cli + [
+            "run",
+            "--name",
+            name,
+            "--script",
+            str(run_sh),
+            "--attach",
+            f"{skill_root / 'scripts'}:units",
+            "--attach",
+            f"{skill_root / 'assets' / 'sglang'}:assets",
+            "--timeout",
+            str(args.timeout),
+        ]
+        if subprocess.call(run_command):
+            return 1
+        wait_command = cli + ["wait", "--name", name, "--timeout", str(args.timeout + 120)]
+        wait_code = subprocess.call(wait_command)
+        fetch_command = cli + ["fetch", "--name", name]
+        fetch_code = subprocess.call(fetch_command)
+        if wait_code or fetch_code:
+            return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

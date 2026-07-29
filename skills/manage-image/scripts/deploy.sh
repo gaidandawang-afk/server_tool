@@ -64,14 +64,26 @@ if [[ ! -s "${authorized_keys}" ]]; then
   exit 1
 fi
 
+image_id="$(docker image inspect --format '{{.Id}}' "${image}")"
+base_image="$(
+  docker image inspect \
+    --format '{{index .Config.Labels "org.opencontainers.image.base.name"}}' \
+    "${image}"
+)"
+if [[ -z "${base_image}" || "${base_image}" == "<no value>" ]]; then
+  echo "image is missing org.opencontainers.image.base.name: ${image}" >&2
+  exit 1
+fi
+
 mkdir -p \
   "${host_keys}" \
+  "${PERSIST_ROOT}/container-manifests" \
   "${PERSIST_ROOT}/workspace" \
   "${PERSIST_ROOT}/cache/huggingface" \
   "${PERSIST_ROOT}/cache/sglang" \
   "${PERSIST_ROOT}/cache/torch"
 
-docker run --detach \
+container_id="$(docker run --detach \
   --name "${container_name}" \
   --hostname "${container_name}" \
   --restart unless-stopped \
@@ -91,4 +103,17 @@ docker run --detach \
   --volume "${PERSIST_ROOT}/cache/sglang:/root/.cache/sglang" \
   --volume "${PERSIST_ROOT}/cache/torch:/root/.cache/torch" \
   --workdir /workspace \
-  "${image}"
+  "${image}")"
+
+manifest="${PERSIST_ROOT}/container-manifests/${container_name}.env"
+tmp_manifest="$(mktemp "${manifest}.tmp.XXXXXX")"
+{
+  printf 'container_name=%s\n' "${container_name}"
+  printf 'container_id=%s\n' "${container_id}"
+  printf 'image_tag=%s\n' "${image}"
+  printf 'image_digest=%s\n' "${image_id}"
+  printf 'base_image=%s\n' "${base_image}"
+} >"${tmp_manifest}"
+chmod 0644 "${tmp_manifest}"
+mv -- "${tmp_manifest}" "${manifest}"
+printf 'container_manifest=%s\n' "${manifest}"

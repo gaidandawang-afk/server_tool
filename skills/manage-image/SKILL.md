@@ -22,3 +22,5 @@ Read `references/sglang-ssh.md` before changing or deploying the SGLang SSH imag
 6. Preserve NVIDIA initialization and verify GPU visibility from an external SSH client.
 7. Treat `assets/` as image source and `scripts/` as stable, parameterized lifecycle leaves.
 8. Commit image source changes before synchronizing or building them remotely.
+9. Deployment must write a readable container manifest containing only container name/ID,
+   image tag/digest and base image for later test provenance.

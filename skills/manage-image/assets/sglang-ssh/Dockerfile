@@ -1,5 +1,8 @@
 ARG BASE_IMAGE=lmsysorg/sglang:v0.5.16
 FROM ${BASE_IMAGE}
+ARG BASE_IMAGE
+
+LABEL org.opencontainers.image.base.name="${BASE_IMAGE}"
 
 COPY sshd_config /etc/ssh/sshd_config.d/99-server-tool.conf
 COPY entrypoint.sh /usr/local/bin/server-tool-sshd-entrypoint
