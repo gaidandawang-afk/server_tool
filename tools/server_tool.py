@@ -446,9 +446,13 @@ def cmd_run(args: argparse.Namespace) -> int:
             remote.put_text(json.dumps(invocation, indent=2, sort_keys=True) + "\n", root + "/input/invocation.json", 0o600)
             launch = (
                 f"cd {shell_quote(root)} && "
-                f"setsid env SERVER_TOOL_RUN_ROOT={shell_quote(root)} "
-                f"bash input/remote_runner.sh </dev/null >/dev/null 2>&1 & "
-                "pid=$!; printf '%s\\n' \"$pid\""
+                f"setsid -f env SERVER_TOOL_RUN_ROOT={shell_quote(root)} "
+                f"bash input/remote_runner.sh </dev/null >/dev/null 2>&1; "
+                "for attempt in $(seq 1 100); do "
+                "if [ -s control/runner.pgid ]; then cat control/runner.pgid; exit 0; fi; "
+                "sleep 0.1; "
+                "done; "
+                "echo 'runner did not publish its PGID' >&2; exit 124"
             )
             _, out, _ = remote.run(launch)
     print(json.dumps({"run": name, "run_id": run_id, "runner_pgid": out.strip(), "head": head}, indent=2))
