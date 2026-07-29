@@ -102,6 +102,36 @@ st_http_json() {
   fi
 }
 
+st_wait_http_json() {
+  local st_method="$1"
+  local st_url="$2"
+  local st_request_path="$3"
+  local st_response_path="$4"
+  local st_expected_code="$5"
+  local st_label="$6"
+  local st_timeout_sec="${7:-30}"
+  local st_end=$((SECONDS + st_timeout_sec))
+  local st_code="" st_rc=0
+  while (( SECONDS < st_end )); do
+    set +e
+    st_code="$(
+      curl -sS --connect-timeout 5 --max-time 15 \
+        -o "$st_response_path" -w "%{http_code}" -X "$st_method" \
+        -H "Content-Type: application/json" --data-binary "@$st_request_path" \
+        "$st_url"
+    )"
+    st_rc=$?
+    set -e
+    if [[ "$st_rc" -eq 0 && "$st_code" == "$st_expected_code" ]]; then
+      st_assert "$st_label" true "HTTP $st_expected_code" "HTTP $st_code"
+      return 0
+    fi
+    sleep 1
+  done
+  st_assert "$st_label" false "HTTP $st_expected_code" \
+    "curl_rc=$st_rc HTTP=${st_code:-none}"
+}
+
 st_wait_http_ready() {
   local st_port="$1"
   local st_timeout_sec="$2"

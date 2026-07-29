@@ -59,8 +59,8 @@ sg_wait_ft_status "$port" "$run_dir/status-after-retry.json" \
   "0=healthy,1=dead,2=healthy,3=healthy" 120 status_after_retry
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 retry_keeps_survivors
 
-st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[1]}" "$run_dir/dead-dp1.json" 400 dead_dp1_closed 180
+st_wait_http_json POST "http://127.0.0.1:${port}/generate" \
+  "${requests[1]}" "$run_dir/dead-dp1.json" 400 dead_dp1_closed 30
 for rank in 0 2 3; do
   response="$run_dir/after-retry-dp${rank}.json"
   st_http_json POST "http://127.0.0.1:${port}/generate" \

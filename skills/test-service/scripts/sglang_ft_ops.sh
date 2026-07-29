@@ -10,9 +10,21 @@ sg_prepare_dp4_runtime() {
   export PYTHONNOUSERSITE=1
   export PYTHONPATH="$SERVER_TOOL_PROJECT_ROOT/python:$SGLANG_KERNEL_ROOT:$MOONCAKE_ROOT"
   export CUDA_VISIBLE_DEVICES="$GPU_IDS"
+  export MC_FORCE_TCP=1
   export MOONCAKE_PROTOCOL=tcp
   export MOONCAKE_EP_FORCE_FALLBACK=1
+  export NCCL_IB_DISABLE=1
+  export SGLANG_HOST_IP=127.0.0.1
+  export HOST_IP=127.0.0.1
+  export SGLANG_JIT_DEEPGEMM_PRECOMPILE=0
+  export SGLANG_OPT_USE_JIT_EP_ACTIVATION=0
+  export SGLANG_FT_TP_SIZE=4
+  export SGLANG_FT_DP_SIZE=4
+  export SGLANG_FT_EP_SIZE=4
   export SGLANG_ENABLE_TP_MEMORY_INBALANCE_CHECK=false
+  export TORCHINDUCTOR_CACHE_DIR=/data2/iws/cache/torch/inductor
+  export TRITON_CACHE_DIR=/data2/iws/cache/triton
+  mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR"
 
   st_record_python_package \
     sglang-kernel sgl_kernel "$SGLANG_KERNEL_VERSION" "$SGLANG_KERNEL_ROOT" \
