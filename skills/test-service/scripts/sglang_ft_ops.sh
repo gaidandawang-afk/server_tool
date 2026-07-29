@@ -6,6 +6,9 @@ sg_prepare_dp4_runtime() {
   : "${SGLANG_KERNEL_VERSION:?}"
   : "${MOONCAKE_ROOT:?}"
   : "${MOONCAKE_VERSION:?}"
+  : "${MOONCAKE_WHEEL:?}"
+  : "${MOONCAKE_SOURCE_COMMIT:?}"
+  : "${MOONCAKE_WHEEL_SHA256:?}"
 
   export PYTHONNOUSERSITE=1
   export PYTHONPATH="$SERVER_TOOL_PROJECT_ROOT/python:$SGLANG_KERNEL_ROOT:$MOONCAKE_ROOT"
@@ -25,6 +28,16 @@ sg_prepare_dp4_runtime() {
   export TORCHINDUCTOR_CACHE_DIR=/data2/iws/cache/torch/inductor
   export TRITON_CACHE_DIR=/data2/iws/cache/triton
   mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR"
+
+  local sg_mooncake_wheel_sha256
+  sg_mooncake_wheel_sha256="$(sha256sum "$MOONCAKE_WHEEL" | awk '{print $1}')"
+  if [[ "$sg_mooncake_wheel_sha256" == "$MOONCAKE_WHEEL_SHA256" ]]; then
+    st_assert mooncake_wheel_sha256 true "$MOONCAKE_WHEEL_SHA256" \
+      "$sg_mooncake_wheel_sha256"
+  else
+    st_assert mooncake_wheel_sha256 false "$MOONCAKE_WHEEL_SHA256" \
+      "$sg_mooncake_wheel_sha256"
+  fi
 
   st_record_python_package \
     sglang-kernel sgl_kernel "$SGLANG_KERNEL_VERSION" "$SGLANG_KERNEL_ROOT" \
@@ -75,7 +88,6 @@ sg_launch_dp4_ft() {
     --context-length 1024 \
     --watchdog-timeout 120 \
     --disable-custom-all-reduce \
-    --enable-deterministic-inference \
     --disable-overlap-schedule \
     --disable-cuda-graph \
     --disable-piecewise-cuda-graph \
@@ -210,5 +222,62 @@ sg_assert_output_ids() {
     st_assert "precision_${sg_oracle_id}" true exact_token_ids matched
   else
     st_assert "precision_${sg_oracle_id}" false exact_token_ids mismatch
+  fi
+}
+
+sg_assert_output_ids_equal() {
+  local sg_expected_response="$1"
+  local sg_actual_response="$2"
+  local sg_result="$3"
+  local sg_label="$4"
+  local sg_token_limit="${5:-10}"
+  set +e
+  python3 - "$sg_expected_response" "$sg_actual_response" "$sg_result" \
+    "$sg_label" "$sg_token_limit" <<'PY'
+import json
+import sys
+
+expected_path, actual_path, output_path, label, limit_raw = sys.argv[1:]
+limit = int(limit_raw)
+
+
+def output_ids(path):
+    value = json.load(open(path, encoding="utf-8"))
+    if isinstance(value, list):
+        if len(value) != 1:
+            raise ValueError(f"{path}: expected one response")
+        value = value[0]
+    return value.get("output_ids", [])
+
+
+expected = output_ids(expected_path)
+actual = output_ids(actual_path)
+accurate = (
+    len(expected) >= limit
+    and len(actual) >= limit
+    and expected[:limit] == actual[:limit]
+)
+result = {
+    "schema_version": "server-tool.precision-pair.v1",
+    "label": label,
+    "accurate": accurate,
+    "comparison_token_limit": limit,
+    "expected_output_ids_compared": expected[:limit],
+    "actual_output_ids_compared": actual[:limit],
+    "expected_token_count": len(expected),
+    "actual_token_count": len(actual),
+}
+with open(output_path, "w", encoding="utf-8") as handle:
+    json.dump(result, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+print(json.dumps(result, sort_keys=True))
+raise SystemExit(0 if accurate else 1)
+PY
+  local sg_code=$?
+  set -e
+  if [[ "$sg_code" -eq 0 ]]; then
+    st_assert "precision_${sg_label}" true "first_${sg_token_limit}_output_ids" matched
+  else
+    st_assert "precision_${sg_label}" false "first_${sg_token_limit}_output_ids" mismatch
   fi
 }

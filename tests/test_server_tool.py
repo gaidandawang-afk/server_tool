@@ -81,6 +81,49 @@ class ServerToolTests(unittest.TestCase):
                 "ff0d284a5747332f75fef9d40f91eceb09aba268a589be6f1d9f805e34cb4b65",
             )
 
+    def test_gpu_preflight_returns_selected_idle_gpu(self):
+        class FakeRemote:
+            def run(self, command):
+                if "--query-gpu=" in command:
+                    return 0, "0, GPU-0, NVIDIA H20, 97871, 10, 0\n", ""
+                return 0, "", ""
+
+        class FakeProfile:
+            @staticmethod
+            def require(key):
+                self.assertEqual(key, "GPU_IDS")
+                return "0"
+
+        self.assertEqual(
+            server_tool.require_idle_profile_gpus(FakeRemote(), FakeProfile()),
+            [
+                {
+                    "index": "0",
+                    "uuid": "GPU-0",
+                    "name": "NVIDIA H20",
+                    "memory_total_mib": "97871",
+                    "memory_used_mib": "10",
+                    "utilization_gpu_percent": "0",
+                }
+            ],
+        )
+
+    def test_gpu_preflight_rejects_existing_compute_process(self):
+        class FakeRemote:
+            def run(self, command):
+                if "--query-gpu=" in command:
+                    return 0, "4, GPU-4, NVIDIA H20, 97871, 56533, 100\n", ""
+                return 0, "GPU-4, 2151955, [Not Found], 56510\n", ""
+
+        class FakeProfile:
+            @staticmethod
+            def require(key):
+                self.assertEqual(key, "GPU_IDS")
+                return "4"
+
+        with self.assertRaisesRegex(server_tool.ToolError, "gpu=4 pid=2151955"):
+            server_tool.require_idle_profile_gpus(FakeRemote(), FakeProfile())
+
 
 if __name__ == "__main__":
     unittest.main()

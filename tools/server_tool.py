@@ -8,7 +8,9 @@ Test meaning and step composition stay in committed TEST.md/run.sh contracts.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
+import io
 import json
 import os
 import posixpath
@@ -63,6 +65,8 @@ RUNTIME_PROFILE_KEYS = (
     "MOONCAKE_ROOT",
     "MOONCAKE_VERSION",
     "MOONCAKE_WHEEL",
+    "MOONCAKE_SOURCE_COMMIT",
+    "MOONCAKE_WHEEL_SHA256",
     "CONTAINER_NAME",
     "CONTAINER_MANIFEST",
 )
@@ -329,6 +333,72 @@ def verify_task_owner(remote: Remote, profile: Profile, create: bool = False) ->
     )
 
 
+def require_idle_profile_gpus(remote: Remote, profile: Profile) -> list[dict[str, str]]:
+    _, gpu_output, _ = remote.run(
+        "nvidia-smi --query-gpu=index,uuid,name,memory.total,memory.used,utilization.gpu "
+        "--format=csv,noheader,nounits"
+    )
+    _, process_output, _ = remote.run(
+        "nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory "
+        "--format=csv,noheader,nounits"
+    )
+    gpus = []
+    gpu_index_by_uuid = {}
+    for row in csv.reader(io.StringIO(gpu_output)):
+        if len(row) != 6:
+            raise ToolError(f"unexpected nvidia-smi GPU row: {row}")
+        index, uuid, name, memory_total, memory_used, utilization = (
+            value.strip() for value in row
+        )
+        gpu_index_by_uuid[uuid] = index
+        gpus.append(
+            {
+                "index": index,
+                "uuid": uuid,
+                "name": name,
+                "memory_total_mib": memory_total,
+                "memory_used_mib": memory_used,
+                "utilization_gpu_percent": utilization,
+            }
+        )
+
+    requested = profile.require("GPU_IDS")
+    selected = (
+        set(gpu_index_by_uuid.values())
+        if requested == "all"
+        else set(requested.split(","))
+    )
+    unknown = sorted(selected - set(gpu_index_by_uuid.values()))
+    if unknown:
+        raise ToolError(f"GPU_IDS contains unavailable indexes: {','.join(unknown)}")
+
+    conflicts = []
+    for row in csv.reader(io.StringIO(process_output)):
+        if not row:
+            continue
+        if len(row) != 4:
+            raise ToolError(f"unexpected nvidia-smi compute-app row: {row}")
+        uuid, pid, process_name, used_memory = (value.strip() for value in row)
+        index = gpu_index_by_uuid.get(uuid)
+        if index in selected:
+            conflicts.append(
+                {
+                    "index": index,
+                    "pid": pid,
+                    "process_name": process_name,
+                    "used_memory_mib": used_memory,
+                }
+            )
+    if conflicts:
+        details = "; ".join(
+            f"gpu={item['index']} pid={item['pid']} "
+            f"memory={item['used_memory_mib']}MiB process={item['process_name']}"
+            for item in conflicts
+        )
+        raise ToolError(f"selected GPUs are occupied: {details}")
+    return [gpu for gpu in gpus if gpu["index"] in selected]
+
+
 def parse_attachment(text: str) -> tuple[Path, str]:
     if ":" not in text:
         raise ToolError("--attach must be LOCAL_PATH:REMOTE_RELATIVE_PATH")
@@ -383,6 +453,7 @@ def cmd_check(args: argparse.Namespace) -> int:
             "command -v git >/dev/null; command -v setsid >/dev/null; command -v timeout >/dev/null"
         )
         remote.run(command)
+        gpu_state = require_idle_profile_gpus(remote, profile)
         _, out, _ = remote.run(
             f"test -e {shell_quote(profile.task_root)} && "
             f"cat {shell_quote(profile.task_root + '/.server-tool-task')} || true",
@@ -395,6 +466,7 @@ def cmd_check(args: argparse.Namespace) -> int:
                 "head": head,
                 "task_owner": out.strip(),
                 "task_initialized": bool(out.strip()),
+                "gpus": gpu_state,
             },
             indent=2,
         )
@@ -430,6 +502,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             "input_sha256": input_hashes(paths_for_hash),
         }
         with Remote(profile) as remote:
+            invocation["gpu_preflight"] = require_idle_profile_gpus(remote, profile)
             verify_task_owner(remote, profile, create=True)
             project_check = (
                 f"if [ ! -e {shell_quote(profile.project_root)} ]; then echo absent; exit 0; fi; "

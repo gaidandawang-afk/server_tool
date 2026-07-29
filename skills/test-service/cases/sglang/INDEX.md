@@ -6,8 +6,8 @@ targets an explicitly selected SGLang branch and must be revalidated when its HE
 
 | Scenario | Suite identifier | server_tool contract | Coverage | Status |
 | --- | --- | --- | --- | --- |
-| Kill one scheduler, continue on three survivors | `fault_kill_continue_status_only.sh` | `fault-kill-continue-status-only` | continue, dead routing, survivor precision | Implemented; corrected environment produced one runtime failure and one pass on `edfdb260…`, so not yet Verified; see [validation record](VALIDATION-2026-07-29.md) |
-| Kill one scheduler, pause and retry | `fault_kill_pause_retry.sh` | `fault-kill-pause-retry` | pause barrier, retry, survivor precision | Implemented; harness mismatches corrected, but Mooncake copy failures prevented a valid pass on `edfdb260…`; see [validation record](VALIDATION-2026-07-29.md) |
+| Kill one scheduler, continue on three survivors | `fault_kill_continue_status_only.sh` | `fault-kill-continue-status-only` | continue, dead routing, survivor precision | Implemented; full corrected contract passed once on clean GPUs at `edfdb260…`; exact repetitions blocked by foreign GPU processes, so not yet Verified; see [validation record](VALIDATION-2026-07-29.md) |
+| Kill one scheduler, pause and retry | `fault_kill_pause_retry.sh` | `fault-kill-pause-retry` | pause barrier, retry, survivor precision | Implemented; full corrected contract passed once on clean GPUs at `edfdb260…`; exact repetitions blocked by foreign GPU processes, so not yet Verified; see [validation record](VALIDATION-2026-07-29.md) |
 | Kill one scheduler, pause and scale down | `fault_kill_pause_scale_down.sh` | `fault-kill-pause-scale-down` | pause barrier, logical scale-down, scheduler retention | Verified on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138` |
 | Recoverable exception, pause and retry | `fault_exception_pause_retry.sh` | `fault-exception-pause-retry` | exception injection, retry, four-DP precision | Indexed |
 | Recoverable exception, disable and recover | `fault_exception_pause_scale_down.sh` | `fault-exception-pause-scale-down` | disable healthy DP, inactive recover, no duplicate resume | Indexed |

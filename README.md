@@ -43,3 +43,6 @@ python skills\test-service\scripts\run-case.py `
   --name fault-kill-pause-scale-down `
   --repeat 2
 ```
+
+`check` 和 `run` 会在远程启动前检查 profile 选择的 GPU；任何已有 compute
+process 都会使任务快速失败。工具只报告冲突，不识别、终止或复用该进程。
