@@ -84,6 +84,13 @@ sg_launch_dp4_ft continue "$port" "$log_path"
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
 
+    def test_rejoin_launcher_supports_fixed_random_seed(self):
+        unit = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn('SGLANG_FT_RANDOM_SEED', unit)
+        self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
+
 
 if __name__ == "__main__":
     unittest.main()

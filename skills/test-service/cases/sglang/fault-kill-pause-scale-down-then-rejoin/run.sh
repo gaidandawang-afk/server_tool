@@ -12,6 +12,7 @@ readonly dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
 readonly deterministic_inference="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
 readonly request_style="${SGLANG_FT_REJOIN_REQUEST_STYLE:-current-count10}"
 readonly request_tokens_override="${SGLANG_FT_REJOIN_MAX_TOKENS:-}"
+readonly random_seed="${SGLANG_FT_RANDOM_SEED:-auto}"
 declare -a node_pgids=()
 declare -a node_logs=()
 declare -a requests=()
@@ -77,6 +78,7 @@ fi
   printf 'request_style=%s\n' "$request_style"
   printf 'request_tokens=%s\n' "$request_tokens"
   printf 'request_text=%s\n' "$request_text"
+  printf 'random_seed=%s\n' "$random_seed"
 } >"$SERVER_TOOL_OUTPUT_ROOT/case-inputs.env"
 for rank in 0 1 2 3; do
   requests[$rank]="$run_dir/request-dp${rank}.json"

@@ -146,8 +146,10 @@ sg_launch_dp4_ft_rejoin_node() {
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
   local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
+  local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
   local -a sg_deterministic_args=()
   local -a sg_process_env=()
+  local -a sg_random_seed_args=()
   local -a sg_rejoin_args=()
   local -a sg_warmup_args=()
   case "$sg_strategy" in
@@ -188,6 +190,13 @@ sg_launch_dp4_ft_rejoin_node() {
       return 1
       ;;
   esac
+  if [[ -n "$sg_random_seed" ]]; then
+    if ! [[ "$sg_random_seed" =~ ^[0-9]+$ ]]; then
+      st_assert launch_random_seed false "non-negative integer" "$sg_random_seed"
+      return 1
+    fi
+    sg_random_seed_args+=(--random-seed "$sg_random_seed")
+  fi
 
   cd "$SERVER_TOOL_PROJECT_ROOT"
   st_launch_process_group "$sg_log_path" \
@@ -220,6 +229,7 @@ sg_launch_dp4_ft_rejoin_node() {
     --context-length 1024 \
     --watchdog-timeout 120 \
     --disable-custom-all-reduce \
+    "${sg_random_seed_args[@]}" \
     "${sg_deterministic_args[@]}" \
     --disable-overlap-schedule \
     --disable-cuda-graph \
