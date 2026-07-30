@@ -19,17 +19,20 @@ ORACLE_PATH = (
 
 
 class SGLangCaseContractTests(unittest.TestCase):
-    def test_four_gpu_index_contains_all_fourteen_suite_identifiers(self):
+    def test_four_gpu_index_contains_all_sixteen_suite_identifiers(self):
         index = (CASE_ROOT / "INDEX.md").read_text(encoding="utf-8")
         identifiers = re.findall(r"`(fault_[a-z0-9_]+\.sh)`", index)
-        self.assertEqual(len(identifiers), 14)
-        self.assertEqual(len(set(identifiers)), 14)
+        self.assertEqual(len(identifiers), 16)
+        self.assertEqual(len(set(identifiers)), 16)
 
     def test_implemented_cases_have_complete_contracts(self):
         implemented = (
             "fault-kill-continue-status-only",
             "fault-kill-pause-retry",
             "fault-kill-pause-scale-down",
+            "fault-rejection-contracts",
+            "fault-exception-continue-discard-resume",
+            "fault-exception-pause-retry-timeout",
         )
         for case in implemented:
             with self.subTest(case=case):

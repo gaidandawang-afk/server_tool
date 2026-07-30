@@ -65,6 +65,7 @@ sg_launch_ft() {
   local sg_done_file="${9:-}"
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
+  local sg_pause_timeout="${SGLANG_FT_PAUSE_TIMEOUT_SEC:-300}"
   case "$sg_strategy" in
     pause|continue) ;;
     *)
@@ -72,6 +73,10 @@ sg_launch_ft() {
       return 1
       ;;
   esac
+  if ! [[ "$sg_pause_timeout" =~ ^[1-9][0-9]*$ ]]; then
+    st_assert launch_pause_timeout false "positive integer" "$sg_pause_timeout"
+    return 1
+  fi
 
   if [[ -n "$sg_fault_ranks" ]]; then
     : "${sg_trigger_file:?recoverable fault trigger file is required}"
@@ -122,7 +127,8 @@ sg_launch_ft() {
     --skip-server-warmup \
     --enable-fault-tolerance \
     --fault-tolerance-on-error-strategy "$sg_strategy" \
-    --fault-tolerance-timeout 600
+    --fault-tolerance-timeout 600 \
+    --fault-tolerance-pause-timeout "$sg_pause_timeout"
 }
 
 sg_launch_dp4_ft() {
@@ -871,6 +877,31 @@ sg_assert_log_contains() {
     st_assert "$sg_label" true present present
   else
     st_assert "$sg_label" false present absent
+  fi
+}
+
+sg_assert_ft_failure_message() {
+  local sg_response="$1"
+  local sg_expected="$2"
+  local sg_label="$3"
+  local sg_actual sg_code
+  set +e
+  sg_actual="$(python3 - "$sg_response" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+print(f"success={str(data.get('success')).lower()},message={data.get('message')}")
+PY
+)"
+  sg_code="$?"
+  set -e
+  if [[ "$sg_code" -eq 0 &&
+        "$sg_actual" == "success=false,message=${sg_expected}" ]]; then
+    st_assert "$sg_label" true "success=false,message=${sg_expected}" "$sg_actual"
+  else
+    st_assert "$sg_label" false "success=false,message=${sg_expected}" \
+      "${sg_actual:-invalid_json}"
   fi
 }
 

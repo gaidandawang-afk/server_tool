@@ -184,6 +184,26 @@ st_assert_process_count() {
   fi
 }
 
+st_wait_process_group_exit() {
+  local st_pgid="$1"
+  local st_timeout_sec="$2"
+  local st_label="$3"
+  [[ "$st_pgid" =~ ^[1-9][0-9]*$ ]]
+  local st_end=$((SECONDS + st_timeout_sec))
+  while (( SECONDS < st_end )); do
+    if [[ -z "$(st_process_group_rows "$st_pgid")" ]]; then
+      set +e
+      wait "$st_pgid" 2>/dev/null
+      set -e
+      st_assert "$st_label" true gone gone
+      return
+    fi
+    sleep 1
+  done
+  st_process_group_rows "$st_pgid" || true
+  st_assert "$st_label" false gone still_running
+}
+
 st_kill_owned_process() {
   local st_pgid="$1"
   local st_pattern="$2"
