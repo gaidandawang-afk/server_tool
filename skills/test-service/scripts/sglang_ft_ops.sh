@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-sg_prepare_dp4_runtime() {
+sg_prepare_ft_runtime() {
+  local sg_tp_size="$1"
+  local sg_dp_size="$2"
+  local sg_ep_size="$3"
   : "${MODEL_PATH:?}"
   : "${SGLANG_KERNEL_ROOT:?}"
   : "${SGLANG_KERNEL_VERSION:?}"
@@ -21,9 +24,9 @@ sg_prepare_dp4_runtime() {
   export HOST_IP=127.0.0.1
   export SGLANG_JIT_DEEPGEMM_PRECOMPILE=0
   export SGLANG_OPT_USE_JIT_EP_ACTIVATION=0
-  export SGLANG_FT_TP_SIZE=4
-  export SGLANG_FT_DP_SIZE=4
-  export SGLANG_FT_EP_SIZE=4
+  export SGLANG_FT_TP_SIZE="$sg_tp_size"
+  export SGLANG_FT_DP_SIZE="$sg_dp_size"
+  export SGLANG_FT_EP_SIZE="$sg_ep_size"
   export SGLANG_ENABLE_TP_MEMORY_INBALANCE_CHECK=false
   export TORCHINDUCTOR_CACHE_DIR=/data2/iws/cache/torch/inductor
   export TRITON_CACHE_DIR=/data2/iws/cache/triton
@@ -46,13 +49,20 @@ sg_prepare_dp4_runtime() {
     mooncake-transfer-engine-cuda13 mooncake "$MOONCAKE_VERSION" "$MOONCAKE_ROOT"
 }
 
-sg_launch_dp4_ft() {
+sg_prepare_dp4_runtime() {
+  sg_prepare_ft_runtime 4 4 4
+}
+
+sg_launch_ft() {
   local sg_strategy="$1"
   local sg_port="$2"
   local sg_log_path="$3"
-  local sg_fault_ranks="${4:-}"
-  local sg_trigger_file="${5:-}"
-  local sg_done_file="${6:-}"
+  local sg_tp_size="$4"
+  local sg_dp_size="$5"
+  local sg_ep_size="$6"
+  local sg_fault_ranks="${7:-}"
+  local sg_trigger_file="${8:-}"
+  local sg_done_file="${9:-}"
   case "$sg_strategy" in
     pause|continue) ;;
     *)
@@ -81,11 +91,11 @@ sg_launch_dp4_ft() {
     --port "$sg_port" \
     --dtype auto \
     --load-format auto \
-    --tp-size 4 \
-    --dp-size 4 \
+    --tp-size "$sg_tp_size" \
+    --dp-size "$sg_dp_size" \
     --enable-dp-attention \
     --enable-dp-lm-head \
-    --ep-size 4 \
+    --ep-size "$sg_ep_size" \
     --moe-dense-tp-size 1 \
     --moe-a2a-backend mooncake \
     --enable-eplb \
@@ -110,6 +120,31 @@ sg_launch_dp4_ft() {
     --enable-fault-tolerance \
     --fault-tolerance-on-error-strategy "$sg_strategy" \
     --fault-tolerance-timeout 600
+}
+
+sg_launch_dp4_ft() {
+  local sg_strategy="$1"
+  local sg_port="$2"
+  local sg_log_path="$3"
+  local sg_fault_ranks="${4:-}"
+  local sg_trigger_file="${5:-}"
+  local sg_done_file="${6:-}"
+  sg_launch_ft "$sg_strategy" "$sg_port" "$sg_log_path" 4 4 4 \
+    "$sg_fault_ranks" "$sg_trigger_file" "$sg_done_file"
+}
+
+sg_find_scheduler_pid_by_global_rank() {
+  local sg_pgid="$1"
+  local sg_rank="$2"
+  st_process_group_rows "$sg_pgid" |
+    awk -v pattern="_TP${sg_rank}_EP" 'index($0, pattern) {print $1; exit}'
+}
+
+sg_kill_scheduler_global_rank() {
+  local sg_pgid="$1"
+  local sg_rank="$2"
+  local sg_label="$3"
+  st_kill_owned_process "$sg_pgid" "_TP${sg_rank}_EP" KILL "$sg_label"
 }
 
 sg_start_recoverable_fault() {
@@ -269,6 +304,17 @@ sg_assert_log_count() {
     st_assert "$sg_label" true "$sg_expected" "$sg_actual"
   else
     st_assert "$sg_label" false "$sg_expected" "$sg_actual"
+  fi
+}
+
+sg_assert_log_contains() {
+  local sg_log_path="$1"
+  local sg_pattern="$2"
+  local sg_label="$3"
+  if grep -Eq -- "$sg_pattern" "$sg_log_path"; then
+    st_assert "$sg_label" true present present
+  else
+    st_assert "$sg_label" false present absent
   fi
 }
 
