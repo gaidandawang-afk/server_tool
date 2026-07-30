@@ -13,7 +13,7 @@ python skills\test-service\scripts\run-case.py `
 
 ## Topology
 
-- Model: `Qwen3-30B-A3B-FP8`
+- Model: compatible profile-selected MoE model with registered request-style oracles
 - Four independent one-GPU SGLang nodes, one owned process group per node
 - TP=4, DP=4, EP=4 with static expert placement
 - API ports: `PORT_BASE` through `PORT_BASE+3`

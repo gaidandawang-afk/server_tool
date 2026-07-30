@@ -7,7 +7,7 @@ without an FT apply operation, and the already-running DP0 stream must return a 
 
 ## Topology
 
-- Model: `Qwen3-30B-A3B-FP8`
+- Model: compatible profile-selected MoE model with a registered precision oracle
 - Four profile-selected GPUs; TP=4, DP=4, EP=4
 - Mooncake TCP with CPU staging fallback
 - Fault tolerance disabled

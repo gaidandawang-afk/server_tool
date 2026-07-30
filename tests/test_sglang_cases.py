@@ -45,20 +45,20 @@ class SGLangCaseContractTests(unittest.TestCase):
                 self.assertIn("assertions", test_text)
                 self.assertNotRegex(run_text, r"REMOTE_AGENT|remote-agent")
 
-    def test_precision_oracle_references_exist(self):
+    def test_default_precision_oracles_exist_and_cases_use_resolver(self):
         registry = json.loads(ORACLE_PATH.read_text(encoding="utf-8"))
         oracle_ids = {entry["id"] for entry in registry["entries"]}
+        for rank in range(4):
+            self.assertIn(
+                f"qwen-fp8-d4t4e4-count10-no-overlap-rank{rank}-r128",
+                oracle_ids,
+            )
         for run_sh in CASE_ROOT.glob("*/run.sh"):
             text = run_sh.read_text(encoding="utf-8")
-            referenced = re.findall(r'"(qwen-[a-z0-9${}_-]+-r128)"', text)
-            for oracle_id in referenced:
-                if "${rank}" in oracle_id:
-                    expanded = [oracle_id.replace("${rank}", str(rank)) for rank in (0, 2, 3)]
-                else:
-                    expanded = [oracle_id]
-                for item in expanded:
-                    with self.subTest(script=run_sh.parent.name, oracle=item):
-                        self.assertIn(item, oracle_ids)
+            self.assertNotRegex(
+                text,
+                r"qwen-fp8-d4t4e4-count10-no-overlap-rank(?:[0-3]|\$\{rank\})-r128",
+            )
 
     def test_shared_launcher_ignores_callers_readonly_port(self):
         common = REPO_ROOT / "skills" / "test-service" / "scripts" / "test_ops.sh"
@@ -93,6 +93,25 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         ).read_text(encoding="utf-8")
         self.assertIn('SGLANG_FT_RANDOM_SEED', unit)
         self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
+
+    def test_precision_oracle_id_uses_profile_family_and_redundancy(self):
+        unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        command = f"""
+set -Eeuo pipefail
+source {unit.as_posix()!r}
+test "$(sg_precision_oracle_id 2)" = \
+  "qwen-fp8-d4t4e4-count10-no-overlap-rank2-r128"
+export SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS=64
+export SGLANG_FT_PRECISION_ORACLE_FAMILY=deepseek-v2-lite-chat-bf16-d4t4e4-count10-no-overlap
+test "$(sg_precision_oracle_id 3)" = \
+  "deepseek-v2-lite-chat-bf16-d4t4e4-count10-no-overlap-rank3-r64"
+"""
+        completed = subprocess.run(
+            ["bash", "-c", command],
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
 
 if __name__ == "__main__":

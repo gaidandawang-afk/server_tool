@@ -14,6 +14,16 @@ SPEC.loader.exec_module(server_tool)
 
 
 class ServerToolTests(unittest.TestCase):
+    def test_runtime_profile_exposes_model_specific_ft_settings(self):
+        for key in (
+            "SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS",
+            "SGLANG_FT_MEM_FRACTION_STATIC",
+            "SGLANG_FT_PRECISION_ORACLE_FAMILY",
+            "SGLANG_FT_RELIABLE_ORACLE_ID",
+        ):
+            with self.subTest(key=key):
+                self.assertIn(key, server_tool.RUNTIME_PROFILE_KEYS)
+
     def test_remote_child_rejects_equal_and_escape(self):
         with self.assertRaises(server_tool.ToolError):
             server_tool.require_remote_child("/data2/iws/tasks", "/data2/iws/tasks", "task")

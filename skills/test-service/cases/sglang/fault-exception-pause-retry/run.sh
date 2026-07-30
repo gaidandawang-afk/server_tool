@@ -71,7 +71,7 @@ for rank in 0 1 2 3; do
 done
 sg_assert_output_ids \
   "$run_dir/after-retry-dp0.json" \
-  qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128 \
+  "$(sg_precision_oracle_id 0)" \
   "$run_dir/after-retry-dp0-precision.json"
 for rank in 1 2 3; do
   sg_assert_output_ids_equal \

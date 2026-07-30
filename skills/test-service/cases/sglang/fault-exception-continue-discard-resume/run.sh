@@ -48,7 +48,7 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$run_dir/request-dp0.json" "$run_dir/baseline-dp0.json" 200 baseline_dp0 180
 sg_assert_output_ids \
   "$run_dir/baseline-dp0.json" \
-  qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128 \
+  "$(sg_precision_oracle_id 0)" \
   "$run_dir/baseline-dp0-precision.json"
 
 sg_start_recoverable_fault "$trigger_file"
@@ -68,5 +68,5 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
   200 post_exception_dp0 180
 sg_assert_output_ids \
   "$run_dir/post-exception-dp0.json" \
-  qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128 \
+  "$(sg_precision_oracle_id 0)" \
   "$run_dir/post-exception-dp0-precision.json"

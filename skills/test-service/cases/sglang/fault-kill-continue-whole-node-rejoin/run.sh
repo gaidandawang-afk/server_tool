@@ -109,6 +109,6 @@ for rank in 0 1 2 3; do
     "recovered_dp${rank}" 180
   sg_assert_output_ids \
     "$run_dir/recovered-dp${rank}.json" \
-    "qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128" \
+    "$(sg_precision_oracle_id "$rank")" \
     "$run_dir/recovered-dp${rank}-precision.json"
 done

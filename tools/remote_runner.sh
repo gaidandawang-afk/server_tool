@@ -103,6 +103,13 @@ test -z "$(git -C "$SERVER_TOOL_PROJECT_ROOT" status --porcelain)"
   printf 'mooncake_source_commit=%s\n' "${MOONCAKE_SOURCE_COMMIT:-}"
   printf 'mooncake_wheel_sha256=%s\n' "${MOONCAKE_WHEEL_SHA256:-}"
   printf 'model_path=%s\n' "${MODEL_PATH:-}"
+  printf 'ft_ep_num_redundant_experts=%s\n' \
+    "${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
+  printf 'ft_mem_fraction_static=%s\n' "${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
+  printf 'ft_precision_oracle_family=%s\n' \
+    "${SGLANG_FT_PRECISION_ORACLE_FAMILY:-qwen-fp8-d4t4e4-count10-no-overlap}"
+  printf 'ft_reliable_oracle_id=%s\n' \
+    "${SGLANG_FT_RELIABLE_ORACLE_ID:-qwen-fp8-reliable-inference-count4}"
   printf 'gpu_ids=%s\n' "$GPU_IDS"
   printf 'port_base=%s\n' "$PORT_BASE"
   printf 'port_count=%s\n' "$PORT_COUNT"

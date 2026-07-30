@@ -15,7 +15,7 @@ python skills\test-service\scripts\run-case.py `
 
 ## Topology
 
-- Model: `Qwen3-30B-A3B-FP8`
+- Model: compatible profile-selected MoE model with a registered precision oracle
 - Four profile-selected GPUs with TP=4, DP=4 and EP=4
 - Fault-tolerance strategy: `pause`
 - One task-local, one-shot recoverable ModelRunner forward exception on DP0

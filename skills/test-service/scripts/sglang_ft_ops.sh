@@ -32,6 +32,13 @@ sg_prepare_ft_runtime() {
   export TRITON_CACHE_DIR=/data2/iws/cache/triton
   mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR"
 
+  local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
+  if [[ "$sg_redundant_experts" =~ ^[0-9]+$ ]]; then
+    st_assert redundant_experts true "non-negative integer" "$sg_redundant_experts"
+  else
+    st_assert redundant_experts false "non-negative integer" "$sg_redundant_experts"
+  fi
+
   local sg_mooncake_wheel_sha256
   sg_mooncake_wheel_sha256="$(sha256sum "$MOONCAKE_WHEEL" | awk '{print $1}')"
   if [[ "$sg_mooncake_wheel_sha256" == "$MOONCAKE_WHEEL_SHA256" ]]; then
@@ -150,6 +157,7 @@ sg_launch_dp4_ft_rejoin_node() {
   local sg_dist_init_addr="$5"
   local sg_rejoin="${6:-0}"
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
+  local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
   local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
   local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
   local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
@@ -229,7 +237,7 @@ sg_launch_dp4_ft_rejoin_node() {
     --moe-runner-backend deep_gemm \
     --attention-backend triton \
     --sampling-backend pytorch \
-    --mem-fraction-static 0.75 \
+    --mem-fraction-static "$sg_mem_fraction_static" \
     --max-running-requests 8 \
     --max-total-tokens 4096 \
     --context-length 1024 \
@@ -903,6 +911,16 @@ PY
     st_assert "$sg_label" false "success=false,message=${sg_expected}" \
       "${sg_actual:-invalid_json}"
   fi
+}
+
+sg_precision_oracle_id() {
+  local sg_rank="$1"
+  local sg_family="${SGLANG_FT_PRECISION_ORACLE_FAMILY:-qwen-fp8-d4t4e4-count10-no-overlap}"
+  local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
+  [[ "$sg_rank" =~ ^[0-9]+$ ]]
+  [[ -n "$sg_family" ]]
+  [[ "$sg_redundant_experts" =~ ^[0-9]+$ ]]
+  printf '%s-rank%s-r%s\n' "$sg_family" "$sg_rank" "$sg_redundant_experts"
 }
 
 sg_assert_output_ids() {

@@ -15,7 +15,7 @@ python skills\test-service\scripts\run-case.py `
 
 ## Topology
 
-- Model: `Qwen3-30B-A3B-FP8`
+- Model: compatible profile-selected MoE model
 - TP=4, DP=4, EP=4 on the four profile-selected GPUs
 - Mooncake TCP with CPU staging fallback
 - Deterministic inference; overlap and CUDA graph disabled

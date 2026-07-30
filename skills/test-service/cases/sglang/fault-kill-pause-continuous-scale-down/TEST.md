@@ -2,8 +2,14 @@
 
 Validate three bounded kill/pause/scale-down rounds in one service lifetime. DP1, DP2 and DP3
 are removed sequentially; DP0 must resume and retain deterministic output after every round.
-This single-DP endpoint uses 384 redundant experts and `mem_fraction_static=0.45`, matching
-the historical condition that retains the complete expert set on the final survivor.
+The default Qwen configuration uses 384 redundant experts and `mem_fraction_static=0.45`,
+matching the historical condition that retains the complete expert set on the final survivor.
+
+The selected model configuration must allocate at least one physical slot for every logical
+expert on a single surviving DP. With EP4 this requires
+`logical_experts + redundant_experts >= 4 * logical_experts`. DeepSeek-V2-Lite has 64 logical
+experts and therefore requires at least 192 redundant experts; an r64 profile is not
+applicable to this single-survivor case.
 
 ## Applicability
 

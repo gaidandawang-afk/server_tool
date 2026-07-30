@@ -14,7 +14,7 @@ python skills\test-service\scripts\run-case.py `
 
 ## Topology
 
-- Model: `Qwen3-30B-A3B-FP8`
+- Model: compatible profile-selected MoE model with registered per-rank precision oracles
 - GPU: four profile-selected GPUs
 - TP=4, DP=4, EP=4
 - Mooncake TCP with CPU staging fallback

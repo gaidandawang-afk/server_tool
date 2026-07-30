@@ -56,7 +56,7 @@ case "$request_style" in
   historical-count4)
     request_tokens=4
     request_text="Write one short sentence about reliable inference."
-    oracle_id="qwen-fp8-reliable-inference-count4"
+    oracle_id="${SGLANG_FT_RELIABLE_ORACLE_ID:-qwen-fp8-reliable-inference-count4}"
     ;;
   *)
     st_assert request_style false "current-count10|historical-count4" "$request_style"
@@ -151,7 +151,7 @@ if [[ -n "$request_tokens_override" ]]; then
 else
   sg_assert_output_ids \
     "$run_dir/after-scale-down-dp0.json" \
-    "${oracle_id:-qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128}" \
+    "${oracle_id:-$(sg_precision_oracle_id 0)}" \
     "$run_dir/after-scale-down-dp0-precision.json"
 fi
 
@@ -202,7 +202,7 @@ for rank in 3 0; do
   else
     sg_assert_output_ids \
       "$run_dir/recovered-dp${rank}.json" \
-      "${oracle_id:-qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128}" \
+      "${oracle_id:-$(sg_precision_oracle_id "$rank")}" \
       "$run_dir/recovered-dp${rank}-precision.json"
   fi
 done

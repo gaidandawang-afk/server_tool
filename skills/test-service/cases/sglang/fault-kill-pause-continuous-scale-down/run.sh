@@ -10,8 +10,8 @@ readonly log_path="$SERVER_TOOL_OUTPUT_ROOT/server.log"
 readonly request_dp0="$run_dir/request-dp0.json"
 server_pgid=""
 
-export SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS=384
-export SGLANG_FT_MEM_FRACTION_STATIC=0.45
+export SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-384}"
+export SGLANG_FT_MEM_FRACTION_STATIC="${SGLANG_FT_MEM_FRACTION_STATIC:-0.45}"
 
 cleanup() {
   local original_code="$?"
@@ -49,7 +49,7 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$request_dp0" "$run_dir/baseline-dp0.json" 200 baseline_dp0 180
 sg_assert_output_ids \
   "$run_dir/baseline-dp0.json" \
-  qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128 \
+  "$(sg_precision_oracle_id 0)" \
   "$run_dir/baseline-dp0-precision.json"
 
 declare -a paused_states=(
@@ -80,7 +80,7 @@ for target in 1 2 3; do
     "after_dp${target}_dp0" 180
   sg_assert_output_ids \
     "$run_dir/after-dp${target}-dp0.json" \
-    qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128 \
+    "$(sg_precision_oracle_id 0)" \
     "$run_dir/after-dp${target}-dp0-precision.json"
 done
 

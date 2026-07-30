@@ -69,7 +69,7 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$post_request" "$run_dir/post-fault-dp0.json" 200 post_fault_dp0 180
 sg_assert_output_ids \
   "$run_dir/post-fault-dp0.json" \
-  qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128 \
+  "$(sg_precision_oracle_id 0)" \
   "$run_dir/post-fault-dp0-precision.json"
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"

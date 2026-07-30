@@ -36,3 +36,19 @@ contracts must be promoted into `cases/`; no committed case may source files fro
 
 Run a committed case with `scripts/run-case.py`. Use `tools/server_tool.py` directly only when
 the task needs nonstandard committed attachments.
+
+## Model-specific profile settings
+
+Committed SGLang cases take the model from `MODEL_PATH`. A profile may also select:
+
+- `SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS` (default `128`);
+- `SGLANG_FT_MEM_FRACTION_STATIC` (default `0.75`);
+- `SGLANG_FT_PRECISION_ORACLE_FAMILY` (default
+  `qwen-fp8-d4t4e4-count10-no-overlap`);
+- `SGLANG_FT_RELIABLE_ORACLE_ID` for the optional four-token rejoin request.
+
+Ordinary exact-token gates resolve their oracle as
+`<family>-rank<rank>-r<redundant-experts>`. The resolved ID must already exist in
+`assets/sglang/precision_oracles.json`; a test run must never register its own output as a
+passing oracle. Use a distinct flat profile, task root and artifact root for each model and
+configuration.

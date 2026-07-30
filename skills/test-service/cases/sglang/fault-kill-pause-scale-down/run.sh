@@ -66,7 +66,7 @@ for rank in 0 2 3; do
   st_http_json POST "http://127.0.0.1:${port}/generate" \
     "${requests[$rank]}" "$response" 200 "generate_dp${rank}" 180
   sg_assert_output_ids \
-    "$response" "qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128" \
+    "$response" "$(sg_precision_oracle_id "$rank")" \
     "$run_dir/after-scale-down-dp${rank}-precision.json"
 done
 
