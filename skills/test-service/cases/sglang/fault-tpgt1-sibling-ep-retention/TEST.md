@@ -11,7 +11,7 @@
 ## Ordered phases and barriers
 
 1. Verify dependency identities and reach `0=healthy,1=healthy` with four schedulers.
-2. Generate bounded baselines on DP0 and DP1 and require equal ten-token output.
+2. Generate 90-second-bounded baselines on DP0 and DP1 and require equal ten-token output.
 3. Record global rank3's PID, then kill global rank2 in the same DP1 sibling group.
 4. Reach `0=paused,1=dead`, retain exactly three schedulers, and prove rank3 kept its PID.
 5. Apply retry and reach `0=healthy,1=dead`.

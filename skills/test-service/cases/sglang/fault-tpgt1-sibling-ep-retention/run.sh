@@ -48,9 +48,9 @@ sg_wait_ft_status "$port" "$run_dir/status-initial.json" \
   "0=healthy,1=healthy" 120 status_initial
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "$request_dp0" "$baseline_dp0" 200 baseline_dp0 30
+  "$request_dp0" "$baseline_dp0" 200 baseline_dp0 90
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "$request_dp1" "$baseline_dp1" 200 baseline_dp1 30
+  "$request_dp1" "$baseline_dp1" 200 baseline_dp1 90
 sg_assert_output_ids_equal \
   "$baseline_dp0" "$baseline_dp1" "$run_dir/baseline-dp0-dp1-precision.json" \
   baseline_dp0_dp1 10
