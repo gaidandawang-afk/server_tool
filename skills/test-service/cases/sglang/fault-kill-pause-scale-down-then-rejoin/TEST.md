@@ -21,6 +21,18 @@ python skills\test-service\scripts\run-case.py `
 - Mooncake TCP with CPU staging fallback
 - Deterministic inference, overlap and CUDA graph disabled
 
+The default contract uses static EP dispatch, deterministic inference and the registered
+ten-token count-up request. Root-cause comparison runs may set all three explicit profile
+inputs:
+
+- `SGLANG_FT_EP_DISPATCH_ALGORITHM=dynamic|static`
+- `SGLANG_FT_DETERMINISTIC_INFERENCE=0|1`
+- `SGLANG_FT_REJOIN_REQUEST_STYLE=historical-count4|current-count10`
+
+Every run records the effective values in `case-inputs.env` and asserts the launch log.
+Changing any input requires a distinct run name and artifact; a diagnostic variant does not
+replace the default contract result.
+
 ## Ordered gates
 
 1. Import the exact selected `sglang-kernel` version and start four healthy nodes.

@@ -16,6 +16,10 @@
     {
       "id": "qwen-fp8-d4t4e4-count10-no-overlap-rank3-r128",
       "output_ids": [3197, 279, 1372, 374, 74916, 553, 220, 18, 11, 3270]
+    },
+    {
+      "id": "qwen-fp8-reliable-inference-count4",
+      "output_ids": [91563, 44378, 374, 279]
     }
   ]
 }

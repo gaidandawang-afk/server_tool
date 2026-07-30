@@ -144,6 +144,9 @@ sg_launch_dp4_ft_rejoin_node() {
   local sg_dist_init_addr="$5"
   local sg_rejoin="${6:-0}"
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
+  local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
+  local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
+  local -a sg_deterministic_args=()
   local -a sg_rejoin_args=()
   local -a sg_warmup_args=()
   case "$sg_strategy" in
@@ -168,6 +171,21 @@ sg_launch_dp4_ft_rejoin_node() {
       return 1
       ;;
   esac
+  case "$sg_dispatch_algorithm" in
+    dynamic|static) ;;
+    *)
+      st_assert launch_dispatch_algorithm false "dynamic|static" "$sg_dispatch_algorithm"
+      return 1
+      ;;
+  esac
+  case "$sg_deterministic" in
+    0) ;;
+    1) sg_deterministic_args+=(--enable-deterministic-inference) ;;
+    *)
+      st_assert launch_deterministic false "0|1" "$sg_deterministic"
+      return 1
+      ;;
+  esac
 
   cd "$SERVER_TOOL_PROJECT_ROOT"
   st_launch_process_group "$sg_log_path" \
@@ -186,7 +204,7 @@ sg_launch_dp4_ft_rejoin_node() {
     --moe-a2a-backend mooncake \
     --enable-eplb \
     --eplb-algorithm elasticity_aware \
-    --ep-dispatch-algorithm static \
+    --ep-dispatch-algorithm "$sg_dispatch_algorithm" \
     --ep-num-redundant-experts "$sg_redundant_experts" \
     --elastic-ep-backend mooncake \
     --deepep-mode low_latency \
@@ -199,7 +217,7 @@ sg_launch_dp4_ft_rejoin_node() {
     --context-length 1024 \
     --watchdog-timeout 120 \
     --disable-custom-all-reduce \
-    --enable-deterministic-inference \
+    "${sg_deterministic_args[@]}" \
     --disable-overlap-schedule \
     --disable-cuda-graph \
     --disable-piecewise-cuda-graph \
@@ -412,15 +430,21 @@ sg_write_rank_request() {
   local sg_request_path="$1"
   local sg_rank="$2"
   local sg_max_tokens="${3:-10}"
-  python3 - "$sg_request_path" "$sg_rank" "$sg_max_tokens" <<'PY'
+  local sg_text="${4:-Count upward slowly, writing one integer per line.}"
+  python3 - "$sg_request_path" "$sg_rank" "$sg_max_tokens" "$sg_text" <<'PY'
 import json
 import sys
 
-path, rank, max_tokens = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+path, rank, max_tokens, text = (
+    sys.argv[1],
+    int(sys.argv[2]),
+    int(sys.argv[3]),
+    sys.argv[4],
+)
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(
         {
-            "text": "Count upward slowly, writing one integer per line.",
+            "text": text,
             "sampling_params": {"max_new_tokens": max_tokens, "temperature": 0.0},
             "routed_dp_rank": rank,
         },

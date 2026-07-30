@@ -8,9 +8,15 @@ readonly base_port="$PORT_BASE"
 readonly dist_init_addr="127.0.0.1:$((PORT_BASE + 4))"
 readonly run_dir="$SERVER_TOOL_WORK_ROOT/case"
 readonly resume_pattern="FT command dispatch:.*command=resume"
+readonly dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
+readonly deterministic_inference="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
+readonly request_style="${SGLANG_FT_REJOIN_REQUEST_STYLE:-current-count10}"
 declare -a node_pgids=()
 declare -a node_logs=()
 declare -a requests=()
+request_tokens=""
+request_text=""
+oracle_id=""
 
 cleanup() {
   local original_code="$?"
@@ -40,12 +46,36 @@ trap cleanup EXIT
 
 mkdir -p "$run_dir"
 sg_prepare_dp4_runtime
+case "$request_style" in
+  current-count10)
+    request_tokens=10
+    request_text="Count upward slowly, writing one integer per line."
+    ;;
+  historical-count4)
+    request_tokens=4
+    request_text="Write one short sentence about reliable inference."
+    oracle_id="qwen-fp8-reliable-inference-count4"
+    ;;
+  *)
+    st_assert request_style false "current-count10|historical-count4" "$request_style"
+    exit 1
+    ;;
+esac
+{
+  printf 'ep_dispatch_algorithm=%s\n' "$dispatch_algorithm"
+  printf 'deterministic_inference=%s\n' "$deterministic_inference"
+  printf 'request_style=%s\n' "$request_style"
+  printf 'request_tokens=%s\n' "$request_tokens"
+  printf 'request_text=%s\n' "$request_text"
+} >"$SERVER_TOOL_OUTPUT_ROOT/case-inputs.env"
 for rank in 0 1 2 3; do
   requests[$rank]="$run_dir/request-dp${rank}.json"
-  sg_write_rank_request "${requests[$rank]}" "$rank" 10
+  sg_write_rank_request \
+    "${requests[$rank]}" "$rank" "$request_tokens" "$request_text"
   node_logs[$rank]="$SERVER_TOOL_OUTPUT_ROOT/node${rank}.log"
 done
-sg_write_rank_request "$run_dir/fault-trigger-request.json" 0 2
+sg_write_rank_request \
+  "$run_dir/fault-trigger-request.json" 0 2 "$request_text"
 
 for node in 0 1 2 3; do
   sg_launch_dp4_ft_rejoin_node pause "$((base_port + node))" \
@@ -60,6 +90,16 @@ for node in 1 2 3; do
 done
 sg_wait_ft_status "$base_port" "$run_dir/status-initial.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_initial
+sg_assert_log_contains "${node_logs[0]}" \
+  "ep_dispatch_algorithm='${dispatch_algorithm}'" launch_dispatch_algorithm
+if [[ "$deterministic_inference" == 1 ]]; then
+  expected_deterministic=True
+else
+  expected_deterministic=False
+fi
+sg_assert_log_contains "${node_logs[0]}" \
+  "enable_deterministic_inference=${expected_deterministic}" \
+  launch_deterministic_inference
 for node in 0 1 2 3; do
   st_assert_process_count "${node_pgids[$node]}" "sglang::scheduler" 1 \
     "node${node}_scheduler_initial"
@@ -92,7 +132,7 @@ st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   after_scale_down_dp0 180
 sg_assert_output_ids \
   "$run_dir/after-scale-down-dp0.json" \
-  qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128 \
+  "${oracle_id:-qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128}" \
   "$run_dir/after-scale-down-dp0-precision.json"
 
 resume_count_before="$(grep -Ec -- "$resume_pattern" "${node_logs[0]}" 2>/dev/null || true)"
@@ -135,6 +175,6 @@ for rank in 3 0; do
     "recovered_dp${rank}" 180
   sg_assert_output_ids \
     "$run_dir/recovered-dp${rank}.json" \
-    "qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128" \
+    "${oracle_id:-qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128}" \
     "$run_dir/recovered-dp${rank}-precision.json"
 done
