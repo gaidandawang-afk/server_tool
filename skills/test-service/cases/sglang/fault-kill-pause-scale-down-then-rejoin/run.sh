@@ -7,7 +7,7 @@ source "$SERVER_TOOL_INPUT_ROOT/units/sglang_ft_ops.sh"
 readonly base_port="$PORT_BASE"
 readonly dist_init_addr="127.0.0.1:$((PORT_BASE + 4))"
 readonly run_dir="$SERVER_TOOL_WORK_ROOT/case"
-readonly resume_pattern="FT command dispatch: command=resume"
+readonly resume_pattern="FT command dispatch:.*command=resume"
 declare -a node_pgids=()
 declare -a node_logs=()
 declare -a requests=()
@@ -108,7 +108,7 @@ st_assert inactive_recover_no_duplicate_resume \
   "$([[ "$resume_count_after" == "$resume_count_before" ]] && echo true || echo false)" \
   "$resume_count_before" "$resume_count_after"
 sg_assert_log_contains "${node_logs[0]}" \
-  "Fault tolerance apply plan: instruction=recover resume_targets=\\[\\] ranks=\\[3\\]" \
+  "Fault tolerance apply plan: instruction=recover (active_mask=\\[True, True, True, False\\] )?resume_targets=\\[\\] ranks=\\[3\\]" \
   inactive_recover_plan
 
 node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"

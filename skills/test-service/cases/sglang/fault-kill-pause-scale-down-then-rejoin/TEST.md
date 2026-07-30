@@ -34,7 +34,8 @@ python skills\test-service\scripts\run-case.py `
 7. Apply inactive `recover([3])`; status remains degraded, DP3 remains closed, and no
    additional resume command is issued.
 8. Confirm the runtime applies recover with an empty resume target set and rank 3 still
-   inactive.
+   inactive. Accept the optional diagnostic `active_mask` field used by older applicable
+   SGLang commits without weakening the semantic gate.
 9. Restart only node 3 and observe world join plus recovery completion on all survivors.
 10. Reach four healthy ranks; DP3 and DP0 return HTTP 200 with their registered token
     sequences.
