@@ -50,6 +50,9 @@ sg_launch_dp4_ft() {
   local sg_strategy="$1"
   local sg_port="$2"
   local sg_log_path="$3"
+  local sg_fault_ranks="${4:-}"
+  local sg_trigger_file="${5:-}"
+  local sg_done_file="${6:-}"
   case "$sg_strategy" in
     pause|continue) ;;
     *)
@@ -57,6 +60,18 @@ sg_launch_dp4_ft() {
       return 1
       ;;
   esac
+
+  if [[ -n "$sg_fault_ranks" ]]; then
+    : "${sg_trigger_file:?recoverable fault trigger file is required}"
+    : "${sg_done_file:?recoverable fault done file is required}"
+    test ! -e "$sg_trigger_file"
+    test ! -e "$sg_done_file"
+    export SGLANG_TEST_FT_RECOVERABLE_FAULT_RANK="$sg_fault_ranks"
+    export SGLANG_TEST_FT_RECOVERABLE_FAULT_FILE="$sg_trigger_file"
+    export SGLANG_TEST_FT_RECOVERABLE_FAULT_DONE_FILE="$sg_done_file"
+    export SGLANG_FT_INJECT_DIR="$SERVER_TOOL_INPUT_ROOT/assets/recoverable_inject"
+    export PYTHONPATH="$SGLANG_FT_INJECT_DIR:$PYTHONPATH"
+  fi
 
   cd "$SERVER_TOOL_PROJECT_ROOT"
   st_launch_process_group "$sg_log_path" \
@@ -95,6 +110,31 @@ sg_launch_dp4_ft() {
     --enable-fault-tolerance \
     --fault-tolerance-on-error-strategy "$sg_strategy" \
     --fault-tolerance-timeout 600
+}
+
+sg_start_recoverable_fault() {
+  local sg_trigger_file="$1"
+  test ! -e "$sg_trigger_file"
+  : >"$sg_trigger_file"
+  st_assert recoverable_fault_trigger true created created
+}
+
+sg_wait_recoverable_fault_done() {
+  local sg_done_file="$1"
+  local sg_expected_count="$2"
+  local sg_timeout_sec="$3"
+  local sg_label="$4"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_actual=0
+  while (( SECONDS < sg_end )); do
+    sg_actual="$(grep -c '^pid=' "$sg_done_file" 2>/dev/null || true)"
+    if (( sg_actual >= sg_expected_count )); then
+      st_assert "$sg_label" true "$sg_expected_count" "$sg_actual"
+      return 0
+    fi
+    sleep 1
+  done
+  st_assert "$sg_label" false "$sg_expected_count" "$sg_actual"
 }
 
 sg_write_rank_request() {
