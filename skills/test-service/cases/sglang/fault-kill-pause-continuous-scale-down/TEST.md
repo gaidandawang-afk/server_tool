@@ -7,7 +7,8 @@ the historical condition that retains the complete expert set on the final survi
 
 ## Ordered gates
 
-1. Start TP=4, DP=4, EP=4 with all ranks healthy.
+1. Start TP=4, DP=4, EP=4 with all ranks healthy, then complete a deterministic DP0
+   baseline before injecting the first fault.
 2. For each target rank 1, 2 and 3:
    - kill only that owned scheduler;
    - reach the cumulative dead set with every survivor paused;
