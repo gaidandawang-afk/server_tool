@@ -234,6 +234,30 @@ PY
     "$sg_request" "$sg_response" 200 retry_apply 180
 }
 
+sg_apply_recover() {
+  local sg_port="$1"
+  local sg_rank="$2"
+  local sg_request="$3"
+  local sg_response="$4"
+  python3 - "$sg_request" "$sg_rank" <<'PY'
+import json
+import sys
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    json.dump(
+        {
+            "fault_tolerance_instruction": "recover",
+            "fault_tolerance_timeout": 180,
+            "fault_tolerance_params": {"ranks": [int(sys.argv[2])]},
+        },
+        handle,
+        separators=(",", ":"),
+    )
+    handle.write("\n")
+PY
+  st_http_json POST "http://127.0.0.1:${sg_port}/fault_tolerance/apply" \
+    "$sg_request" "$sg_response" 200 recover_apply 180
+}
+
 sg_assert_log_count() {
   local sg_log_path="$1"
   local sg_pattern="$2"
