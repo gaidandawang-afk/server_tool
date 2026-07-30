@@ -136,6 +136,84 @@ sg_launch_dp4_ft() {
     "$sg_fault_ranks" "$sg_trigger_file" "$sg_done_file"
 }
 
+sg_launch_dp4_ft_rejoin_node() {
+  local sg_strategy="$1"
+  local sg_port="$2"
+  local sg_log_path="$3"
+  local sg_node_rank="$4"
+  local sg_dist_init_addr="$5"
+  local sg_rejoin="${6:-0}"
+  local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
+  local -a sg_rejoin_args=()
+  local -a sg_warmup_args=()
+  case "$sg_strategy" in
+    pause|continue) ;;
+    *)
+      st_assert launch_strategy false "pause|continue" "$sg_strategy"
+      return 1
+      ;;
+  esac
+  if ! [[ "$sg_node_rank" =~ ^[0-3]$ ]]; then
+    st_assert launch_node_rank false "0..3" "$sg_node_rank"
+    return 1
+  fi
+  case "$sg_rejoin" in
+    0) ;;
+    1)
+      sg_rejoin_args+=(--elastic-ep-rejoin)
+      sg_warmup_args+=(--skip-server-warmup)
+      ;;
+    *)
+      st_assert launch_rejoin false "0|1" "$sg_rejoin"
+      return 1
+      ;;
+  esac
+
+  cd "$SERVER_TOOL_PROJECT_ROOT"
+  st_launch_process_group "$sg_log_path" \
+    python3 -u -m sglang.launch_server \
+    --model-path "$MODEL_PATH" \
+    --host 127.0.0.1 \
+    --port "$sg_port" \
+    --dtype auto \
+    --load-format auto \
+    --tp-size 4 \
+    --dp-size 4 \
+    --enable-dp-attention \
+    --enable-dp-lm-head \
+    --ep-size 4 \
+    --moe-dense-tp-size 1 \
+    --moe-a2a-backend mooncake \
+    --enable-eplb \
+    --eplb-algorithm elasticity_aware \
+    --ep-dispatch-algorithm static \
+    --ep-num-redundant-experts "$sg_redundant_experts" \
+    --elastic-ep-backend mooncake \
+    --deepep-mode low_latency \
+    --moe-runner-backend deep_gemm \
+    --attention-backend triton \
+    --sampling-backend pytorch \
+    --mem-fraction-static 0.75 \
+    --max-running-requests 8 \
+    --max-total-tokens 4096 \
+    --context-length 1024 \
+    --watchdog-timeout 120 \
+    --disable-custom-all-reduce \
+    --enable-deterministic-inference \
+    --disable-overlap-schedule \
+    --disable-cuda-graph \
+    --disable-piecewise-cuda-graph \
+    "${sg_warmup_args[@]}" \
+    --enable-fault-tolerance \
+    --fault-tolerance-on-error-strategy "$sg_strategy" \
+    --fault-tolerance-timeout 600 \
+    --nnodes 4 \
+    --node-rank "$sg_node_rank" \
+    --base-gpu-id "$sg_node_rank" \
+    --dist-init-addr "$sg_dist_init_addr" \
+    "${sg_rejoin_args[@]}"
+}
+
 sg_launch_dp4_mooncake_noft() {
   local sg_port="$1"
   local sg_log_path="$2"
@@ -175,6 +253,120 @@ sg_launch_dp4_mooncake_noft() {
     --disable-cuda-graph \
     --disable-piecewise-cuda-graph \
     --skip-server-warmup
+}
+
+sg_wait_health_generate() {
+  local sg_port="$1"
+  local sg_pgid="$2"
+  local sg_timeout_sec="$3"
+  local sg_label="$4"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  while (( SECONDS < sg_end )); do
+    if ! ps -g "$sg_pgid" >/dev/null 2>&1; then
+      st_assert "$sg_label" false "HTTP 200" process_group_exited
+      return
+    fi
+    if curl -fsS --connect-timeout 5 --max-time 15 \
+      "http://127.0.0.1:${sg_port}/health_generate" >/dev/null; then
+      st_assert "$sg_label" true "HTTP 200" "HTTP 200"
+      return
+    fi
+    sleep 2
+  done
+  st_assert "$sg_label" false "HTTP 200 within ${sg_timeout_sec}s" timeout
+}
+
+sg_wait_log_contains() {
+  local sg_log_path="$1"
+  local sg_pattern="$2"
+  local sg_timeout_sec="$3"
+  local sg_label="$4"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  while (( SECONDS < sg_end )); do
+    if grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
+      st_assert "$sg_label" true present present
+      return
+    fi
+    sleep 1
+  done
+  st_assert "$sg_label" false present absent
+}
+
+sg_wait_scheduler_count() {
+  local sg_pgid="$1"
+  local sg_expected="$2"
+  local sg_timeout_sec="$3"
+  local sg_label="$4"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_actual=0
+  while (( SECONDS < sg_end )); do
+    sg_actual="$(
+      st_process_group_rows "$sg_pgid" |
+        grep -c -- "sglang::scheduler" || true
+    )"
+    if [[ "$sg_actual" == "$sg_expected" ]]; then
+      st_assert "$sg_label" true "$sg_expected" "$sg_actual"
+      return
+    fi
+    sleep 1
+  done
+  st_assert "$sg_label" false "$sg_expected" "$sg_actual"
+}
+
+sg_issue_generate_fault_trigger() {
+  local sg_port="$1"
+  local sg_request="$2"
+  local sg_response="$3"
+  local sg_label="$4"
+  local sg_http_code="" sg_rc=0
+  set +e
+  sg_http_code="$(
+    timeout 31s curl -sS --connect-timeout 5 --max-time 30 \
+      -H "Content-Type: application/json" --data-binary "@$sg_request" \
+      -o "$sg_response" -w "%{http_code}" \
+      "http://127.0.0.1:${sg_port}/generate"
+  )"
+  sg_rc="$?"
+  set -e
+  case "$sg_rc" in
+    0|28|124)
+      st_assert "$sg_label" true issued "curl_rc=$sg_rc HTTP=${sg_http_code:-none}"
+      ;;
+    *)
+      st_assert "$sg_label" false issued "curl_rc=$sg_rc HTTP=${sg_http_code:-none}"
+      ;;
+  esac
+}
+
+sg_drive_generate_until_log() {
+  local sg_port="$1"
+  local sg_request="$2"
+  local sg_log_path="$3"
+  local sg_pattern="$4"
+  local sg_output_prefix="$5"
+  local sg_timeout_sec="$6"
+  local sg_label="$7"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_attempt=0 sg_http_code="" sg_rc=0
+  while (( SECONDS < sg_end )); do
+    if grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
+      st_assert "$sg_label" true observed observed
+      return
+    fi
+    sg_attempt=$((sg_attempt + 1))
+    set +e
+    sg_http_code="$(
+      curl -sS --connect-timeout 5 --max-time 30 \
+        -H "Content-Type: application/json" --data-binary "@$sg_request" \
+        -o "${sg_output_prefix}-${sg_attempt}.json" -w "%{http_code}" \
+        "http://127.0.0.1:${sg_port}/generate"
+    )"
+    sg_rc="$?"
+    set -e
+    st_log "RECOVERY_DRIVE label=$sg_label attempt=$sg_attempt curl_rc=$sg_rc HTTP=${sg_http_code:-none}"
+    sleep 1
+  done
+  st_assert "$sg_label" false observed timeout
 }
 
 sg_find_scheduler_pid_by_global_rank() {

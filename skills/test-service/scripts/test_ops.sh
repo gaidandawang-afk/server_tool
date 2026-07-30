@@ -243,3 +243,26 @@ st_stop_owned_pgid() {
     st_assert "$st_label" true gone killed
   fi
 }
+
+st_kill_owned_pgid() {
+  local st_pgid="$1"
+  local st_label="$2"
+  local st_timeout_sec="${3:-30}"
+  [[ "$st_pgid" =~ ^[1-9][0-9]*$ ]]
+  test "$(ps -o pgid= -p "$st_pgid" | tr -d ' ')" = "$st_pgid"
+  tr '\0' '\n' <"/proc/$st_pgid/environ" |
+    grep -Fqx "SERVER_TOOL_RUN_ID=$SERVER_TOOL_RUN_ID"
+  kill -KILL -- "-$st_pgid"
+  set +e
+  wait "$st_pgid" 2>/dev/null
+  set -e
+  local st_end=$((SECONDS + st_timeout_sec))
+  while (( SECONDS < st_end )); do
+    if ! ps -g "$st_pgid" >/dev/null 2>&1; then
+      st_assert "$st_label" true gone gone
+      return
+    fi
+    sleep 1
+  done
+  st_assert "$st_label" false gone still_running
+}
