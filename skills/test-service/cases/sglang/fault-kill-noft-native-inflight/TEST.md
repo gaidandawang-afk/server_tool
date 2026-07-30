@@ -32,4 +32,3 @@ One bounded cold PASS is sufficient for the current case-usability round.
 - FT-disabled response, stream request/output/error/final response/contract
 - post-fault request, response and precision result
 - server log, assertions, result and owned process evidence
-

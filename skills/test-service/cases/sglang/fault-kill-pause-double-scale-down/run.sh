@@ -76,4 +76,3 @@ for rank in 0 3; do
 done
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"
-
