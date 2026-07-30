@@ -2,7 +2,7 @@
 
 ## Applicability
 
-- Source branch: `codex/dp-only-ft-squashed`
+- Source branches: `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`
 - TP=4, DP=2, EP=4 on the four profile-selected GPUs
 - Attention TP=2 gives each routed DP two physical scheduler siblings
 - Fault tolerance strategy: `pause`

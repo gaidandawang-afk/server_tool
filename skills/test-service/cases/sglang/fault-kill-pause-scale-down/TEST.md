@@ -1,7 +1,8 @@
 # Kill, pause, and logical scale-down
 
-Validate the `codex/dp-only-ft-squashed` SGLang branch with the kernel and Mooncake roots
-selected by the task profile. Run cold twice; keep each run under a distinct run name.
+Validate the `codex/dp-only-ft-squashed` or `worktree-dp-only-ft-revise` SGLang branch with
+the kernel and Mooncake roots selected by the task profile. Run cold twice for stability
+campaigns; one cold run is sufficient for a branch-usability validation round.
 
 ```powershell
 python skills\test-service\scripts\run-case.py `

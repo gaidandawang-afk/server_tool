@@ -3,6 +3,12 @@
 Validate that pause-mode FT can accumulate two scheduler deaths and commit both dead ranks
 with one `scale_down([1,2])` operation.
 
+## Applicability
+
+- Source branches: `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`
+- TP=4, DP=4, EP=4 on four profile-selected GPUs
+- Repetition for branch-usability validation: one cold run
+
 ## Ordered gates
 
 1. Start TP=4, DP=4, EP=4 with four healthy schedulers.

@@ -1,6 +1,8 @@
 # Kill one scheduler and continue serving
 
-Apply to SGLang branch `codex/dp-only-ft-squashed`. Run two bounded cold repetitions.
+Apply to SGLang branches `codex/dp-only-ft-squashed` and
+`worktree-dp-only-ft-revise`. Run two bounded cold repetitions for stability campaigns; one
+cold run is sufficient for a branch-usability validation round.
 
 ```powershell
 python skills\test-service\scripts\run-case.py `

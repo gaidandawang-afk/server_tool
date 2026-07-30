@@ -5,6 +5,12 @@ are removed sequentially; DP0 must resume and retain deterministic output after 
 This single-DP endpoint uses 384 redundant experts and `mem_fraction_static=0.45`, matching
 the historical condition that retains the complete expert set on the final survivor.
 
+## Applicability
+
+- Source branches: `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`
+- TP=4, DP=4, EP=4 on four profile-selected GPUs
+- Repetition for branch-usability validation: one cold run
+
 ## Ordered gates
 
 1. Start TP=4, DP=4, EP=4 with all ranks healthy, then complete a deterministic DP0
