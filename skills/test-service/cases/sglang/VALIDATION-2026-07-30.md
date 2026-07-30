@@ -57,3 +57,21 @@ barrier, DP2 logical disable and HTTP 400 route closure, four retained scheduler
 survivor precision, persistent disabled state, explicit recover without another resume
 (`4 -> 4`), recovered DP2 precision, owned process-group cleanup and clean source. This
 contract is Validated once on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`.
+
+## Source-semantic failure requiring a decision
+
+| Contract | Run | Result |
+| --- | --- | --- |
+| `fault-tpgt1-sibling-ep-retention` | `tpgt1-sibling-retention-busy-edf-20260730` | FAIL |
+
+The run passed TP4/DP2/EP4 initialization, both routed baselines and their ten-token equality,
+the targeted global-rank2 kill, `0=paused,1=dead`, retention of three schedulers and the
+original global-rank3 PID, retry, dead DP1 routing, degraded DP0 generation and ten-token
+precision. It failed only the required live-replica/physical-layout preservation signal.
+
+This is a source-semantic failure rather than a stale log spelling. The historical green
+source `74cafe36617c75f18b39d973486575b080360fd7` contained live-replica preservation. It is
+an ancestor of the current source, but `f5e32a5e39ba6649747ad22fdd28a71781fb324c` explicitly
+reverted that feature before `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`. The current run
+therefore logged ordinary rank-fault EPLB and a full weight reload on the surviving sibling,
+not preservation of its existing expert weights and physical layout.
