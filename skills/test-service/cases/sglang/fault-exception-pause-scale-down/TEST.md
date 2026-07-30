@@ -10,8 +10,8 @@
 ## Ordered phases and barriers
 
 1. Verify dependency identities and reach four healthy schedulers.
-2. Generate one bounded baseline on each explicitly routed DP. These requests also warm
-   every route before the fault.
+2. Generate one baseline with a 90-second bound on each explicitly routed DP. These
+   requests also warm every route before the fault.
 3. Arm a task-local recoverable exception for DP2.
 4. Require the triggering request to return HTTP 503 and observe the completion record.
 5. Reach `0=paused,1=paused,2=paused,3=paused`.
