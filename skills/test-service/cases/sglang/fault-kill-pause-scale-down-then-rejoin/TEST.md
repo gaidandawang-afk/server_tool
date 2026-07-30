@@ -28,10 +28,12 @@ inputs:
 - `SGLANG_FT_EP_DISPATCH_ALGORITHM=dynamic|static`
 - `SGLANG_FT_DETERMINISTIC_INFERENCE=0|1`
 - `SGLANG_FT_REJOIN_REQUEST_STYLE=historical-count4|current-count10`
+- `SGLANG_FT_REJOIN_MAX_TOKENS=1..64` to override only the request length
 
 Every run records the effective values in `case-inputs.env` and asserts the launch log.
 Changing any input requires a distinct run name and artifact; a diagnostic variant does not
-replace the default contract result.
+replace the default contract result. A max-token override compares recovered DP3 and DP0
+exactly against the post-scale-down DP0 output for the requested length.
 
 ## Ordered gates
 

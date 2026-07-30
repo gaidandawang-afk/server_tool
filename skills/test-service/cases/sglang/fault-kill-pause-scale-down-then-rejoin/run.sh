@@ -11,6 +11,7 @@ readonly resume_pattern="FT command dispatch:.*command=resume"
 readonly dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
 readonly deterministic_inference="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
 readonly request_style="${SGLANG_FT_REJOIN_REQUEST_STYLE:-current-count10}"
+readonly request_tokens_override="${SGLANG_FT_REJOIN_MAX_TOKENS:-}"
 declare -a node_pgids=()
 declare -a node_logs=()
 declare -a requests=()
@@ -61,6 +62,15 @@ case "$request_style" in
     exit 1
     ;;
 esac
+if [[ -n "$request_tokens_override" ]]; then
+  if ! [[ "$request_tokens_override" =~ ^[1-9][0-9]*$ ]] ||
+    (( request_tokens_override > 64 )); then
+    st_assert request_tokens false "1..64" "$request_tokens_override"
+    exit 1
+  fi
+  request_tokens="$request_tokens_override"
+  oracle_id=""
+fi
 {
   printf 'ep_dispatch_algorithm=%s\n' "$dispatch_algorithm"
   printf 'deterministic_inference=%s\n' "$deterministic_inference"
@@ -130,10 +140,18 @@ st_http_json POST "http://127.0.0.1:${base_port}/generate" \
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/after-scale-down-dp0.json" 200 \
   after_scale_down_dp0 180
-sg_assert_output_ids \
-  "$run_dir/after-scale-down-dp0.json" \
-  "${oracle_id:-qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128}" \
-  "$run_dir/after-scale-down-dp0-precision.json"
+if [[ -n "$request_tokens_override" ]]; then
+  sg_assert_output_ids_equal \
+    "$run_dir/after-scale-down-dp0.json" \
+    "$run_dir/after-scale-down-dp0.json" \
+    "$run_dir/after-scale-down-dp0-token-count.json" \
+    after_scale_down_dp0_token_count "$request_tokens"
+else
+  sg_assert_output_ids \
+    "$run_dir/after-scale-down-dp0.json" \
+    "${oracle_id:-qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128}" \
+    "$run_dir/after-scale-down-dp0-precision.json"
+fi
 
 resume_count_before="$(grep -Ec -- "$resume_pattern" "${node_logs[0]}" 2>/dev/null || true)"
 sg_apply_recover "$base_port" 3 \
@@ -173,8 +191,16 @@ for rank in 3 0; do
   st_http_json POST "http://127.0.0.1:${base_port}/generate" \
     "${requests[$rank]}" "$run_dir/recovered-dp${rank}.json" 200 \
     "recovered_dp${rank}" 180
-  sg_assert_output_ids \
-    "$run_dir/recovered-dp${rank}.json" \
-    "${oracle_id:-qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128}" \
-    "$run_dir/recovered-dp${rank}-precision.json"
+  if [[ -n "$request_tokens_override" ]]; then
+    sg_assert_output_ids_equal \
+      "$run_dir/after-scale-down-dp0.json" \
+      "$run_dir/recovered-dp${rank}.json" \
+      "$run_dir/recovered-dp${rank}-precision.json" \
+      "recovered_dp${rank}" "$request_tokens"
+  else
+    sg_assert_output_ids \
+      "$run_dir/recovered-dp${rank}.json" \
+      "${oracle_id:-qwen-fp8-d4t4e4-count10-no-overlap-rank${rank}-r128}" \
+      "$run_dir/recovered-dp${rank}-precision.json"
+  fi
 done
