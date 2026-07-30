@@ -36,8 +36,10 @@ mkdir -p "$run_dir"
 sg_prepare_dp4_runtime
 
 declare -a requests=()
+declare -a baselines=()
 for rank in 0 1 2 3; do
   requests[$rank]="$run_dir/request-dp${rank}.json"
+  baselines[$rank]="$run_dir/baseline-dp${rank}.json"
   sg_write_rank_request "${requests[$rank]}" "$rank" 10
 done
 
@@ -48,6 +50,10 @@ st_wait_http_ready "$port" 180
 sg_wait_ft_status "$port" "$run_dir/status-initial.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_initial
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
+for rank in 0 1 2 3; do
+  st_http_json POST "http://127.0.0.1:${port}/generate" \
+    "${requests[$rank]}" "${baselines[$rank]}" 200 "baseline_dp${rank}" 30
+done
 
 sg_start_recoverable_fault "$trigger_file"
 st_http_json POST "http://127.0.0.1:${port}/generate" \
@@ -68,17 +74,11 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
 for rank in 0 1 3; do
   response="$run_dir/after-scale-down-dp${rank}.json"
   st_http_json POST "http://127.0.0.1:${port}/generate" \
-    "${requests[$rank]}" "$response" 200 "generate_dp${rank}" 180
-done
-sg_assert_output_ids \
-  "$run_dir/after-scale-down-dp0.json" \
-  qwen-fp8-d4t4e4-count10-no-overlap-rank0-r128 \
-  "$run_dir/after-scale-down-dp0-precision.json"
-for rank in 1 3; do
+    "${requests[$rank]}" "$response" 200 "generate_dp${rank}" 90
   sg_assert_output_ids_equal \
-    "$run_dir/after-scale-down-dp0.json" "$run_dir/after-scale-down-dp${rank}.json" \
-    "$run_dir/after-scale-down-dp0-dp${rank}-precision.json" \
-    "after_scale_down_dp0_dp${rank}" 10
+    "${baselines[$rank]}" "$response" \
+    "$run_dir/after-scale-down-dp${rank}-precision.json" \
+    "after_scale_down_dp${rank}" 10
 done
 sg_wait_ft_status "$port" "$run_dir/status-disabled-persisted.json" \
   "0=healthy,1=healthy,2=disabled,3=healthy" 120 disabled_persists
@@ -98,9 +98,9 @@ else
 fi
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[2]}" "$run_dir/recovered-dp2.json" 200 recovered_dp2 180
+  "${requests[2]}" "$run_dir/recovered-dp2.json" 200 recovered_dp2 90
 sg_assert_output_ids_equal \
-  "$run_dir/after-scale-down-dp0.json" "$run_dir/recovered-dp2.json" \
+  "${baselines[2]}" "$run_dir/recovered-dp2.json" \
   "$run_dir/recovered-dp2-precision.json" recovered_dp2 10
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"

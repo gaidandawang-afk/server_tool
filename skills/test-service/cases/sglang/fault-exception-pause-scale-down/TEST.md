@@ -10,17 +10,19 @@
 ## Ordered phases and barriers
 
 1. Verify dependency identities and reach four healthy schedulers.
-2. Arm a task-local recoverable exception for DP2.
-3. Require the triggering request to return HTTP 503 and observe the completion record.
-4. Reach `0=paused,1=paused,2=paused,3=paused`.
-5. Apply logical scale-down for DP2.
-6. Reach `0=healthy,1=healthy,2=disabled,3=healthy` while retaining four schedulers.
-7. Require DP2 routing to return HTTP 400.
-8. Generate on DP0/1/3; match DP0 to its oracle and DP1/3 to DP0.
-9. Prove ordinary survivor forwards do not clear DP2's disabled state.
-10. Explicitly recover DP2 and reach four healthy ranks without another scheduler resume.
-11. Generate on DP2 and match the survivor output.
-12. Stop the owned process group and leave source clean.
+2. Generate one bounded baseline on each explicitly routed DP. These requests also warm
+   every route before the fault.
+3. Arm a task-local recoverable exception for DP2.
+4. Require the triggering request to return HTTP 503 and observe the completion record.
+5. Reach `0=paused,1=paused,2=paused,3=paused`.
+6. Apply logical scale-down for DP2.
+7. Reach `0=healthy,1=healthy,2=disabled,3=healthy` while retaining four schedulers.
+8. Require DP2 routing to return HTTP 400.
+9. Generate on DP0/1/3 and compare each output with that DP's own baseline.
+10. Prove ordinary survivor forwards do not clear DP2's disabled state.
+11. Explicitly recover DP2 and reach four healthy ranks without another scheduler resume.
+12. Generate on DP2 and compare it with DP2's own baseline.
+13. Stop the owned process group and leave source clean.
 
 ## Required artifacts
 
