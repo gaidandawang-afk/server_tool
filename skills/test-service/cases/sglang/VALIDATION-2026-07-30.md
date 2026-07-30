@@ -41,6 +41,18 @@ All six runs also passed package identity, Mooncake wheel hash, scheduler count,
 process-group cleanup and clean-source assertions. All three contracts are Verified on
 `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`.
 
+## Earlier dedicated-profile scale-down run
+
+| Contract | Artifact | Result |
+| --- | --- | --- |
+| `fault-kill-pause-scale-down` | `work/sglang-dp-only-ft-kill-pause-scale-down/artifacts/output/pass-1` | PASS |
+
+This run used the same SGLang and Mooncake source commits with kernel `0.4.2.post1`, TP4/DP4/EP4,
+GPU0–3 and port 6210. It passed the `paused,dead,paused,paused` barrier, paused HTTP 503,
+scale-down HTTP 200, the healthy-survivor state, dead DP1 routing with HTTP 400, and exact
+ten-token oracle checks for DP0/2/3. Its result records exit zero, all precision files
+accurate, clean source and no remaining SGLang process.
+
 ## Explicitly authorized shared-GPU run
 
 | Contract | Run | Result |
