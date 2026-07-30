@@ -195,6 +195,176 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
 }
 
+sg_write_stream_rank_request() {
+  local sg_request_path="$1"
+  local sg_rank="$2"
+  local sg_max_tokens="${3:-64}"
+  python3 - "$sg_request_path" "$sg_rank" "$sg_max_tokens" <<'PY'
+import json
+import sys
+
+path, rank, max_tokens = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(
+        {
+            "text": "Count upward slowly, writing one integer per line.",
+            "sampling_params": {"max_new_tokens": max_tokens, "temperature": 0.0},
+            "stream": True,
+            "routed_dp_rank": rank,
+        },
+        handle,
+        separators=(",", ":"),
+    )
+    handle.write("\n")
+PY
+}
+
+sg_start_stream_request() {
+  local sg_port="$1"
+  local sg_request="$2"
+  local sg_output="$3"
+  local sg_error="$4"
+  local sg_max_time_sec="${5:-60}"
+  : >"$sg_output"
+  : >"$sg_error"
+  timeout "$((sg_max_time_sec + 5))s" curl -N -sS \
+    --connect-timeout 5 --max-time "$sg_max_time_sec" \
+    -H "Content-Type: application/json" --data-binary "@$sg_request" \
+    -w $'\nHTTP_CODE:%{http_code}\n' \
+    "http://127.0.0.1:${sg_port}/generate" \
+    >"$sg_output" 2>"$sg_error" &
+  ST_LAST_STREAM_PID="$!"
+  export ST_LAST_STREAM_PID
+  st_log "STREAM_START pid=$ST_LAST_STREAM_PID request=$sg_request"
+}
+
+sg_wait_stream_decode_rank() {
+  local sg_output="$1"
+  local sg_rank="$2"
+  local sg_timeout_sec="$3"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  while (( SECONDS < sg_end )); do
+    if python3 - "$sg_output" "$sg_rank" <<'PY'
+import re
+import sys
+
+text = open(sys.argv[1], errors="replace").read()
+rank = int(sys.argv[2])
+if f'"dp_rank":{rank}' not in text:
+    raise SystemExit(1)
+if not re.search(r'"completion_tokens":[1-9]', text):
+    raise SystemExit(1)
+PY
+    then
+      st_assert "stream_decode_rank${sg_rank}" true observed observed
+      return
+    fi
+    sleep 1
+  done
+  st_assert "stream_decode_rank${sg_rank}" false observed timeout
+}
+
+sg_capture_interrupted_stream_contract() {
+  local sg_pid="$1"
+  local sg_output="$2"
+  local sg_error="$3"
+  local sg_contract="$4"
+  local sg_timeout_sec="$5"
+  local sg_label="$6"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_forced=false
+  local sg_rc=0
+  while (( SECONDS < sg_end )); do
+    if ! kill -0 "$sg_pid" 2>/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+  if kill -0 "$sg_pid" 2>/dev/null; then
+    st_stop_owned_pid "$sg_pid" "${sg_label}_stream_cleanup"
+    sg_forced=true
+  fi
+  set +e
+  wait "$sg_pid"
+  sg_rc="$?"
+  set -e
+  set +e
+  python3 - "$sg_output" "$sg_error" "$sg_contract" "$sg_rc" "$sg_forced" <<'PY'
+import json
+import re
+import sys
+
+out_path, err_path, contract_path, rc_raw, forced_raw = sys.argv[1:]
+text = open(out_path, errors="replace").read()
+error = open(err_path, errors="replace").read()
+matches = re.findall(r"HTTP_CODE:(\d+)", text)
+http_code = int(matches[-1]) if matches else None
+decoder = json.JSONDecoder()
+index = 0
+complete_final = False
+while index < len(text):
+    start = text.find("{", index)
+    if start < 0:
+        break
+    try:
+        value, index = decoder.raw_decode(text, start)
+    except json.JSONDecodeError:
+        index = start + 1
+        continue
+    if not isinstance(value, dict):
+        continue
+    meta = value.get("meta_info")
+    finish_reason = (
+        meta.get("finish_reason") if isinstance(meta, dict) else value.get("finish_reason")
+    )
+    if finish_reason is not None:
+        complete_final = True
+        break
+lower_error = error.lower()
+if "timed out" in lower_error:
+    error_kind = "timeout"
+elif "connection" in lower_error or "transfer closed" in lower_error:
+    error_kind = "connection_interrupted"
+elif error.strip():
+    error_kind = "curl_error"
+else:
+    error_kind = ""
+rc = int(rc_raw)
+forced = forced_raw == "true"
+contract = {
+    "curl_rc": rc,
+    "http_code": http_code,
+    "stream_process_finished": not forced,
+    "normal_stream_end": rc == 0,
+    "complete_final_response": complete_final,
+    "error_kind": error_kind,
+    "output_bytes": len(text.encode()),
+    "error_bytes": len(error.encode()),
+}
+passed = (
+    not forced
+    and rc != 0
+    and http_code == 200
+    and not complete_final
+    and contract["output_bytes"] > 0
+    and error_kind in {"timeout", "connection_interrupted", "curl_error"}
+)
+contract["pass"] = passed
+with open(contract_path, "w", encoding="utf-8") as handle:
+    json.dump(contract, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+print(json.dumps(contract, sort_keys=True))
+raise SystemExit(0 if passed else 1)
+PY
+  local sg_code="$?"
+  set -e
+  if [[ "$sg_code" -eq 0 ]]; then
+    st_assert "$sg_label" true interrupted interrupted
+  else
+    st_assert "$sg_label" false interrupted invalid_contract
+  fi
+}
+
 sg_wait_ft_status() {
   local sg_port="$1"
   local sg_output="$2"

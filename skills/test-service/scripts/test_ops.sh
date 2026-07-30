@@ -192,6 +192,20 @@ st_kill_owned_process() {
   st_log "PROCESS_KILL label=$st_label pid=$st_pid pgid=$st_pgid signal=$st_signal"
 }
 
+st_stop_owned_pid() {
+  local st_pid="$1"
+  local st_label="$2"
+  [[ "$st_pid" =~ ^[1-9][0-9]*$ ]]
+  if ! kill -0 "$st_pid" 2>/dev/null; then
+    st_assert "$st_label" true gone gone
+    return
+  fi
+  tr '\0' '\n' <"/proc/$st_pid/environ" |
+    grep -Fqx "SERVER_TOOL_RUN_ID=$SERVER_TOOL_RUN_ID"
+  kill -TERM "$st_pid"
+  st_assert "$st_label" true stopped stopped
+}
+
 st_stop_owned_pgid() {
   local st_pgid="$1"
   local st_label="$2"
