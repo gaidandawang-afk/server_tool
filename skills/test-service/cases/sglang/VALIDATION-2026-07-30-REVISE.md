@@ -43,9 +43,44 @@ round required one bounded cold run per previously validated contract.
 | `fault-kill-pause-continuous-scale-down` | `revise-kill-pause-continuous-scale-down-7f553fee-20260730` | PASS |
 | `fault-kill-continue-whole-node-rejoin` | `revise-continue-whole-node-rejoin-r2-7f553fee-20260730` | PASS |
 | `fault-kill-pause-scale-down-then-rejoin` | `revise-pause-scale-down-rejoin-r2-7f553fee-20260730` | FAIL — restored DP3 generation hangs |
+| `fault-rejection-contracts` | `revise-rejection-contracts-7f553fee-20260730` | PASS |
+| `fault-exception-continue-discard-resume` | `revise-exception-continue-discard-7f553fee-20260730` | PASS |
+| `fault-exception-pause-retry-timeout` | `revise-exception-pause-timeout-7f553fee-20260730` | PASS |
 
 Every PASS artifact records exit zero, all case assertions passing, owned process-group
 cleanup and a clean SGLang source worktree.
+
+## Remaining indexed contracts
+
+Server_tool commit `dd5b3cd` promoted the final three indexed scenarios into committed
+`TEST.md + run.sh` contracts. They ran sequentially on idle GPU4–7 with the fixed inputs above.
+Their artifacts are retained under
+`work/sglang-dp-only-ft-revise-4gpu-regression/artifacts/<run-name>/`.
+
+`fault-rejection-contracts` passed 27 assertions. Retry and `scale_down([1])` in the initial
+healthy state both returned HTTP 400 with `success=false,message=no_paused_rank`, and status
+remained four healthy ranks. After killing DP1, the case reached
+`paused,dead,paused,paused`, applied `scale_down([1])` with HTTP 200, and reached
+`healthy,dead,healthy,healthy`. DP0 matched the exact registered ten-token oracle. Retry after
+the committed scale-down and explicit DP1 routing both returned HTTP 400 without changing
+the final status.
+
+`fault-exception-continue-discard-resume` passed 19 assertions. A one-shot recoverable DP0
+forward exception returned HTTP 503 for the affected request and wrote exactly one completion
+record. All four schedulers remained alive, status remained four healthy ranks, and the log
+contained zero pause dispatches. The next DP0 request returned HTTP 200 and matched the exact
+registered ten-token oracle.
+
+`fault-exception-pause-retry-timeout` passed 19 assertions. A one-shot recoverable DP0
+forward exception returned HTTP 503 and reached four paused ranks while retaining all four
+schedulers. The launch used `--fault-tolerance-pause-timeout 30`; no apply command was sent.
+All schedulers were still alive five seconds into the paused state, the log recorded the
+armed fail-stop, and the complete owned process group exited within the bounded 60-second
+wait with `Fault tolerance pause unattended` as the recorded reason.
+
+All three runs passed dependency identity, Mooncake wheel hash, source cleanliness and
+task-owned process cleanup gates. Each contract is `Validated once` on
+`7f553fee0991e90566ac9c173eae89d9b2c52609`.
 
 ## Invalid first precision run and targeted rerun
 

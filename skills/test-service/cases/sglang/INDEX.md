@@ -6,6 +6,8 @@ targets an explicitly selected SGLang branch and must be revalidated when its HE
 
 The latest revise-branch run validated all eleven previously passing contracts once on
 `worktree-dp-only-ft-revise@7f553fee0991e90566ac9c173eae89d9b2c52609`.
+The three remaining indexed contracts were then implemented by server_tool commit `dd5b3cd`
+and each passed one bounded cold run on the same SGLang commit.
 `fault-kill-pause-scale-down` initially produced the known e63 native drift sequence under an
 invalid non-deterministic launch, then passed a targeted deterministic rerun on DP0, DP2 and
 DP3. See the [revise validation record](VALIDATION-2026-07-30-REVISE.md) for every run name,
@@ -24,11 +26,11 @@ the retained invalid observation and the final evidence.
 | Kill during a stream with pause/retry | `fault_kill_pause_inflight_retry.sh` | `fault-kill-pause-inflight-retry` | interrupted stream, pause block, retry | Validated once on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`; see [validation record](VALIDATION-2026-07-30.md) |
 | Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | repeated fault, multi-rank apply, two-survivor precision | Validated once on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`; see [validation record](VALIDATION-2026-07-30.md) |
 | Kill and scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | three pause/apply rounds, single-DP survivor precision | Validated once on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`; see [validation record](VALIDATION-2026-07-30.md) |
-| Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | retry/scale-down/dead-route HTTP 400 contracts | Indexed |
+| Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | retry/scale-down/dead-route HTTP 400 contracts | Validated once on `7f553fee0991e90566ac9c173eae89d9b2c52609`; see [revise validation record](VALIDATION-2026-07-30-REVISE.md) |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | node loss, native report, automatic rejoin | Validated once on `7f553fee0991e90566ac9c173eae89d9b2c52609`; see [revise validation record](VALIDATION-2026-07-30-REVISE.md) |
 | Lose and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | pause, inactive recover, rejoin | **PASS — Validated once** on `74cafe36617c75f18b39d973486575b080360fd7`; a historical intermittent anomaly is tracked separately; see [revise validation record](VALIDATION-2026-07-30-REVISE.md) |
-| Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | discard current request, scheduler retention, precision | Indexed |
-| Pause without recovery until fail-stop | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | watchdog timeout, complete process-group exit | Indexed |
+| Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | discard current request, scheduler retention, precision | Validated once on `7f553fee0991e90566ac9c173eae89d9b2c52609`; see [revise validation record](VALIDATION-2026-07-30-REVISE.md) |
+| Pause without recovery until fail-stop | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | unattended-pause timeout, complete process-group exit | Validated once on `7f553fee0991e90566ac9c173eae89d9b2c52609`; see [revise validation record](VALIDATION-2026-07-30-REVISE.md) |
 
 For the current case-usability round, one bounded cold PASS on the selected source commit is
 enough to mark a case `Validated once`. A separate stability campaign may require two
