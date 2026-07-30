@@ -115,6 +115,7 @@ sg_launch_ft() {
     --context-length 1024 \
     --watchdog-timeout 120 \
     --disable-custom-all-reduce \
+    --enable-deterministic-inference \
     --disable-overlap-schedule \
     --disable-cuda-graph \
     --disable-piecewise-cuda-graph \
