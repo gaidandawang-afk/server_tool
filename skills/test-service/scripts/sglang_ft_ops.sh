@@ -147,6 +147,7 @@ sg_launch_dp4_ft_rejoin_node() {
   local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
   local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
   local -a sg_deterministic_args=()
+  local -a sg_process_env=()
   local -a sg_rejoin_args=()
   local -a sg_warmup_args=()
   case "$sg_strategy" in
@@ -165,6 +166,7 @@ sg_launch_dp4_ft_rejoin_node() {
     1)
       sg_rejoin_args+=(--elastic-ep-rejoin)
       sg_warmup_args+=(--skip-server-warmup)
+      sg_process_env+=(env SGLANG_MOONCAKE_REJOIN_TRACE=1)
       ;;
     *)
       st_assert launch_rejoin false "0|1" "$sg_rejoin"
@@ -189,6 +191,7 @@ sg_launch_dp4_ft_rejoin_node() {
 
   cd "$SERVER_TOOL_PROJECT_ROOT"
   st_launch_process_group "$sg_log_path" \
+    "${sg_process_env[@]}" \
     python3 -u -m sglang.launch_server \
     --model-path "$MODEL_PATH" \
     --host 127.0.0.1 \
