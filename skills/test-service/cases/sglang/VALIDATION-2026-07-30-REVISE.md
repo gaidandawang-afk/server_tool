@@ -33,7 +33,7 @@ round required one bounded cold run per previously validated contract.
 | `fault-kill-noft-native-inflight` | `revise-noft-native-inflight-7f553fee-20260730` | PASS |
 | `fault-kill-continue-status-only` | `revise-kill-continue-7f553fee-20260730` | PASS |
 | `fault-kill-pause-retry` | `revise-kill-pause-retry-7f553fee-20260730` | PASS |
-| `fault-kill-pause-scale-down` | `revise-kill-pause-scale-down-7f553fee-20260730` | FAIL — DP2 exact-token mismatch |
+| `fault-kill-pause-scale-down` | `revise-kill-pause-scale-down-deterministic-7f553fee-20260730` | PASS |
 | `fault-exception-pause-retry` | `revise-exception-pause-retry-7f553fee-20260730` | PASS |
 | `fault-exception-pause-scale-down` | `revise-exception-pause-scale-down-7f553fee-20260730` | PASS |
 | `fault-tpgt1-sibling-ep-retention` | `revise-tpgt1-sibling-ep-retention-7f553fee-20260730` | PASS |
@@ -45,9 +45,11 @@ round required one bounded cold run per previously validated contract.
 Every PASS artifact records exit zero, all case assertions passing, owned process-group
 cleanup and a clean SGLang source worktree.
 
-## Failure phenomenon
+## Invalid first precision run and targeted rerun
 
-`fault-kill-pause-scale-down` completed the intended control-plane sequence:
+The first `fault-kill-pause-scale-down` run,
+`revise-kill-pause-scale-down-7f553fee-20260730`, completed the intended control-plane
+sequence:
 
 - initial state was `healthy,healthy,healthy,healthy` with four schedulers;
 - killing DP1 reached `paused,dead,paused,paused` with three schedulers;
@@ -56,17 +58,23 @@ cleanup and a clean SGLang source worktree.
 - the final state was `healthy,dead,healthy,healthy`, retaining three schedulers;
 - the dead DP1 route returned HTTP 400;
 - DP0 returned HTTP 200 and matched its registered exact-token oracle;
-- DP2 returned HTTP 200, but
-  `precision_qwen-fp8-d4t4e4-count10-no-overlap-rank2-r128` reported `mismatch`;
+- DP2 returned HTTP 200 with
+  `[3197,498,5545,220,16,15,15,11,2936,13]`, matching the known e63 native drift
+  sequence instead of the default oracle;
 - cleanup and clean-source assertions passed.
 
-This is not a control-plane or test-launch failure. The same contract passed on
-`edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`, and the revise commit passed the exception
-scale-down, double kill/scale-down and continuous scale-down contracts in this round.
-The retained artifact does not contain the DP2 response body or actual token list, so the
-root cause is not established. Record this as a revise-branch post-kill DP2 precision
-symptom, not as a confirmed SGLang defect.
+That launch recorded `enable_deterministic_inference=False`. The remote-agent precision
+contract treats deterministic inference as a suite invariant, so the first run is invalid
+for golden precision comparison. Its control-plane evidence remains valid, and its output
+can be reported as e63 native parity, but it is neither an absolute precision PASS nor
+evidence of a revise-branch regression.
 
-A targeted search of the team StackOverflow issue pool for SGLang scale-down, DP2 precision,
-dynamic EPLB and FP8 found no matching issue. Per the one-run usability rule, the failed case
-was not rerun in this round.
+Server_tool commit `ec10c53` restored `--enable-deterministic-inference` to the shared FT
+launcher. Per user direction, only the drifting contract was rerun. The targeted rerun
+recorded `enable_deterministic_inference=True`, repeated the complete control-plane contract,
+and returned the default exact sequence
+`[3197,279,1372,374,74916,553,220,18,11,3270]` on DP0, DP2 and DP3. It exited zero with all
+assertions passing, owned cleanup and a clean source worktree.
+
+The final revise-branch result is therefore eleven of eleven contracts validated once. The
+first invalid run remains retained rather than overwritten.

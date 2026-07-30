@@ -4,12 +4,12 @@ This is the server_tool-owned index for the four-GPU DP-only FT regression set. 
 targets an explicitly selected SGLang branch and must be revalidated when its HEAD changes.
 `Verified` means server_tool has retained valid artifacts for the listed source commit.
 
-The latest revise-branch run validated ten of the eleven previously passing contracts once
-on `worktree-dp-only-ft-revise@7f553fee0991e90566ac9c173eae89d9b2c52609`.
-`fault-kill-pause-scale-down` alone failed after a successful scale-down because DP2 returned
-HTTP 200 with an exact-token mismatch. See the
-[revise validation record](VALIDATION-2026-07-30-REVISE.md) for every run name and the
-bounded failure evidence.
+The latest revise-branch run validated all eleven previously passing contracts once on
+`worktree-dp-only-ft-revise@7f553fee0991e90566ac9c173eae89d9b2c52609`.
+`fault-kill-pause-scale-down` initially produced the known e63 native drift sequence under an
+invalid non-deterministic launch, then passed a targeted deterministic rerun on DP0, DP2 and
+DP3. See the [revise validation record](VALIDATION-2026-07-30-REVISE.md) for every run name,
+the retained invalid observation and the final evidence.
 
 | Scenario | Suite identifier | server_tool contract | Coverage | Status |
 | --- | --- | --- | --- | --- |
