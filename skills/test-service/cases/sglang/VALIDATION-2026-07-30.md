@@ -106,3 +106,60 @@ end. The continue run reached `0=healthy,1=dead,2=healthy,3=healthy` and passed 
 ten-token precision. The pause/retry run reached `0=paused,1=dead,2=paused,3=paused`, rejected
 generation with HTTP 503, applied retry, reached the healthy-survivor state, and passed
 post-retry DP0 ten-token precision. Both runs passed owned process cleanup and clean source.
+
+## Cross-DP in-flight completion after scale-down
+
+| Probe | Run | Result |
+| --- | --- | --- |
+| DP0 stream, kill DP1, pause, then `scale_down([1])` | `inflight-cross-dp-scale-down-probe-edf-20260730` | PASS |
+
+This task-local probe separated the request rank from the killed rank. It observed positive
+DP0 decode progress before killing DP1, reached `paused,dead,paused,paused`, applied scale-down
+with HTTP 200, and reached `healthy,dead,healthy,healthy`. The original DP0 stream then ended
+with curl rc 0, HTTP 200, 64 stream events, 64 completion tokens, 64 output IDs and
+`finish_reason={"type":"length","length":64}`.
+
+This confirms that the earlier missing final response was not caused by insufficient waiting.
+Those cases routed the stream to DP1 and killed DP1 itself; both the current 60-second capture
+and the historical 120-second capture returned only partial output followed by curl rc 28.
+Scale-down can resume and complete an in-flight request whose scheduler survives the fault; it
+does not reconstruct a request owned by the killed scheduler.
+
+## Native and repeated scale-down gates
+
+| Contract | Run | Result |
+| --- | --- | --- |
+| `fault-kill-noft-native-inflight` | `noft-native-inflight-edf-20260730` | PASS |
+| `fault-kill-pause-double-scale-down` | `double-kill-scale-down-edf-20260730` | PASS |
+| `fault-kill-pause-continuous-scale-down` | `continuous-scale-down-edf-20260730` | FAIL — missing single-DP prerequisites |
+| `fault-kill-pause-continuous-scale-down` | `continuous-scale-down-r384-edf-20260730` | FAIL — missing warm baseline barrier |
+| `fault-kill-pause-continuous-scale-down` | `continuous-scale-down-r384-warm-edf-20260730` | PASS |
+
+The noFT run confirmed HTTP 503 from the disabled FT status API, positive DP0 decode before
+the DP1 kill, three retained schedulers, native Mooncake broken-peer detection, and a complete
+64-token DP0 stream with curl rc 0 and HTTP 200. A subsequent DP0 request returned HTTP 200
+and matched the registered ten-token oracle.
+
+The double-kill run reached `paused,dead,paused,paused` after killing DP1 and
+`paused,dead,dead,paused` after killing DP2. One apply request contained `ranks=[1,2]`,
+returned HTTP 200 and produced `healthy,dead,dead,healthy`. Dead DP1/DP2 routes returned HTTP
+400; DP0 and DP3 returned HTTP 200 and exact registered token IDs.
+
+The first continuous attempt used the ordinary 128-redundant-expert launch and reached the
+third committed scale-down, but its immediate final request raced the single-DP EPLB
+rebalance, returned HTTP 503 and re-paused DP0. Historical PASS records require 384 redundant
+experts and `mem_fraction_static=0.45` for the single-DP endpoint. The second attempt used
+those values but killed DP1 immediately after readiness while a startup Mooncake sync was
+still active, so the first pause command did not collect all ACKs. The final contract retains
+the historical 384/0.45 condition and completes a deterministic DP0 warm baseline before the
+first fault.
+
+The final run passed all three causal rounds:
+
+- DP1: `paused,dead,paused,paused` -> `healthy,dead,healthy,healthy`;
+- DP2: `paused,dead,dead,paused` -> `healthy,dead,dead,healthy`;
+- DP3: `paused,dead,dead,dead` -> `healthy,dead,dead,dead`.
+
+Every scale-down returned HTTP 200, scheduler count decreased from four to one, and DP0
+returned HTTP 200 with exact registered token IDs before the first fault and after every
+scale-down. All three successful contracts passed owned cleanup and clean-source assertions.
