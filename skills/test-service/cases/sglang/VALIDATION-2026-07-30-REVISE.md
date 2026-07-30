@@ -41,6 +41,8 @@ round required one bounded cold run per previously validated contract.
 | `fault-kill-pause-inflight-retry` | `revise-kill-pause-inflight-retry-7f553fee-20260730` | PASS |
 | `fault-kill-pause-double-scale-down` | `revise-kill-pause-double-scale-down-7f553fee-20260730` | PASS |
 | `fault-kill-pause-continuous-scale-down` | `revise-kill-pause-continuous-scale-down-7f553fee-20260730` | PASS |
+| `fault-kill-continue-whole-node-rejoin` | `revise-continue-whole-node-rejoin-r2-7f553fee-20260730` | PASS |
+| `fault-kill-pause-scale-down-then-rejoin` | `revise-pause-scale-down-rejoin-r2-7f553fee-20260730` | FAIL — restored DP3 generation hangs |
 
 Every PASS artifact records exit zero, all case assertions passing, owned process-group
 cleanup and a clean SGLang source worktree.
@@ -76,5 +78,63 @@ and returned the default exact sequence
 `[3197,279,1372,374,74916,553,220,18,11,3270]` on DP0, DP2 and DP3. It exited zero with all
 assertions passing, owned cleanup and a clean source worktree.
 
-The final revise-branch result is therefore eleven of eleven contracts validated once. The
-first invalid run remains retained rather than overwritten.
+The original revise-branch regression result is therefore eleven of eleven contracts
+validated once. The first invalid run remains retained rather than overwritten.
+
+## Whole-node rejoin validation
+
+### Continue strategy: PASS
+
+`revise-continue-whole-node-rejoin-r2-7f553fee-20260730` exited zero with 44 passing
+assertions. The run:
+
+- started four independently owned one-GPU nodes and reached four healthy ranks;
+- killed the complete node3 process group;
+- retained three schedulers and HTTP 200 generation on DP0, DP1 and DP2;
+- started a replacement node3 process with `--elastic-ep-rejoin`;
+- observed Mooncake world join and `recover ranks [3] done` on every survivor;
+- returned to `0=healthy,1=healthy,2=healthy,3=healthy`;
+- returned HTTP 200 and the registered exact token sequence on DP0 through DP3;
+- cleaned all four owned process groups and left the source worktree clean.
+
+The preceding run `revise-continue-whole-node-rejoin-7f553fee-20260730` is retained as an
+invalid test-contract failure: its control-plane and request gates passed, but server_tool
+had no DP1 oracle and had made degraded-state precision stricter than the reference
+contract. Commits `c5e87e8` and `7c61550` contain the reusable case and corrected gates.
+
+### Pause, scale-down, inactive recover, then rejoin: data-plane FAIL
+
+The first run, `revise-pause-scale-down-rejoin-7f553fee-20260730`, was an invalid
+test-script failure. Revise logs no longer include the old `active_mask` field in the
+recover-plan line and use `FT command dispatch: command=resume`; commit `61b6046` aligned
+the semantic assertions. All behavior before that assertion had passed.
+
+The corrected run `revise-pause-scale-down-rejoin-r2-7f553fee-20260730` reached the
+restored topology but failed the required data-plane gate:
+
+- whole-node kill reached `0=paused,1=paused,2=paused,3=dead`;
+- generation while paused returned HTTP 503;
+- `scale_down([3])` returned HTTP 200 and restored the three survivors;
+- DP3 routing returned HTTP 400 while inactive, and DP0 returned the registered exact
+  sequence;
+- inactive `recover([3])` returned HTTP 200, left DP3 dead and closed, used
+  `resume_targets=[]`, and did not add a second resume command (`1` before, `1` after);
+- replacement node3 joined every Mooncake group, all three survivors logged
+  `recover ranks [3] done`, status became four healthy, and node3 `/health_generate`
+  returned HTTP 200;
+- the subsequent DP3 `/generate` entered prefill at `06:35:07` but timed out after
+  180 seconds with no HTTP response.
+
+This final failure is not caused by the server_tool oracle or an over-tightened gate. Node0
+reported `Invalid fallback dispatch token counts: [0, -1, -1, -1], limit=128`, dispatched
+pause to all four ranks, and later marked node3 runtime-inactive when the watchdog lease
+expired. Node3 retained one request with seven generated tokens and hit its 120-second
+scheduler watchdog. The artifact contains 43 assertions; the only behavioral failure is
+`recovered_dp3` (the second failed assertion is the derived `case_result`).
+
+The historical reference case passed twice on SGLang `74cafe366` and also routes the
+post-rejoin DP3 request through the base-port HTTP server, matching this server_tool case.
+The team StackOverflow issue search returned no match for
+`Invalid fallback dispatch token counts` plus rejoin. Therefore this is recorded as a
+revise-branch data-plane regression or unresolved implementation failure, not as a usable
+case PASS.
