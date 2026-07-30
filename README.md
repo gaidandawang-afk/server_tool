@@ -46,3 +46,7 @@ python skills\test-service\scripts\run-case.py `
 
 `check` 和 `run` 会在远程启动前检查 profile 选择的 GPU；任何已有 compute
 process 都会使任务快速失败。工具只报告冲突，不识别、终止或复用该进程。
+
+只有用户明确授权与既有任务共享 GPU 时，测试入口才可增加
+`--allow-busy-gpus`。该选项不清理既有进程，并把启动前检测到的 PID 和显存占用
+写入 invocation provenance；默认行为仍是快速失败。

@@ -124,6 +124,35 @@ class ServerToolTests(unittest.TestCase):
         with self.assertRaisesRegex(server_tool.ToolError, "gpu=4 pid=2151955"):
             server_tool.require_idle_profile_gpus(FakeRemote(), FakeProfile())
 
+    def test_gpu_preflight_can_record_explicitly_allowed_compute_process(self):
+        class FakeRemote:
+            def run(self, command):
+                if "--query-gpu=" in command:
+                    return 0, "4, GPU-4, NVIDIA H20, 97871, 56533, 100\n", ""
+                return 0, "GPU-4, 2151955, python, 56510\n", ""
+
+        class FakeProfile:
+            @staticmethod
+            def require(key):
+                self.assertEqual(key, "GPU_IDS")
+                return "4"
+
+        state = server_tool.require_idle_profile_gpus(
+            FakeRemote(), FakeProfile(), allow_occupied=True
+        )
+        self.assertEqual(state[0]["index"], "4")
+        self.assertEqual(
+            state[0]["existing_compute_processes"],
+            [
+                {
+                    "index": "4",
+                    "pid": "2151955",
+                    "process_name": "python",
+                    "used_memory_mib": "56510",
+                }
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

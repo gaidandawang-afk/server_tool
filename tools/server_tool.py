@@ -333,7 +333,9 @@ def verify_task_owner(remote: Remote, profile: Profile, create: bool = False) ->
     )
 
 
-def require_idle_profile_gpus(remote: Remote, profile: Profile) -> list[dict[str, str]]:
+def require_idle_profile_gpus(
+    remote: Remote, profile: Profile, *, allow_occupied: bool = False
+) -> list[dict[str, object]]:
     _, gpu_output, _ = remote.run(
         "nvidia-smi --query-gpu=index,uuid,name,memory.total,memory.used,utilization.gpu "
         "--format=csv,noheader,nounits"
@@ -389,14 +391,20 @@ def require_idle_profile_gpus(remote: Remote, profile: Profile) -> list[dict[str
                     "used_memory_mib": used_memory,
                 }
             )
-    if conflicts:
+    if conflicts and not allow_occupied:
         details = "; ".join(
             f"gpu={item['index']} pid={item['pid']} "
             f"memory={item['used_memory_mib']}MiB process={item['process_name']}"
             for item in conflicts
         )
         raise ToolError(f"selected GPUs are occupied: {details}")
-    return [gpu for gpu in gpus if gpu["index"] in selected]
+    selected_gpus = [gpu for gpu in gpus if gpu["index"] in selected]
+    if allow_occupied:
+        for gpu in selected_gpus:
+            gpu["existing_compute_processes"] = [
+                process for process in conflicts if process["index"] == gpu["index"]
+            ]
+    return selected_gpus
 
 
 def parse_attachment(text: str) -> tuple[Path, str]:
@@ -500,9 +508,12 @@ def cmd_run(args: argparse.Namespace) -> int:
             "attachments": [{"local": str(local), "remote": remote} for local, remote in attachments],
             "source_head": head,
             "input_sha256": input_hashes(paths_for_hash),
+            "allow_busy_gpus": args.allow_busy_gpus,
         }
         with Remote(profile) as remote:
-            invocation["gpu_preflight"] = require_idle_profile_gpus(remote, profile)
+            invocation["gpu_preflight"] = require_idle_profile_gpus(
+                remote, profile, allow_occupied=args.allow_busy_gpus
+            )
             verify_task_owner(remote, profile, create=True)
             project_check = (
                 f"if [ ! -e {shell_quote(profile.project_root)} ]; then echo absent; exit 0; fi; "
@@ -648,6 +659,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--script", required=True)
     run.add_argument("--attach", action="append", default=[])
     run.add_argument("--timeout", type=int, default=900)
+    run.add_argument(
+        "--allow-busy-gpus",
+        action="store_true",
+        help="run on occupied selected GPUs after explicit user authorization",
+    )
     run.set_defaults(func=cmd_run)
 
     for command, func in (("status", cmd_status), ("logs", cmd_logs), ("wait", cmd_wait), ("fetch", cmd_fetch), ("stop", cmd_stop)):

@@ -16,6 +16,11 @@ def main() -> int:
     parser.add_argument("--name", required=True)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument(
+        "--allow-busy-gpus",
+        action="store_true",
+        help="run on occupied selected GPUs after explicit user authorization",
+    )
     args = parser.parse_args()
 
     skill_root = Path(__file__).resolve().parents[1]
@@ -44,6 +49,8 @@ def main() -> int:
             "--timeout",
             str(args.timeout),
         ]
+        if args.allow_busy_gpus:
+            run_command.append("--allow-busy-gpus")
         if subprocess.call(run_command):
             return 1
         wait_command = cli + ["wait", "--name", name, "--timeout", str(args.timeout + 120)]
