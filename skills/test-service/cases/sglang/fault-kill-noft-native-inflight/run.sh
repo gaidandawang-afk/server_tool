@@ -18,6 +18,7 @@ cleanup() {
   local original_code="$?"
   trap - EXIT
   set +e
+  st_preserve_run_dir_files "$run_dir"
   if [[ -n "$stream_pid" ]] && kill -0 "$stream_pid" 2>/dev/null; then
     st_stop_owned_pid "$stream_pid" stream_process_cleanup
   fi

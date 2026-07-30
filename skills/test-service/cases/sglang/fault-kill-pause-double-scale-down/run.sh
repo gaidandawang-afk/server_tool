@@ -13,6 +13,7 @@ cleanup() {
   local original_code="$?"
   trap - EXIT
   set +e
+  st_preserve_run_dir_files "$run_dir"
   if [[ -n "$server_pgid" ]]; then
     st_stop_owned_pgid "$server_pgid" server_process_group_cleanup
   fi

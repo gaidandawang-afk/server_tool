@@ -63,6 +63,8 @@ sg_launch_ft() {
   local sg_fault_ranks="${7:-}"
   local sg_trigger_file="${8:-}"
   local sg_done_file="${9:-}"
+  local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
+  local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
   case "$sg_strategy" in
     pause|continue) ;;
     *)
@@ -101,13 +103,13 @@ sg_launch_ft() {
     --enable-eplb \
     --eplb-algorithm elasticity_aware \
     --ep-dispatch-algorithm dynamic \
-    --ep-num-redundant-experts 128 \
+    --ep-num-redundant-experts "$sg_redundant_experts" \
     --elastic-ep-backend mooncake \
     --deepep-mode low_latency \
     --moe-runner-backend deep_gemm \
     --attention-backend triton \
     --sampling-backend pytorch \
-    --mem-fraction-static 0.75 \
+    --mem-fraction-static "$sg_mem_fraction_static" \
     --max-running-requests 8 \
     --max-total-tokens 4096 \
     --context-length 1024 \
@@ -136,6 +138,8 @@ sg_launch_dp4_ft() {
 sg_launch_dp4_mooncake_noft() {
   local sg_port="$1"
   local sg_log_path="$2"
+  local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
+  local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
   cd "$SERVER_TOOL_PROJECT_ROOT"
   st_launch_process_group "$sg_log_path" \
     python3 -u -m sglang.launch_server \
@@ -154,13 +158,13 @@ sg_launch_dp4_mooncake_noft() {
     --enable-eplb \
     --eplb-algorithm elasticity_aware \
     --ep-dispatch-algorithm dynamic \
-    --ep-num-redundant-experts 128 \
+    --ep-num-redundant-experts "$sg_redundant_experts" \
     --elastic-ep-backend mooncake \
     --deepep-mode low_latency \
     --moe-runner-backend deep_gemm \
     --attention-backend triton \
     --sampling-backend pytorch \
-    --mem-fraction-static 0.75 \
+    --mem-fraction-static "$sg_mem_fraction_static" \
     --max-running-requests 8 \
     --max-total-tokens 4096 \
     --context-length 1024 \

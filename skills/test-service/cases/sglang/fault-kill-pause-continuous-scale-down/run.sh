@@ -10,10 +10,14 @@ readonly log_path="$SERVER_TOOL_OUTPUT_ROOT/server.log"
 readonly request_dp0="$run_dir/request-dp0.json"
 server_pgid=""
 
+export SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS=384
+export SGLANG_FT_MEM_FRACTION_STATIC=0.45
+
 cleanup() {
   local original_code="$?"
   trap - EXIT
   set +e
+  st_preserve_run_dir_files "$run_dir"
   if [[ -n "$server_pgid" ]]; then
     st_stop_owned_pgid "$server_pgid" server_process_group_cleanup
   fi

@@ -2,6 +2,8 @@
 
 Validate three bounded kill/pause/scale-down rounds in one service lifetime. DP1, DP2 and DP3
 are removed sequentially; DP0 must resume and retain deterministic output after every round.
+This single-DP endpoint uses 384 redundant experts and `mem_fraction_static=0.45`, matching
+the historical condition that retains the complete expert set on the final survivor.
 
 ## Ordered gates
 

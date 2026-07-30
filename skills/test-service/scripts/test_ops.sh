@@ -4,6 +4,14 @@ st_log() {
   printf '[%s] %s\n' "$(date --iso-8601=seconds)" "$*"
 }
 
+st_preserve_run_dir_files() {
+  local st_run_dir="$1"
+  if [[ -d "$st_run_dir" ]]; then
+    find "$st_run_dir" -maxdepth 1 -type f \
+      -exec cp -f {} "$SERVER_TOOL_OUTPUT_ROOT/" \;
+  fi
+}
+
 st_assert() {
   local st_label="$1"
   local st_passed="$2"
