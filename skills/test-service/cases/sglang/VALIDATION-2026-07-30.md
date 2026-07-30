@@ -75,3 +75,22 @@ optimization. The user clarified that this is not part of the core case: the con
 A>1, kill the DP1 leader, keep DP0 serving, and keep rank3 alive. That extra log gate was
 removed. The second run passed the clarified contract with exit zero, all assertions passing,
 owned process-group cleanup and clean source.
+
+## In-flight scheduler kill
+
+| Contract | Run | Result |
+| --- | --- | --- |
+| `fault-kill-continue-inflight` | `inflight-continue-edf-20260730` | PASS |
+| `fault-kill-pause-inflight-retry` | `inflight-pause-retry-edf-20260730` | PASS |
+
+Both cold runs started with idle GPU4–7 and passed dependency identity, four healthy
+schedulers, and DP0/DP1 routed baselines. Each started a 64-token stream routed to DP1,
+observed a positive DP1 completion-token count before killing scheduler rank1, and retained
+exactly three schedulers.
+
+Both original streams produced the same structured interrupted contract: HTTP 200, curl
+return code 28, timeout error, non-empty partial output, no final response and no normal stream
+end. The continue run reached `0=healthy,1=dead,2=healthy,3=healthy` and passed post-kill DP0
+ten-token precision. The pause/retry run reached `0=paused,1=dead,2=paused,3=paused`, rejected
+generation with HTTP 503, applied retry, reached the healthy-survivor state, and passed
+post-retry DP0 ten-token precision. Both runs passed owned process cleanup and clean source.
