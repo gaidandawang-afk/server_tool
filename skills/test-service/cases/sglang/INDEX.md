@@ -13,6 +13,11 @@ invalid non-deterministic launch, then passed a targeted deterministic rerun on 
 DP3. See the [revise validation record](VALIDATION-2026-07-30-REVISE.md) for every run name,
 the retained invalid observation and the final evidence.
 
+The same source commit also passed two DeepSeek-V2-Lite+r64 cold continue runs and one
+registered-oracle rejection-contract run. See the
+[DeepSeek-V2-Lite r64 validation record](VALIDATION-2026-07-30-DEEPSEEK-V2-LITE-R64.md)
+for the model-specific profile inputs and applicability limits.
+
 | Scenario | Suite identifier | server_tool contract | Coverage | Status |
 | --- | --- | --- | --- | --- |
 | Native Mooncake isolates a killed idle DP while an unaffected stream completes | `fault_kill_noft_status_apply_generate.sh` plus cross-DP in-flight gate | `fault-kill-noft-native-inflight` | FT disabled, native broken-peer isolation, complete DP0 stream, post-fault precision | Validated once on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`; see [validation record](VALIDATION-2026-07-30.md) |
