@@ -18,7 +18,8 @@
 7. Require another request to return HTTP 503 while paused.
 8. Apply retry with HTTP 200.
 9. Reach `0=healthy,1=healthy,2=healthy,3=healthy` with four schedulers.
-10. Generate on every DP and match the registered ten-token output oracle.
+10. Generate on every DP, match DP0 to the registered ten-token oracle and require DP1/2/3
+    to match DP0.
 11. Stop the owned process group and leave the source checkout clean.
 
 The exception-completion record is a barrier: no paused-state or retry assertion may run
