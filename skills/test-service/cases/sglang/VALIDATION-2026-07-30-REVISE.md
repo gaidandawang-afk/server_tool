@@ -135,6 +135,48 @@ scheduler watchdog. The artifact contains 43 assertions; the only behavioral fai
 The historical reference case passed twice on SGLang `74cafe366` and also routes the
 post-rejoin DP3 request through the base-port HTTP server, matching this server_tool case.
 The team StackOverflow issue search returned no match for
-`Invalid fallback dispatch token counts` plus rejoin. Therefore this is recorded as a
-revise-branch data-plane regression or unresolved implementation failure, not as a usable
-case PASS.
+`Invalid fallback dispatch token counts` plus rejoin. At this stage it was recorded as an
+unresolved data-plane implementation failure, not as a usable case PASS. The exact-commit
+control below shows that it is not unique to the revise commit under the current launch
+conditions.
+
+## Exact-commit control at `74cafe366`
+
+To test whether switching only the SGLang source commit restores the current contract,
+server_tool created an independent task for
+`codex/debug/sglang-dp-only-ft-4gpu-regression-74cafe-control@74cafe36617c75f18b39d973486575b080360fd7`.
+It retained the current comparison environment:
+
+- container `sglang-ssh-v0.5.16`;
+- `sglang-kernel==0.4.2.post1`;
+- Mooncake `0.3.11.post1` from source `d7fcbff4`;
+- static EP dispatch, deterministic inference and a ten-token routed request.
+
+The first run, `baseline-74cafe-pause-scale-down-rejoin-20260730`, is retained as an
+invalid test-script failure. The older SGLang log schema includes `active_mask` and an FT
+command ID. Server_tool commit `5503470` made the semantic assertions accept both schemas
+while still requiring an empty inactive-recover resume target and an unchanged real resume
+count.
+
+The corrected run,
+`baseline-74cafe-pause-scale-down-rejoin-r2-20260730`, produced the same behavioral failure
+as the revise commit:
+
+- every control-plane gate passed, including inactive recover with resume count `1 -> 1`;
+- replacement node3 joined and all survivors completed `recover ranks [3] done`;
+- status reached four healthy and node3 health returned HTTP 200;
+- the routed DP3 request entered prefill, but returned no HTTP response within 180 seconds;
+- node0 logged `Invalid fallback dispatch token counts: [0, -1, -1, -1], limit=128`;
+- node3 hit the 120-second scheduler watchdog.
+
+The artifact contains 43 assertions; `recovered_dp3` is the only direct behavioral failure,
+with `case_result` failing as its aggregate consequence. Therefore changing only SGLang from
+`7f553fee` to `74cafe366` does not restore the current contract.
+
+This does not invalidate the two historical PASS artifacts at `74cafe366`. Their recorded
+launch uses dynamic EP dispatch, non-deterministic inference, a different prompt and four
+generated tokens. The current server_tool contract uses static EP dispatch, deterministic
+inference and ten generated tokens. The historical records do not identify the
+`sglang-kernel` package version or container image, so they are not an exact environment
+control. A historical-condition reproduction must vary those inputs explicitly and must not
+be reported as a source-commit-only comparison.
