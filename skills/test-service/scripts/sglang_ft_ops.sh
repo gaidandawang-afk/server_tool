@@ -133,6 +133,45 @@ sg_launch_dp4_ft() {
     "$sg_fault_ranks" "$sg_trigger_file" "$sg_done_file"
 }
 
+sg_launch_dp4_mooncake_noft() {
+  local sg_port="$1"
+  local sg_log_path="$2"
+  cd "$SERVER_TOOL_PROJECT_ROOT"
+  st_launch_process_group "$sg_log_path" \
+    python3 -u -m sglang.launch_server \
+    --model-path "$MODEL_PATH" \
+    --host 0.0.0.0 \
+    --port "$sg_port" \
+    --dtype auto \
+    --load-format auto \
+    --tp-size 4 \
+    --dp-size 4 \
+    --enable-dp-attention \
+    --enable-dp-lm-head \
+    --ep-size 4 \
+    --moe-dense-tp-size 1 \
+    --moe-a2a-backend mooncake \
+    --enable-eplb \
+    --eplb-algorithm elasticity_aware \
+    --ep-dispatch-algorithm dynamic \
+    --ep-num-redundant-experts 128 \
+    --elastic-ep-backend mooncake \
+    --deepep-mode low_latency \
+    --moe-runner-backend deep_gemm \
+    --attention-backend triton \
+    --sampling-backend pytorch \
+    --mem-fraction-static 0.75 \
+    --max-running-requests 8 \
+    --max-total-tokens 4096 \
+    --context-length 1024 \
+    --watchdog-timeout 120 \
+    --disable-custom-all-reduce \
+    --disable-overlap-schedule \
+    --disable-cuda-graph \
+    --disable-piecewise-cuda-graph \
+    --skip-server-warmup
+}
+
 sg_find_scheduler_pid_by_global_rank() {
   local sg_pgid="$1"
   local sg_rank="$2"
@@ -365,6 +404,109 @@ PY
   fi
 }
 
+sg_capture_completed_stream_contract() {
+  local sg_pid="$1"
+  local sg_output="$2"
+  local sg_error="$3"
+  local sg_contract="$4"
+  local sg_final_response="$5"
+  local sg_timeout_sec="$6"
+  local sg_expected_tokens="$7"
+  local sg_label="$8"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_forced=false
+  local sg_rc=0
+  while (( SECONDS < sg_end )); do
+    if ! kill -0 "$sg_pid" 2>/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+  if kill -0 "$sg_pid" 2>/dev/null; then
+    st_stop_owned_pid "$sg_pid" "${sg_label}_stream_timeout_cleanup"
+    sg_forced=true
+  fi
+  set +e
+  wait "$sg_pid"
+  sg_rc="$?"
+  set -e
+  set +e
+  python3 - "$sg_output" "$sg_error" "$sg_contract" "$sg_final_response" \
+    "$sg_rc" "$sg_forced" "$sg_expected_tokens" <<'PY'
+import json
+import re
+import sys
+
+(
+    out_path,
+    err_path,
+    contract_path,
+    final_path,
+    rc_raw,
+    forced_raw,
+    expected_raw,
+) = sys.argv[1:]
+text = open(out_path, errors="replace").read()
+error = open(err_path, errors="replace").read()
+matches = re.findall(r"HTTP_CODE:(\d+)", text)
+decoder = json.JSONDecoder()
+index = 0
+events = 0
+final = None
+while index < len(text):
+    start = text.find("{", index)
+    if start < 0:
+        break
+    try:
+        value, index = decoder.raw_decode(text, start)
+    except json.JSONDecodeError:
+        index = start + 1
+        continue
+    if not isinstance(value, dict):
+        continue
+    events += 1
+    meta = value.get("meta_info")
+    if isinstance(meta, dict) and meta.get("finish_reason") is not None:
+        final = value
+expected_tokens = int(expected_raw)
+contract = {
+    "curl_rc": int(rc_raw),
+    "http_code": int(matches[-1]) if matches else None,
+    "stream_process_finished": forced_raw != "true",
+    "event_count": events,
+    "complete_final_response": final is not None,
+    "finish_reason": final.get("meta_info", {}).get("finish_reason") if final else None,
+    "completion_tokens": final.get("meta_info", {}).get("completion_tokens") if final else None,
+    "output_id_count": len(final.get("output_ids", [])) if final else 0,
+    "error": error,
+}
+contract["pass"] = (
+    contract["stream_process_finished"]
+    and contract["curl_rc"] == 0
+    and contract["http_code"] == 200
+    and contract["complete_final_response"]
+    and contract["completion_tokens"] == expected_tokens
+    and contract["output_id_count"] == expected_tokens
+)
+with open(contract_path, "w", encoding="utf-8") as handle:
+    json.dump(contract, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+if final is not None:
+    with open(final_path, "w", encoding="utf-8") as handle:
+        json.dump(final, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+print(json.dumps(contract, sort_keys=True))
+raise SystemExit(0 if contract["pass"] else 1)
+PY
+  local sg_code="$?"
+  set -e
+  if [[ "$sg_code" -eq 0 ]]; then
+    st_assert "$sg_label" true complete complete
+  else
+    st_assert "$sg_label" false complete incomplete
+  fi
+}
+
 sg_wait_ft_status() {
   local sg_port="$1"
   local sg_output="$2"
@@ -398,7 +540,15 @@ sg_apply_scale_down() {
   local sg_rank="$2"
   local sg_request="$3"
   local sg_response="$4"
-  python3 - "$sg_request" "$sg_rank" <<'PY'
+  sg_apply_scale_down_ranks "$sg_port" "$sg_rank" "$sg_request" "$sg_response"
+}
+
+sg_apply_scale_down_ranks() {
+  local sg_port="$1"
+  local sg_ranks="$2"
+  local sg_request="$3"
+  local sg_response="$4"
+  python3 - "$sg_request" "$sg_ranks" <<'PY'
 import json
 import sys
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
@@ -406,7 +556,9 @@ with open(sys.argv[1], "w", encoding="utf-8") as handle:
         {
             "fault_tolerance_instruction": "scale_down",
             "fault_tolerance_timeout": 180,
-            "fault_tolerance_params": {"ranks": [int(sys.argv[2])]},
+            "fault_tolerance_params": {
+                "ranks": [int(value) for value in sys.argv[2].split(",")]
+            },
         },
         handle,
         separators=(",", ":"),
