@@ -106,6 +106,8 @@ test -z "$(git -C "$SERVER_TOOL_PROJECT_ROOT" status --porcelain)"
   printf 'ft_ep_num_redundant_experts=%s\n' \
     "${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   printf 'ft_mem_fraction_static=%s\n' "${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
+  printf 'ft_moe_runner_backend=%s\n' "${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"
+  printf 'deepep_bf16_dispatch=%s\n' "${SGLANG_DEEPEP_BF16_DISPATCH:-0}"
   printf 'ft_precision_oracle_family=%s\n' \
     "${SGLANG_FT_PRECISION_ORACLE_FAMILY:-qwen-fp8-d4t4e4-count10-no-overlap}"
   printf 'ft_reliable_oracle_id=%s\n' \

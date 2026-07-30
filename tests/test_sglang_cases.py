@@ -94,6 +94,22 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn('SGLANG_FT_RANDOM_SEED', unit)
         self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
 
+    def test_launchers_support_profile_selected_moe_backend_and_bf16_dispatch(self):
+        unit = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(
+            unit.count(
+                'local sg_moe_runner_backend="${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"'
+            ),
+            3,
+        )
+        self.assertEqual(
+            unit.count('--moe-runner-backend "$sg_moe_runner_backend"'),
+            3,
+        )
+        self.assertIn('case "${SGLANG_DEEPEP_BF16_DISPATCH:-0}" in', unit)
+
     def test_precision_oracle_id_uses_profile_family_and_redundancy(self):
         unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         command = f"""

@@ -38,6 +38,16 @@ sg_prepare_ft_runtime() {
   else
     st_assert redundant_experts false "non-negative integer" "$sg_redundant_experts"
   fi
+  case "${SGLANG_DEEPEP_BF16_DISPATCH:-0}" in
+    0|1)
+      st_assert deepep_bf16_dispatch true "0|1" \
+        "${SGLANG_DEEPEP_BF16_DISPATCH:-0}"
+      ;;
+    *)
+      st_assert deepep_bf16_dispatch false "0|1" \
+        "${SGLANG_DEEPEP_BF16_DISPATCH}"
+      ;;
+  esac
 
   local sg_mooncake_wheel_sha256
   sg_mooncake_wheel_sha256="$(sha256sum "$MOONCAKE_WHEEL" | awk '{print $1}')"
@@ -72,6 +82,7 @@ sg_launch_ft() {
   local sg_done_file="${9:-}"
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
+  local sg_moe_runner_backend="${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"
   local sg_pause_timeout="${SGLANG_FT_PAUSE_TIMEOUT_SEC:-300}"
   case "$sg_strategy" in
     pause|continue) ;;
@@ -118,7 +129,7 @@ sg_launch_ft() {
     --ep-num-redundant-experts "$sg_redundant_experts" \
     --elastic-ep-backend mooncake \
     --deepep-mode low_latency \
-    --moe-runner-backend deep_gemm \
+    --moe-runner-backend "$sg_moe_runner_backend" \
     --attention-backend triton \
     --sampling-backend pytorch \
     --mem-fraction-static "$sg_mem_fraction_static" \
@@ -158,6 +169,7 @@ sg_launch_dp4_ft_rejoin_node() {
   local sg_rejoin="${6:-0}"
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
+  local sg_moe_runner_backend="${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"
   local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
   local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
   local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
@@ -234,7 +246,7 @@ sg_launch_dp4_ft_rejoin_node() {
     --ep-num-redundant-experts "$sg_redundant_experts" \
     --elastic-ep-backend mooncake \
     --deepep-mode low_latency \
-    --moe-runner-backend deep_gemm \
+    --moe-runner-backend "$sg_moe_runner_backend" \
     --attention-backend triton \
     --sampling-backend pytorch \
     --mem-fraction-static "$sg_mem_fraction_static" \
@@ -264,6 +276,7 @@ sg_launch_dp4_mooncake_noft() {
   local sg_log_path="$2"
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
+  local sg_moe_runner_backend="${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"
   cd "$SERVER_TOOL_PROJECT_ROOT"
   st_launch_process_group "$sg_log_path" \
     python3 -u -m sglang.launch_server \
@@ -285,7 +298,7 @@ sg_launch_dp4_mooncake_noft() {
     --ep-num-redundant-experts "$sg_redundant_experts" \
     --elastic-ep-backend mooncake \
     --deepep-mode low_latency \
-    --moe-runner-backend deep_gemm \
+    --moe-runner-backend "$sg_moe_runner_backend" \
     --attention-backend triton \
     --sampling-backend pytorch \
     --mem-fraction-static "$sg_mem_fraction_static" \

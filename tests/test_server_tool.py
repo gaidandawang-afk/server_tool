@@ -18,6 +18,8 @@ class ServerToolTests(unittest.TestCase):
         for key in (
             "SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS",
             "SGLANG_FT_MEM_FRACTION_STATIC",
+            "SGLANG_FT_MOE_RUNNER_BACKEND",
+            "SGLANG_DEEPEP_BF16_DISPATCH",
             "SGLANG_FT_PRECISION_ORACLE_FAMILY",
             "SGLANG_FT_RELIABLE_ORACLE_ID",
         ):
