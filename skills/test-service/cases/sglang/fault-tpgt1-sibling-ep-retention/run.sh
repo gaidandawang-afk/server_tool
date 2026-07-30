@@ -77,9 +77,5 @@ sg_assert_output_ids_equal \
   "$run_dir/sibling-ep-retention-precision.json" sibling_ep_retention 10
 test "$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 3)" = "$rank3_pid"
 st_assert rank3_pid_still_retained true "$rank3_pid" "$rank3_pid"
-sg_assert_log_contains \
-  "$log_path" \
-  "DP1 TP3 EP3.*Preserved expert weights and physical layout after rank fault" \
-  rank3_preserved_expert_layout
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"

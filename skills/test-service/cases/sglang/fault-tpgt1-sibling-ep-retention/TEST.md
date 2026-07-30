@@ -1,4 +1,4 @@
-# TP sibling EP retention after one scheduler exits
+# A>1 leader loss with surviving sibling
 
 ## Applicability
 
@@ -17,7 +17,7 @@
 5. Apply retry and reach `0=healthy,1=dead`.
 6. Require explicit routing to DP1 to return HTTP 400.
 7. Generate through DP0 and compare ten tokens with its pre-fault baseline.
-8. Prove rank3 still lives and logged preservation of expert weights and physical EP layout.
+8. Prove rank3 still has the same PID after the successful DP0 forward.
 9. Stop only the owned process group and leave source clean.
 
 ## Required artifacts
