@@ -23,6 +23,8 @@ compute processes before launch.
 | `fault-kill-continue-status-only` | `exact-continue-edf-r2-20260730` | PASS |
 | `fault-kill-pause-retry` | `exact-pause-retry-edf-r1-20260730` | PASS |
 | `fault-kill-pause-retry` | `exact-pause-retry-edf-r2-20260730` | PASS |
+| `fault-exception-pause-retry` | `exception-pause-retry-edf-r2-20260730` | PASS |
+| `fault-exception-pause-retry` | `exception-pause-retry-edf-r3-20260730` | PASS |
 
 The continue runs passed four pre-fault baselines, cross-rank first-ten-token equality,
 dead-DP routing, all three survivor generations and same-run precision comparisons.
@@ -31,6 +33,10 @@ The pause/retry runs passed four pre-fault baselines, the
 `paused,dead,paused,paused` barrier, paused HTTP 503, retry HTTP 200, dead-DP routing, all
 three survivor generations and same-run precision comparisons.
 
-All four runs also passed package identity, Mooncake wheel hash, scheduler count, owned
-process-group cleanup and clean-source assertions. Both contracts are Verified on
+The exception pause/retry runs passed task-local recoverable exception injection, triggering
+HTTP 503, the four-rank paused barrier, retry HTTP 200, retention of all four schedulers, and
+four successful post-retry generations with ten-token precision comparisons.
+
+All six runs also passed package identity, Mooncake wheel hash, scheduler count, owned
+process-group cleanup and clean-source assertions. All three contracts are Verified on
 `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`.
