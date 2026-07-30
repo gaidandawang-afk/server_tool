@@ -12,8 +12,8 @@
 - GPU indexes: `4,5,6,7`
 - Port base: `6220`
 
-Every invocation recorded an idle-GPU preflight. Each selected H20 had 15 MiB used and zero
-compute processes before launch.
+The first six invocations recorded an idle-GPU preflight. Each selected H20 had 15 MiB used
+and zero compute processes before launch.
 
 ## Consecutive cold runs
 
@@ -40,3 +40,20 @@ four successful post-retry generations with ten-token precision comparisons.
 All six runs also passed package identity, Mooncake wheel hash, scheduler count, owned
 process-group cleanup and clean-source assertions. All three contracts are Verified on
 `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`.
+
+## Explicitly authorized shared-GPU run
+
+| Contract | Run | Result |
+| --- | --- | --- |
+| `fault-exception-pause-scale-down` | `exception-disable-recover-busy-edf-r2-20260730` | PASS |
+
+The run used the same fixed source, container and dependency identities, with
+`--allow-busy-gpus` explicitly authorized. Its invocation records one existing Megatron
+process and about 56.5 GiB already used on each selected GPU at 100% utilization. SGLang
+loaded 15.66 GiB of model weights per GPU and retained about 22.99 GiB after KV allocation.
+
+The run passed four routed baselines, recoverable exception HTTP 503, the four-rank paused
+barrier, DP2 logical disable and HTTP 400 route closure, four retained schedulers, DP0/1/3
+survivor precision, persistent disabled state, explicit recover without another resume
+(`4 -> 4`), recovered DP2 precision, owned process-group cleanup and clean source. This
+contract is Validated once on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`.
