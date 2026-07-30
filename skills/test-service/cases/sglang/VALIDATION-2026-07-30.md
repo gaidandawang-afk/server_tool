@@ -58,20 +58,20 @@ survivor precision, persistent disabled state, explicit recover without another 
 (`4 -> 4`), recovered DP2 precision, owned process-group cleanup and clean source. This
 contract is Validated once on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`.
 
-## Source-semantic failure requiring a decision
+## A>1 DP leader-loss continuity
 
 | Contract | Run | Result |
 | --- | --- | --- |
-| `fault-tpgt1-sibling-ep-retention` | `tpgt1-sibling-retention-busy-edf-20260730` | FAIL |
+| `fault-tpgt1-sibling-ep-retention` | `tpgt1-sibling-retention-busy-edf-20260730` | FAIL — superseded extra optimization gate |
+| `fault-tpgt1-sibling-ep-retention` | `tpgt1-leader-loss-busy-edf-r2-20260730` | PASS |
 
-The run passed TP4/DP2/EP4 initialization, both routed baselines and their ten-token equality,
-the targeted global-rank2 kill, `0=paused,1=dead`, retention of three schedulers and the
-original global-rank3 PID, retry, dead DP1 routing, degraded DP0 generation and ten-token
-precision. It failed only the required live-replica/physical-layout preservation signal.
+Both runs passed TP4/DP2/EP4 initialization, both routed baselines and their ten-token
+equality, the targeted DP1 leader/global-rank2 kill, `0=paused,1=dead`, retention of three
+schedulers and the original global-rank3 PID, retry, dead DP1 routing, degraded DP0 generation
+and ten-token precision.
 
-This is a source-semantic failure rather than a stale log spelling. The historical green
-source `74cafe36617c75f18b39d973486575b080360fd7` contained live-replica preservation. It is
-an ancestor of the current source, but `f5e32a5e39ba6649747ad22fdd28a71781fb324c` explicitly
-reverted that feature before `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`. The current run
-therefore logged ordinary rank-fault EPLB and a full weight reload on the surviving sibling,
-not preservation of its existing expert weights and physical layout.
+The first script also required the historical live-replica/physical-layout preservation
+optimization. The user clarified that this is not part of the core case: the contract is
+A>1, kill the DP1 leader, keep DP0 serving, and keep rank3 alive. That extra log gate was
+removed. The second run passed the clarified contract with exit zero, all assertions passing,
+owned process-group cleanup and clean source.
