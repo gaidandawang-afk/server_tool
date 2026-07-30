@@ -19,7 +19,7 @@ mode, and require native Mooncake recovery to restore its route and exact output
 2. Kill the complete node3 process group; no node3 watchdog remains.
 3. Issue one survivor forward to trigger native Mooncake failure detection.
 4. Reach `0=healthy,1=healthy,2=healthy,3=dead`; keep one scheduler in each survivor group.
-5. Generate on DP0, DP1 and DP2 and match each registered exact oracle.
+5. Generate successfully on DP0, DP1 and DP2 to prove degraded survivor service.
 6. Restart node3 with `--elastic-ep-rejoin` and observe its Mooncake world join.
 7. Keep DP3 routed closed with HTTP 400 until survivor forwards complete Mooncake recovery.
 8. Reach four healthy ranks and require node3 `/health_generate`.

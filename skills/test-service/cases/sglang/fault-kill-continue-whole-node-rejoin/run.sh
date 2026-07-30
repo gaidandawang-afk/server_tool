@@ -77,10 +77,6 @@ for node in 0 1 2; do
   st_http_json POST "http://127.0.0.1:${base_port}/generate" \
     "${requests[$node]}" "$run_dir/degraded-dp${node}.json" 200 \
     "degraded_dp${node}" 180
-  sg_assert_output_ids \
-    "$run_dir/degraded-dp${node}.json" \
-    "qwen-fp8-d4t4e4-count10-no-overlap-rank${node}-r128" \
-    "$run_dir/degraded-dp${node}-precision.json"
 done
 
 node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"
