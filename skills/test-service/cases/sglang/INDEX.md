@@ -21,5 +21,6 @@ targets an explicitly selected SGLang branch and must be revalidated when its HE
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | discard current request, scheduler retention, precision | Indexed |
 | Pause without recovery until fail-stop | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | watchdog timeout, complete process-group exit | Indexed |
 
-Precision-sensitive cases require two consecutive bounded cold runs on the same source commit.
-Each run must have an independent run name and artifact directory.
+For the current case-usability round, one bounded cold PASS on the selected source commit is
+enough to mark a case `Validated once`. A separate stability campaign may require two
+consecutive runs; those runs must use independent names and artifact directories.
