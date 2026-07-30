@@ -33,7 +33,8 @@ python skills\test-service\scripts\run-case.py `
    deterministic token sequence.
 7. Apply inactive `recover([3])`; status remains degraded, DP3 remains closed, and no
    additional resume command is issued.
-8. Confirm the runtime applies recover with rank 3 still inactive.
+8. Confirm the runtime applies recover with an empty resume target set and rank 3 still
+   inactive.
 9. Restart only node 3 and observe world join plus recovery completion on all survivors.
 10. Reach four healthy ranks; DP3 and DP0 return HTTP 200 with their registered token
     sequences.
