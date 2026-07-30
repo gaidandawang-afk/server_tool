@@ -180,3 +180,41 @@ inference and ten generated tokens. The historical records do not identify the
 `sglang-kernel` package version or container image, so they are not an exact environment
 control. A historical-condition reproduction must vary those inputs explicitly and must not
 be reported as a source-commit-only comparison.
+
+## Intermittent-failure reclassification
+
+Later bounded reruns showed that the static, deterministic, ten-token contract is usable on
+the exact `74cafe36617c75f18b39d973486575b080360fd7` source and current environment:
+
+- `reproduce-74cafe-static-det-max10-r1-20260730`: PASS;
+- `reproduce-74cafe-static-det-max10-r2-20260730`: PASS;
+- `replay-74cafe-failure-seed-468112651-20260730`: PASS with the original failing
+  rank-0 random seed.
+
+These runs used container image `server-tool/sglang-ssh:v0.5.16` with digest
+`sha256:fa9ce16426be4badce704ed7db71746d4a4a398ede150bf90d9e3935771c3750`,
+`sglang-kernel==0.4.2.post1`, and Mooncake `0.3.11.post1` from `d7fcbff4`. The case is
+therefore marked `Validated once` for this usability round. The earlier
+`baseline-74cafe-pause-scale-down-rejoin-r2-20260730` artifact remains a valid intermittent
+failure observation rather than a stable FAIL classification.
+
+The failure is below the HTTP/control-plane layer: the failed run gathered fallback token
+counts `[0, -1, -1, -1]`, where `-1` matches top-k padding from the preceding collective,
+and the replacement later hit its scheduler watchdog. Fixed-seed replay and repeated
+token-length controls did not reproduce it.
+
+Mooncake isolation tests on diagnostic source `d38160187d384e8bc0a761715dc53ab4e9ad9e8c`
+and wheel SHA-256
+`11be2c62a394c74409f3f1015cab46254fc52761120b093b0bc1ec012d22fd9c` found:
+
+- the committed CUDA PG recovery test passed;
+- 25,000 post-recovery fallback-dispatch iterations, approximately 75,000 collectives,
+  passed with identical final task counts on all ranks;
+- a two-second stagger between rank-0 recovery publication and ranks 1/2 activation also
+  passed.
+
+SGLang main PR `#30164` (`77d23a796e94c37f8657bc261856db725fa35891`) adds an
+expanded-WORLD readiness barrier before the first forward after runtime scale-up. This is a
+relevant synchronization precedent because scale-up reuses the recovery machinery, but the
+staggered PG test did not confirm a missing recovery barrier as the cause. Root cause remains
+unresolved.
