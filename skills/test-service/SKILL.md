@@ -41,6 +41,8 @@ the task needs nonstandard committed attachments.
 
 Committed SGLang cases take the model from `MODEL_PATH`. A profile may also select:
 
+- `SGLANG_KERNEL_REQUIRED_SYMBOL` (default `fp8_blockwise_scaled_mm`; main-based
+  SGLang with `sglang-kernel==0.4.5` uses `fp8_scaled_mm`);
 - `SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS` (default `128`);
 - `SGLANG_FT_MEM_FRACTION_STATIC` (default `0.75`);
 - `SGLANG_FT_MOE_RUNNER_BACKEND` (default `deep_gemm`);

@@ -97,6 +97,8 @@ test -z "$(git -C "$SERVER_TOOL_PROJECT_ROOT" status --porcelain)"
   printf 'project_root=%s\n' "$SERVER_TOOL_PROJECT_ROOT"
   printf 'sglang_kernel_root=%s\n' "$SGLANG_KERNEL_ROOT"
   printf 'sglang_kernel_version=%s\n' "$SGLANG_KERNEL_VERSION"
+  printf 'sglang_kernel_required_symbol=%s\n' \
+    "${SGLANG_KERNEL_REQUIRED_SYMBOL:-fp8_blockwise_scaled_mm}"
   printf 'mooncake_root=%s\n' "${MOONCAKE_ROOT:-}"
   printf 'mooncake_version=%s\n' "${MOONCAKE_VERSION:-}"
   printf 'mooncake_wheel=%s\n' "${MOONCAKE_WHEEL:-}"

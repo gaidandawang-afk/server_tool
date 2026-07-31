@@ -50,6 +50,7 @@ sg_prepare_ft_runtime() {
   esac
 
   local sg_mooncake_wheel_sha256
+  local sg_kernel_required_symbol="${SGLANG_KERNEL_REQUIRED_SYMBOL:-fp8_blockwise_scaled_mm}"
   sg_mooncake_wheel_sha256="$(sha256sum "$MOONCAKE_WHEEL" | awk '{print $1}')"
   if [[ "$sg_mooncake_wheel_sha256" == "$MOONCAKE_WHEEL_SHA256" ]]; then
     st_assert mooncake_wheel_sha256 true "$MOONCAKE_WHEEL_SHA256" \
@@ -61,7 +62,7 @@ sg_prepare_ft_runtime() {
 
   st_record_python_package \
     sglang-kernel sgl_kernel "$SGLANG_KERNEL_VERSION" "$SGLANG_KERNEL_ROOT" \
-    fp8_blockwise_scaled_mm
+    "$sg_kernel_required_symbol"
   st_record_python_package \
     mooncake-transfer-engine-cuda13 mooncake "$MOONCAKE_VERSION" "$MOONCAKE_ROOT"
 }

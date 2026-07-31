@@ -115,6 +115,16 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         )
         self.assertIn('case "${SGLANG_DEEPEP_BF16_DISPATCH:-0}" in', unit)
 
+    def test_kernel_required_symbol_is_profile_selected_with_legacy_default(self):
+        unit = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'SGLANG_KERNEL_REQUIRED_SYMBOL:-fp8_blockwise_scaled_mm',
+            unit,
+        )
+        self.assertIn('"$sg_kernel_required_symbol"', unit)
+
     def test_precision_oracle_id_uses_profile_family_and_redundancy(self):
         unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         command = f"""

@@ -16,6 +16,7 @@ SPEC.loader.exec_module(server_tool)
 class ServerToolTests(unittest.TestCase):
     def test_runtime_profile_exposes_model_specific_ft_settings(self):
         for key in (
+            "SGLANG_KERNEL_REQUIRED_SYMBOL",
             "SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS",
             "SGLANG_FT_MEM_FRACTION_STATIC",
             "SGLANG_FT_MOE_RUNNER_BACKEND",
