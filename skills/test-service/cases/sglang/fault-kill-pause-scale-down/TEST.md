@@ -25,14 +25,16 @@ python skills\test-service\scripts\run-case.py `
 
 1. Import the exact selected `sglang-kernel` version from `SGLANG_KERNEL_ROOT`.
 2. Start with `0=healthy,1=healthy,2=healthy,3=healthy` and four schedulers.
-3. Kill global scheduler rank 1.
-4. Reach `0=paused,1=dead,2=paused,3=paused` with three schedulers.
-5. Reject generation while paused with HTTP 503.
-6. Apply logical `scale_down` to rank 1 with HTTP 200.
-7. Reach `0=healthy,1=dead,2=healthy,3=healthy` without killing another scheduler.
-8. Reject explicit DP1 routing with HTTP 400.
-9. Return HTTP 200 and exact registered token IDs on DP0, DP2 and DP3.
-10. Stop the owned server process group and leave the source checkout clean.
+3. Complete one ten-token baseline generation on each DP before fault injection.
+4. Kill global scheduler rank 1.
+5. Reach `0=paused,1=dead,2=paused,3=paused` with three schedulers.
+6. Reject generation while paused with HTTP 503.
+7. Apply logical `scale_down` to rank 1 with HTTP 200.
+8. Reach `0=healthy,1=dead,2=healthy,3=healthy` without killing another scheduler.
+9. Reject explicit DP1 routing with HTTP 400.
+10. Return HTTP 200 on DP0, DP2 and DP3; require each survivor to match both its own
+    pre-fault baseline and its registered exact oracle.
+11. Stop the owned server process group and leave the source checkout clean.
 
 Every gate must append a structured assertion. Exit zero without assertions is not a pass.
 
@@ -42,5 +44,5 @@ Every gate must append a structured assertion. Exit zero without assertions is n
 - actual Python package version and import path
 - request and response JSON for every HTTP operation
 - FT status JSON, server log, owned PGIDs
-- per-rank precision JSON
+- four pre-fault baseline responses and both baseline-parity and oracle precision JSON
 - `assertions.jsonl` and `result.json`

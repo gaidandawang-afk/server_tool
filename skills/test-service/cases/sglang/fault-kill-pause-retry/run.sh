@@ -73,8 +73,11 @@ for rank in 0 2 3; do
     "${requests[$rank]}" "$response" 200 "generate_dp${rank}" 180
   sg_assert_output_ids_equal \
     "${baselines[$rank]}" "$response" \
-    "$run_dir/after-retry-dp${rank}-precision.json" \
-    "after_retry_dp${rank}" 10
+    "$run_dir/after-retry-dp${rank}-baseline-precision.json" \
+    "after_retry_dp${rank}_matches_baseline" 10
+  sg_assert_output_ids \
+    "$response" "$(sg_precision_oracle_id "$rank")" \
+    "$run_dir/after-retry-dp${rank}-oracle-precision.json"
 done
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"
