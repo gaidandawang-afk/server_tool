@@ -82,6 +82,22 @@ class ServerToolTests(unittest.TestCase):
             heads = server_tool.run_local(["git", "bundle", "list-heads", str(bundle)], MODULE_PATH.parents[1])
             self.assertIn("refs/heads/", heads)
 
+    def test_remote_project_reuse_probe_fails_closed(self):
+        class FakeProfile:
+            project_root = "/data2/iws/projects/example"
+
+            @staticmethod
+            def require(key):
+                if key == "PROFILE_NAME":
+                    return "example"
+                raise AssertionError(key)
+
+        command = server_tool.project_source_mode_command(FakeProfile(), "abc123")
+
+        self.assertIn('rev-parse HEAD)" = abc123 &&', command)
+        self.assertIn('status --porcelain)" && echo reuse', command)
+        self.assertNotIn('status --porcelain)"; echo reuse', command)
+
     def test_input_hashes_include_attached_tree(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

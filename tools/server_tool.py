@@ -494,6 +494,21 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def project_source_mode_command(profile: Profile, head: str) -> str:
+    project_root = profile.project_root
+    return (
+        f"if [ ! -e {shell_quote(project_root)} ]; then echo absent; exit 0; fi; "
+        f"test -d {shell_quote(project_root + '/.git')} && "
+        f"test -f {shell_quote(project_root + '/.git/server-tool-owner')} && "
+        f"grep -Fqx {shell_quote('profile=' + profile.require('PROFILE_NAME'))} "
+        f"{shell_quote(project_root + '/.git/server-tool-owner')} && "
+        f"test \"$(git -C {shell_quote(project_root)} rev-parse HEAD)\" = "
+        f"{shell_quote(head)} && "
+        f"test -z \"$(git -C {shell_quote(project_root)} status --porcelain)\" && "
+        "echo reuse"
+    )
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     profile = Profile.load(args.profile)
     _, head = profile.source_identity()
@@ -527,16 +542,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 remote, profile, allow_occupied=args.allow_busy_gpus
             )
             verify_task_owner(remote, profile, create=True)
-            project_check = (
-                f"if [ ! -e {shell_quote(profile.project_root)} ]; then echo absent; exit 0; fi; "
-                f"test -d {shell_quote(profile.project_root + '/.git')}; "
-                f"test -f {shell_quote(profile.project_root + '/.git/server-tool-owner')}; "
-                f"grep -Fqx {shell_quote('profile=' + profile.require('PROFILE_NAME'))} "
-                f"{shell_quote(profile.project_root + '/.git/server-tool-owner')}; "
-                f"test \"$(git -C {shell_quote(profile.project_root)} rev-parse HEAD)\" = {shell_quote(head)}; "
-                f"test -z \"$(git -C {shell_quote(profile.project_root)} status --porcelain)\"; "
-                "echo reuse"
-            )
+            project_check = project_source_mode_command(profile, head)
             _, project_out, _ = remote.run(project_check)
             source_mode = project_out.strip()
             if source_mode not in {"absent", "reuse"}:
