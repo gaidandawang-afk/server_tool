@@ -47,7 +47,7 @@ sg_wait_ft_status "$port" "$run_dir/status-initial.json" \
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$request_dp0" "$run_dir/baseline-dp0.json" 200 baseline_dp0 180
-sg_assert_output_ids \
+sg_assert_known_output_ids \
   "$run_dir/baseline-dp0.json" \
   "$(sg_precision_oracle_id 0)" \
   "$run_dir/baseline-dp0-precision.json"
@@ -78,7 +78,7 @@ for target in 1 2 3; do
   st_http_json POST "http://127.0.0.1:${port}/generate" \
     "$request_dp0" "$run_dir/after-dp${target}-dp0.json" 200 \
     "after_dp${target}_dp0" 180
-  sg_assert_output_ids \
+  sg_assert_known_output_ids \
     "$run_dir/after-dp${target}-dp0.json" \
     "$(sg_precision_oracle_id 0)" \
     "$run_dir/after-dp${target}-dp0-precision.json"

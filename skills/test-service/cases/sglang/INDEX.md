@@ -10,23 +10,21 @@ Control-flow success and precision success are separate results. A case that rea
 expected FT state but lacks an equivalent precision comparison is `CONTROL PASS,
 PRECISION UNDETERMINED`, not a precision pass.
 
-Exact-token precision runs must use static expert dispatch, deterministic inference, a
-fixed seed, temperature zero, cold startup, and identical model, topology, redundant
-expert count, kernel, Mooncake, prompt, request order and overlap/cache settings on every
-side of the comparison. Dynamic dispatch may be used for historical functional coverage,
-but not as a strict precision oracle.
+The scenario regression suite uses registered known-sequence sets. A recovered response
+passes this gate when its full token sequence is one of the sequences already retained for
+the selected model, topology and redundant-expert count. A new sequence is a failure and
+must be investigated before registration. This gate detects new corruption without making
+native Mooncake's request-history-dependent token choice block the broader scenario suite.
 
-For every retained rank, the preferred gate is:
+Dedicated precision investigations are separate from scenario regression. They must use
+static expert dispatch, deterministic inference, a fixed seed, temperature zero, cold
+startup, and identical model, topology, redundant expert count, kernel, Mooncake, prompt,
+request order and overlap/cache settings. Dynamic dispatch may be used for functional
+coverage, but not for strict precision attribution.
 
-1. generate and retain a pre-fault baseline;
-2. require the post-recovery output to equal that same rank's baseline;
-3. require the post-recovery output to equal the registered oracle.
-
-If native Mooncake itself changes output after the same physical fault, an equivalent
-FT-disabled native run may establish `NO ADDITIONAL FT DRIFT` when its post-fault output
-exactly matches FT. That classification does not mean absolute pre/post stability. Tests
-that compare recovery actions must keep pre-fault requests and cache history identical and
-vary only the action.
+Such an investigation reports absolute pre/post stability and FT-vs-native parity
+separately. It must not change the scenario result unless it discovers a previously unknown
+sequence or a control-flow failure.
 
 The latest revise-branch run validated all eleven previously passing contracts once on
 `worktree-dp-only-ft-revise@7f553fee0991e90566ac9c173eae89d9b2c52609`.

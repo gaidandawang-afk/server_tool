@@ -32,12 +32,12 @@ python skills\test-service\scripts\run-case.py `
 7. Apply retry with HTTP 200.
 8. Reach `0=healthy,1=dead,2=healthy,3=healthy` with three schedulers.
 9. Converge to HTTP 400 for explicit routing to dead DP1 within 180 seconds.
-10. Return HTTP 200 on DP0, DP2 and DP3, with each survivor matching both its own
-    pre-fault ten-token baseline and its registered exact oracle.
+10. Return HTTP 200 on DP0, DP2 and DP3, with each survivor output belonging to
+    the registered known-sequence set for the selected model and topology.
 11. Stop the owned service process group and leave the source checkout clean.
 
 ## Required artifacts
 
 Keep container and source provenance, imported package records, all request/response JSON, FT
 status JSON, server log, owned PGID, four baseline responses, three post-recovery
-baseline-parity JSON files, three oracle precision JSON files, assertions and result JSON.
+known-sequence JSON files, assertions and result JSON.

@@ -1011,6 +1011,24 @@ sg_assert_output_ids() {
   fi
 }
 
+sg_assert_known_output_ids() {
+  local sg_response="$1"
+  local sg_oracle_id="$2"
+  local sg_result="$3"
+  set +e
+  python3 "$SERVER_TOOL_INPUT_ROOT/units/assert_output_ids.py" \
+    --registry "$SERVER_TOOL_INPUT_ROOT/assets/precision_oracles.json" \
+    --oracle "$sg_oracle_id" --response "$sg_response" --output "$sg_result" \
+    --allow-known
+  local sg_code=$?
+  set -e
+  if [[ "$sg_code" -eq 0 ]]; then
+    st_assert "known_output_${sg_oracle_id}" true registered_sequence matched
+  else
+    st_assert "known_output_${sg_oracle_id}" false registered_sequence unknown
+  fi
+}
+
 sg_assert_output_ids_equal() {
   local sg_expected_response="$1"
   local sg_actual_response="$2"

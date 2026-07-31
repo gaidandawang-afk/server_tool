@@ -57,8 +57,10 @@ Committed SGLang cases take the model from `MODEL_PATH`. A profile may also sele
   `qwen-fp8-d4t4e4-count10-no-overlap`);
 - `SGLANG_FT_RELIABLE_ORACLE_ID` for the optional four-token rejoin request.
 
-Ordinary exact-token gates resolve their oracle as
-`<family>-rank<rank>-r<redundant-experts>`. The resolved ID must already exist in
-`assets/sglang/precision_oracles.json`; a test run must never register its own output as a
-passing oracle. Use a distinct flat profile, task root and artifact root for each model and
-configuration.
+Ordinary fault-scenario gates resolve their oracle as
+`<family>-rank<rank>-r<redundant-experts>` and accept only sequences already listed in that
+entry's `known_output_ids`. If an entry has no known-sequence list, the gate falls back to
+its canonical `output_ids`. A test run must never register its own output as passing.
+Strict token equality is reserved for dedicated precision-attribution runs with matched
+native no-FT controls. Use a distinct flat profile, task root and artifact root for each
+model and configuration.

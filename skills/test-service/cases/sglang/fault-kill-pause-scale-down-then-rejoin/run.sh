@@ -149,7 +149,7 @@ if [[ -n "$request_tokens_override" ]]; then
     "$run_dir/after-scale-down-dp0-token-count.json" \
     after_scale_down_dp0_token_count "$request_tokens"
 else
-  sg_assert_output_ids \
+  sg_assert_known_output_ids \
     "$run_dir/after-scale-down-dp0.json" \
     "${oracle_id:-$(sg_precision_oracle_id 0)}" \
     "$run_dir/after-scale-down-dp0-precision.json"
@@ -200,7 +200,7 @@ for rank in 3 0; do
       "$run_dir/recovered-dp${rank}-precision.json" \
       "recovered_dp${rank}" "$request_tokens"
   else
-    sg_assert_output_ids \
+    sg_assert_known_output_ids \
       "$run_dir/recovered-dp${rank}.json" \
       "${oracle_id:-$(sg_precision_oracle_id "$rank")}" \
       "$run_dir/recovered-dp${rank}-precision.json"

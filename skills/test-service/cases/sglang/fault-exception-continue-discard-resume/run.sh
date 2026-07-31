@@ -46,7 +46,7 @@ sg_wait_ft_status "$port" "$run_dir/status-initial.json" \
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$run_dir/request-dp0.json" "$run_dir/baseline-dp0.json" 200 baseline_dp0 180
-sg_assert_output_ids \
+sg_assert_known_output_ids \
   "$run_dir/baseline-dp0.json" \
   "$(sg_precision_oracle_id 0)" \
   "$run_dir/baseline-dp0-precision.json"
@@ -66,7 +66,7 @@ sg_assert_log_count "$log_path" "FT command dispatch:.*command=pause" 0 \
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$run_dir/request-dp0.json" "$run_dir/post-exception-dp0.json" \
   200 post_exception_dp0 180
-sg_assert_output_ids \
+sg_assert_known_output_ids \
   "$run_dir/post-exception-dp0.json" \
   "$(sg_precision_oracle_id 0)" \
   "$run_dir/post-exception-dp0-precision.json"

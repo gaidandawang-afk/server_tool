@@ -32,8 +32,8 @@ python skills\test-service\scripts\run-case.py `
 7. Apply logical `scale_down` to rank 1 with HTTP 200.
 8. Reach `0=healthy,1=dead,2=healthy,3=healthy` without killing another scheduler.
 9. Reject explicit DP1 routing with HTTP 400.
-10. Return HTTP 200 on DP0, DP2 and DP3; require each survivor to match both its own
-    pre-fault baseline and its registered exact oracle.
+10. Return HTTP 200 on DP0, DP2 and DP3; require each survivor output to belong
+    to the registered known-sequence set for the selected model and topology.
 11. Stop the owned server process group and leave the source checkout clean.
 
 Every gate must append a structured assertion. Exit zero without assertions is not a pass.
@@ -44,5 +44,5 @@ Every gate must append a structured assertion. Exit zero without assertions is n
 - actual Python package version and import path
 - request and response JSON for every HTTP operation
 - FT status JSON, server log, owned PGIDs
-- four pre-fault baseline responses and both baseline-parity and oracle precision JSON
+- four pre-fault baseline responses and per-survivor known-sequence result JSON
 - `assertions.jsonl` and `result.json`

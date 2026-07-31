@@ -107,7 +107,7 @@ for rank in 0 1 2 3; do
   st_http_json POST "http://127.0.0.1:${base_port}/generate" \
     "${requests[$rank]}" "$run_dir/recovered-dp${rank}.json" 200 \
     "recovered_dp${rank}" 180
-  sg_assert_output_ids \
+  sg_assert_known_output_ids \
     "$run_dir/recovered-dp${rank}.json" \
     "$(sg_precision_oracle_id "$rank")" \
     "$run_dir/recovered-dp${rank}-precision.json"

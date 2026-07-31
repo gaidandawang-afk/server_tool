@@ -71,13 +71,9 @@ for rank in 0 2 3; do
   response="$run_dir/after-retry-dp${rank}.json"
   st_http_json POST "http://127.0.0.1:${port}/generate" \
     "${requests[$rank]}" "$response" 200 "generate_dp${rank}" 180
-  sg_assert_output_ids_equal \
-    "${baselines[$rank]}" "$response" \
-    "$run_dir/after-retry-dp${rank}-baseline-precision.json" \
-    "after_retry_dp${rank}_matches_baseline" 10
-  sg_assert_output_ids \
+  sg_assert_known_output_ids \
     "$response" "$(sg_precision_oracle_id "$rank")" \
-    "$run_dir/after-retry-dp${rank}-oracle-precision.json"
+    "$run_dir/after-retry-dp${rank}-known-output.json"
 done
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"

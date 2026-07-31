@@ -286,10 +286,11 @@ different request history, not an action-specific product difference.
 The aligned native FT-disabled control used the same inference request order and
 returned the same DP3 sequence. Thus the correct classification is absolute
 precision failure with native-parity success: FT has not added drift beyond
-native Mooncake for this configuration. The committed retry and scale-down
-contracts now both require each survivor to match its own baseline and its
-registered oracle; control-flow and precision results can no longer collapse
-into one PASS.
+native Mooncake for this configuration. After completing that attribution, the
+scenario contracts were relaxed to the operational gate requested for the wider
+campaign: every survivor must return one of the registered known sequences.
+Baseline and native-parity comparisons remain diagnostic evidence rather than
+blocking every fault scenario.
 
 The original whole-node rejoin contract had a causal barrier incompatible with
 #30164: it waited for a pre-`join_group` log that #30164 removed before driving

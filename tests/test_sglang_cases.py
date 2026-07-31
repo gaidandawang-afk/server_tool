@@ -17,6 +17,9 @@ ORACLE_PATH = (
     / "sglang"
     / "precision_oracles.json"
 )
+ASSERT_OUTPUT_IDS = (
+    REPO_ROOT / "skills" / "test-service" / "scripts" / "assert_output_ids.py"
+)
 RECOVERABLE_INJECT_ROOT = (
     REPO_ROOT / "skills" / "test-service" / "assets" / "sglang" / "recoverable_inject"
 )
@@ -100,6 +103,47 @@ class SGLangCaseContractTests(unittest.TestCase):
                 text,
                 r"qwen-fp8-d4t4e4-count10-no-overlap-rank(?:[0-3]|\$\{rank\})-r128",
             )
+
+    def test_known_output_gate_accepts_only_registered_sequences(self):
+        registry = {
+            "entries": [
+                {
+                    "id": "test",
+                    "output_ids": [1, 2],
+                    "known_output_ids": [[1, 2], [3, 4]],
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            registry_path = root / "registry.json"
+            response_path = root / "response.json"
+            result_path = root / "result.json"
+            registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+            def run(output_ids, allow_known):
+                response_path.write_text(
+                    json.dumps({"output_ids": output_ids}), encoding="utf-8"
+                )
+                command = [
+                    "python",
+                    str(ASSERT_OUTPUT_IDS),
+                    "--registry",
+                    str(registry_path),
+                    "--oracle",
+                    "test",
+                    "--response",
+                    str(response_path),
+                    "--output",
+                    str(result_path),
+                ]
+                if allow_known:
+                    command.append("--allow-known")
+                return subprocess.run(command, capture_output=True, text=True)
+
+            self.assertNotEqual(run([3, 4], allow_known=False).returncode, 0)
+            self.assertEqual(run([3, 4], allow_known=True).returncode, 0)
+            self.assertNotEqual(run([5, 6], allow_known=True).returncode, 0)
 
     def test_shared_launcher_ignores_callers_readonly_port(self):
         common = REPO_ROOT / "skills" / "test-service" / "scripts" / "test_ops.sh"
