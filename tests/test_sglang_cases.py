@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -16,9 +17,40 @@ ORACLE_PATH = (
     / "sglang"
     / "precision_oracles.json"
 )
+RECOVERABLE_INJECT_ROOT = (
+    REPO_ROOT / "skills" / "test-service" / "assets" / "sglang" / "recoverable_inject"
+)
 
 
 class SGLangCaseContractTests(unittest.TestCase):
+    def test_recoverable_fault_rank_supports_legacy_and_parallel_state_layouts(self):
+        import sys
+
+        sys.path.insert(0, str(RECOVERABLE_INJECT_ROOT))
+        try:
+            import ft_forward_fault
+        finally:
+            sys.path.remove(str(RECOVERABLE_INJECT_ROOT))
+
+        self.assertEqual(
+            ft_forward_fault.resolve_model_runner_rank(
+                SimpleNamespace(dp_rank=2, tp_rank=7)
+            ),
+            2,
+        )
+        self.assertEqual(
+            ft_forward_fault.resolve_model_runner_rank(
+                SimpleNamespace(ps=SimpleNamespace(dp_rank=3, tp_rank=8))
+            ),
+            3,
+        )
+        self.assertEqual(
+            ft_forward_fault.resolve_model_runner_rank(
+                SimpleNamespace(ps=SimpleNamespace(dp_rank=None, tp_rank=9))
+            ),
+            9,
+        )
+
     def test_four_gpu_index_contains_all_sixteen_suite_identifiers(self):
         index = (CASE_ROOT / "INDEX.md").read_text(encoding="utf-8")
         identifiers = re.findall(r"`(fault_[a-z0-9_]+\.sh)`", index)

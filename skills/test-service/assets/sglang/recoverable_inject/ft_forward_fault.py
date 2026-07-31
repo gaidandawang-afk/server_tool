@@ -11,6 +11,22 @@ ENV_DONE = "SGLANG_TEST_FT_RECOVERABLE_FAULT_DONE_FILE"
 TARGET_MODULE = "sglang.srt.model_executor.model_runner"
 
 
+def resolve_model_runner_rank(model_runner):
+    parallel_state = getattr(model_runner, "ps", None)
+    dp_rank = getattr(model_runner, "dp_rank", None)
+    if dp_rank is None and parallel_state is not None:
+        dp_rank = getattr(parallel_state, "dp_rank", None)
+    if dp_rank is not None:
+        return dp_rank
+
+    tp_rank = getattr(model_runner, "tp_rank", None)
+    if tp_rank is None and parallel_state is not None:
+        tp_rank = getattr(parallel_state, "tp_rank", None)
+    if tp_rank is None:
+        raise AttributeError("ModelRunner has no DP or TP rank metadata")
+    return tp_rank
+
+
 class FaultInjectLoader(importlib.abc.Loader):
     def __init__(self, real_loader):
         self.real_loader = real_loader
@@ -61,7 +77,7 @@ def patch_forward(module):
         if injected[0]:
             return original_forward(self, forward_batch, **kwargs)
 
-        rank = self.dp_rank if self.dp_rank is not None else self.tp_rank
+        rank = resolve_model_runner_rank(self)
         local_trigger = rank in target_ranks and (
             not trigger_file or os.path.exists(trigger_file)
         )
