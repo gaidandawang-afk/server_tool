@@ -144,14 +144,17 @@ oracle dimensions, FT has not added a precision difference, even if both differ
 from the healthy pre-fault sequence. It did not establish cross-topology or
 cross-version absolute-token stability.
 
-For the current D4 validation, the native and FT sides both return the healthy
-registered sequence in two cold runs. Therefore both the stronger absolute
-oracle and the required native-parity oracle pass.
+For the D4 kill → pause → scale_down validation, the native and FT sides both
+return the healthy registered sequence in two cold runs. Therefore both the
+stronger absolute oracle and the required native-parity oracle pass for that
+specific recovery path. The broader campaign below found a survivor-rank drift
+on continue and retry paths; those paths do not yet have an equivalent native
+DP3 control and are not covered by this conclusion.
 
 ## Interpretation boundaries
 
-- Supported: no additional FT precision drift was observed for this exact
-  D4/static/deterministic/seeded configuration.
+- Supported: no additional FT precision drift was observed for the exact
+  D4/static/deterministic/seeded kill → pause → scale_down configuration.
 - Supported: the earlier dynamic FT failure is insufficient evidence of a
   rebase regression.
 - Not supported: dynamic redundant-expert dispatch is bitwise stable.
@@ -204,6 +207,86 @@ integration/control-path incompatibility, not evidence of a precision mismatch.
 The successful FT precision conclusion above remains scoped to Mooncake
 `d7fcbff4`; the newly rebased Mooncake cannot yet replace that runtime in this
 case.
+
+## Broader pre-rebase PASS regression campaign
+
+The remaining historical PASS contracts were run against rebased SGLang
+`1d85efdad2659ed8fbc19166bf728e8b289ba631` while retaining the old immutable
+Mooncake runtime:
+
+```text
+mooncake-transfer-engine-cuda13==0.3.11.post1
+source d7fcbff4
+SHA-256 96815ead6a8c2ca826f3b26da88b69d31603d56432bab0ee27bf399a77f01342
+```
+
+Except for continuous shrink, the common configuration was Qwen3-30B-A3B-FP8,
+TP=4, DP=4, EP=4, 128 redundant experts, static expert dispatch,
+deterministic inference, seed `468112651`, no overlap, and kernel 0.4.5.
+Continuous shrink retained its historical 384 redundant experts and 0.45
+memory fraction.
+
+| Contract | Result | Material observation |
+| --- | --- | --- |
+| `fault-kill-noft-native-inflight` | PASS | FT disabled; in-flight DP0 completed and post-fault DP0 was exact |
+| `fault-kill-continue-inflight` | PASS | In-flight and post-fault DP0 were exact |
+| `fault-kill-pause-inflight-retry` | PASS | Retry completed; post-fault DP0 was exact |
+| `fault-kill-pause-scale-down` | PASS | Two cold runs; DP0/DP2/DP3 exact |
+| `fault-exception-continue-discard-resume` | PASS | Expected 503 discard, one completion, all schedulers healthy, post-exception exact |
+| `fault-exception-pause-retry` | PASS | Pause/retry completed and precision assertions passed |
+| `fault-exception-pause-scale-down` | PASS | DP0/DP1/DP3 each matched its own baseline |
+| `fault-exception-pause-retry-timeout` | PASS | Pause stayed alive at 5 seconds and fail-stopped at 30 seconds |
+| `fault-rejection-contracts` | PASS | Invalid apply and dead-route operations were rejected at the required stages |
+| `fault-kill-pause-double-scale-down` | PASS | Two ranks removed; remaining DP0/DP3 exact |
+| `fault-kill-pause-continuous-scale-down` | PASS | Three shrink rounds; DP0 exact after every round |
+| `fault-kill-pause-retry` | FAIL, 2/2 | DP0/DP2 exact; DP3 repeatedly returned the historical drift sequence |
+| `fault-kill-continue-status-only` | FAIL | DP0/DP2 exact; DP3 returned the same drift sequence |
+| `fault-kill-continue-whole-node-rejoin` | FAIL | Rejoined scheduler appeared, but world-group join did not finish in 180 seconds |
+| `fault-tpgt1-sibling-ep-retention` | INVALID | Static dispatch gave unequal DP0/DP1 baselines, so the contract stopped before fault injection |
+
+The retry failure was reproduced in two independent cold starts. In both runs,
+the kill → pause → retry control chain passed, the dead DP1 route was rejected,
+and DP3 returned:
+
+```text
+[3197,498,5545,220,16,15,15,11,2936,13]
+```
+
+The continue-only contract returned the same sequence on DP3. This makes the
+observation independent of the retry API: retaining DP3 after physical DP1 loss
+is the common condition. By contrast, scale_down rebuilt the survivor topology
+and DP3 returned the registered healthy sequence.
+
+These results do **not** yet prove that FT introduced the DP3 drift. The existing
+no-FT native in-flight contract only asserts DP0, so it is not an equivalent DP3
+precision control. The minimum attribution experiment is a no-FT D4/static/
+deterministic run with the same seed, physical DP1 kill, request order, and
+direct post-fault DP3 request. Native parity, rather than healthy absolute
+tokens alone, remains the required FT precision gate.
+
+The whole-node rejoin failure is also separate from precision. Node3 entered
+`mooncake_ep.join_group(torch.distributed.group.WORLD)` but did not complete
+before the contract timeout. Its later TCPStore reset occurred only after the
+contract cleaned the survivor processes.
+
+The TP>GT1 result is not a product failure. That historical contract required
+DP0 and DP1 to have equal pre-fault tokens, while static redundant-expert
+dispatch gave each rank a stable but different baseline. A static-compatible
+revision should compare each retained rank to its own pre-fault baseline.
+
+Representative artifacts:
+
+- `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-kill-pause-retry-static-20260731`
+- `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-kill-pause-retry-static-r2-20260731`
+- `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-kill-continue-static-20260731`
+- `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-continue-whole-node-rejoin-static-20260731`
+- `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-exception-continue-discard-static-r2-20260731`
+- `work/sglang-static-ft-2commits-continuous-r384/artifacts/rebase-1d85ef-continuous-scale-down-r384-static-20260731`
+
+The exception injector needed compatibility with rebased `ModelRunner` rank
+state (`ed8aff2`), and the historical continuous-shrink oracle needed its
+rank0/r384 registration (`85c192e`). Both changes are test-service-only and
+passed the local SGLang case unit suite.
 
 All completed runs cleaned their owned process groups and left the selected
 SGLang worktrees clean.
