@@ -1,158 +1,209 @@
 # ft-2commits kill/scale-down exploratory validation — 2026-07-31
 
-## Scope and fixed inputs
+## Final conclusion
 
-- SGLang worktree: `D:\Codex\repos\sglang-ft-2commits`
-- Branch and commit:
-  `ft-2commits@1d85efdad2659ed8fbc19166bf728e8b289ba631`
-- Rebase base:
-  `main@2abb1d2c37441a1b32476b5f23d9f97cf340dff9`
-- Feature commits: `300f63f79` and `1d85efdad`
-- Model: `/data1/models/Qwen3-30B-A3B-FP8`
-- Topology: TP=4, DP=4, EP=4, redundant experts=128
-- GPUs: `4,5,6,7`; port range: `6280..6289`
-- SGLang kernel: `0.4.5` from
-  `/data2/iws/deps/sglang-kernel/cu130-cp312/0.4.5`, required symbol
-  `fp8_scaled_mm`
-- Mooncake: `0.3.11.post1`, source `d7fcbff4`, with the committed wheel hash
-- Artifact root:
-  `work/sglang-ft-2commits-kill-scale-down/artifacts`
+The evidence does not show that FT introduces an additional precision problem.
 
-The stable `fault-kill-pause-scale-down` TEST.md did not yet list `ft-2commits` as an
-applicable branch. This validation therefore used an ignored task-local wrapper with the
-same mechanical run and gates; it does not mark the stable contract validated on this
-branch.
+With effective launch parameters fixed to static expert dispatch, deterministic
+inference, seed `468112651`, Qwen3-30B-A3B-FP8, TP4/DP4/EP4, 128 redundant
+experts, no overlap, kernel 0.4.5, and Mooncake `d7fcbff4`:
 
-## Environment compatibility findings
+- rebased FT commit `1d85efdad` passed two independent cold
+  kill → pause → scale_down runs;
+- native Mooncake commit `300f63f79`, with FT routes absent, passed two
+  independent cold kill/isolation runs;
+- DP0, DP2, and DP3 returned the exact registered sequence
+  `[3197,279,1372,374,74916,553,220,18,11,3270]` in all four runs.
 
-The first run,
-`ft-2commits-kill-pause-scale-down-1d85efdad-20260731`, used the old
-`sglang-kernel==0.4.2.post1` profile. The rebased SGLang requires at least `0.4.5`, so
-startup exited before the FT scenario. The result retained nine assertions, seven passing
-and two derived failures (`server_ready` and `case_result`).
+This is the relevant parity result for the stated question. The earlier two FT
+failures used dynamic redundant-expert dispatch and cannot be compared to the
+old native control as a deterministic parent/child regression boundary.
 
-The second run,
-`ft-2commits-kill-pause-scale-down-kernel045-1d85efdad-20260731`, selected the existing
-immutable 0.4.5 directory. The old test-service symbol gate still required
-`fp8_blockwise_scaled_mm`, which 0.4.5 no longer exports at module top level. The result
-retained six assertions, four passing and two derived failures.
+## Source and runtime
 
-Server_tool commit `39c7e55` parameterized the required kernel symbol without weakening
-the version or import-root checks. Legacy profiles retain the old default; this main-based
-profile explicitly selects `fp8_scaled_mm`. All 18 local unit tests and shell syntax checks
-passed before the next remote run.
+- Rebased FT worktree:
+  `D:\Codex\repos\sglang-ft-2commits`
+- Rebased FT commit:
+  `1d85efdad2659ed8fbc19166bf728e8b289ba631`
+- Native no-FT control:
+  `300f63f794066da9e0b23c63247b466c69c6c82c`
+- Pre-rebase squash:
+  `cc4e294e5b6b3362c5b2313ad04890c6dd8bedd6`
+- Model:
+  `/data1/models/Qwen3-30B-A3B-FP8`
+- Topology:
+  TP=4, DP=4, EP=4, redundant experts=128
+- Mooncake:
+  `0.3.11.post1`, source `d7fcbff4`, wheel SHA-256
+  `96815ead6a8c2ca826f3b26da88b69d31603d56432bab0ee27bf399a77f01342`
+- Rebased and native kernel:
+  `sglang-kernel==0.4.5`, required symbol `fp8_scaled_mm`
 
-## Kill, pause, and scale-down result
+The stable `fault-kill-pause-scale-down` contract did not yet list
+`ft-2commits` as an applicable branch. These experiments therefore used
+ignored task-local wrappers and preserved each run in an independent artifact
+directory.
 
-Run
-`ft-2commits-kill-pause-scale-down-kernel045-symbol-1d85efdad-20260731`
-reached the behavioral contract and failed precision:
+## Why the first comparison was invalid
 
-- dependency version, path and symbol assertions passed;
-- the service reached four healthy ranks with four schedulers;
-- killing DP1 converged in 38 seconds to
-  `0=paused,1=dead,2=paused,3=paused`, retaining three schedulers;
-- generation while paused returned HTTP 503;
-- `scale_down([1])` returned HTTP 200 and reached
-  `0=healthy,1=dead,2=healthy,3=healthy`;
-- DP1 routing returned HTTP 400;
-- DP0 returned HTTP 200 and exactly matched
-  `[3197,279,1372,374,74916,553,220,18,11,3270]`;
-- DP2 returned HTTP 200 but produced
-  `[3197,498,5545,220,16,15,15,11,2936,13]`, failing its exact oracle;
-- execution stopped at the DP2 precision gate, so DP3 post-scale-down precision was not
-  evaluated;
-- owned process cleanup and source-cleanliness assertions passed.
+The two failing FT artifacts actually launched:
 
-The result contains 22 assertions: 20 passed and two failed (the DP2 precision gate and
-the derived `case_result`).
+```text
+ep_dispatch_algorithm='dynamic'
+enable_deterministic_inference=True
+random_seed=85423316 or 321335536
+```
 
-## Pre-fault control
+They both reached the FT control-plane postcondition, but DP2 returned
+`[3197,498,5545,220,16,15,15,11,2936,13]`.
 
-Run `ft-2commits-prefault-baseline-kernel045-1d85efdad-20260731` used the same source,
-model, topology, kernel and deterministic launch but injected no fault. It passed all 19
-assertions. DP0 through DP3 each returned the registered sequence
-`[3197,279,1372,374,74916,553,220,18,11,3270]`.
+The previously cited passing native artifact actually launched:
 
-This control rules out an ordinary pre-fault rank difference and rules out
-`sglang-kernel==0.4.5` alone as the direct cause of the observed DP2 drift.
+```text
+ep_dispatch_algorithm='dynamic'
+enable_deterministic_inference=False
+random_seed=99017108
+```
 
-## Exact native control at 300f63f79
+The test-service profiles contained precision-control keys, but the ordinary
+FT and no-FT launchers hardcoded their own dispatch and deterministic flags.
+Server_tool commit `4f41f89` changed those launchers to honor:
 
-An independent worktree at
-`300f63f794066da9e0b23c63247b466c69c6c82c` ran native Mooncake with FT disabled,
-the same Qwen FP8 model, TP4/DP4/EP4 topology, R128, kernel 0.4.5 and Mooncake
-`d7fcbff4`. Run
-`ft-300f-native-noft-kill-dp1-300f63f79-20260731-r2` started a DP0 stream, killed
-DP1, observed native broken-peer isolation and then checked every surviving rank.
+- `SGLANG_FT_EP_DISPATCH_ALGORITHM`
+- `SGLANG_FT_DETERMINISTIC_INFERENCE`
+- `SGLANG_FT_RANDOM_SEED`
 
-All 21 assertions passed. DP0, DP2 and DP3 each returned
-`[3197,279,1372,374,74916,553,220,18,11,3270]`. DP2 and DP3 both recorded
-`cached_tokens=0`; DP0 recorded a nine-token cache hit but still returned the exact
-oracle. The native recovery log had the same broad EPLB shape as the FT run: DP0 and
-DP2 performed full weight reloads, DP3 did not, and all three completed rebalance.
+The prior defaults remain unchanged when these keys are absent. Shell syntax,
+19 local unit tests, and `git diff --check` passed.
 
-This is the strict control that was absent from the earlier audit. It shows that the
-first/native Mooncake integration commit does not reproduce the DP2 drift under this
-configuration. The regression boundary is therefore the second FT commit or behavior
-activated only by its FT orchestration, not `300f63f79` alone.
+Dynamic dispatch selects among redundant physical replicas with `torch.randint`.
+Pause, failure recovery, and EPLB can change the number of forwards executed by
+each rank and therefore advance per-rank RNG state differently. Enabling
+deterministic inference does not turn that dynamic replica choice into a static
+mapping. Strict token equality is not a valid FT regression gate unless the
+effective dispatch, deterministic flag, and seed are verified in the server
+arguments.
 
-## Repetition
+## Equivalent static matrix
 
-Run
-`ft-2commits-kill-pause-scale-down-kernel045-symbol-1d85efdad-20260731-r2`
-repeated the original FT scenario from a cold start. It reproduced the same result:
-DP0 exactly matched the registered oracle and DP2 returned
-`[3197,498,5545,220,16,15,15,11,2936,13]`. The DP2 prefill log again recorded
-ten new tokens and zero cached tokens. This makes the failure reproducible in two
-independent cold runs rather than a single-run flake.
+All runs below used dispatch `static`, deterministic inference enabled, seed
+`468112651`, temperature 0, the same prompt/request order, and cold startup.
 
-## Historical sequence search
+| Group | Kernel | Cold runs | Result |
+| --- | --- | ---: | --- |
+| `1d85efdad`, FT kill → pause → scale_down | 0.4.5 | 2 | PASS; DP0/DP2/DP3 exact |
+| `300f63f79`, native kill/isolation, FT disabled | 0.4.5 | 2 | PASS; DP0/DP2/DP3 exact |
+| `cc4e294e`, pre-rebase squash, FT kill → pause → scale_down | 0.4.2.post1 | 2 | DP0/DP2 exact; DP3 returned the historical drift sequence |
 
-The drift sequence is not new and is not unique to one mechanism. Historical artifacts
-contain it in at least these distinct contexts:
+Artifacts:
 
-- native e63 Mooncake after a process kill, with `cached_tokens=0`;
-- FT continue, retry, scale-down and rejoin experiments, also often with
-  `cached_tokens=0`;
-- same-prefix no-FT radix/KV-cache reuse, where the first request was exact and later
-  requests with `cached_tokens=9` returned the drift sequence.
+- `work/sglang-static-equivalence/artifacts-ft-2commits/static-ft-2commits-1d85efdad-r1-20260731`
+- `work/sglang-static-equivalence/artifacts-ft-2commits/static-ft-2commits-1d85efdad-r2-20260731`
+- `work/sglang-static-equivalence/artifacts-native/static-native-300f63f79-r1-20260731`
+- `work/sglang-static-equivalence/artifacts-native/static-native-300f63f79-r2-20260731`
+- `work/sglang-static-equivalence/artifacts-squash/static-squash-cc4e294e-k042-r1-20260731`
+- `work/sglang-static-equivalence/artifacts-squash/static-squash-cc4e294e-k042-r2-20260731`
 
-Consequently, token equality alone is not a root-cause signature. The current failure is
-not the same-prefix cache case because both reproductions logged `cached_tokens=0`.
+The same kernel could not be used for the pre-rebase squash. That source imports
+the old top-level `fp8_blockwise_scaled_mm`, which kernel 0.4.5 no longer
+exports; the rebased source requires `fp8_scaled_mm` from 0.4.5. The preserved
+failed startup artifact is:
 
-## Analysis
+`work/sglang-static-equivalence/artifacts-squash/static-squash-cc4e294e-r1-20260731`
 
-The control plane is usable in this scenario; the failure is localized to the post-fault
-data path. Logs show that rank-fault EPLB ran on DP0, DP2 and DP3. DP0 and DP2 both reported
-that the model lacked `generate_weight_name_filter`, performed a full disk weight reload,
-and completed rebalance. DP0 was exact afterward while DP2 drifted.
+The squash result proves that the sequence can occur before the rebase, but the
+kernel mismatch means it is not an equal dependency control and must not be
+used to claim that the rebase either caused or fixed the behavior.
 
-The highest-priority review area is therefore the interaction between the second commit's
-pause handshake and the rebased EPLB/Elastic-EP update path, especially per-rank
-expert-location consistency and the association between reloaded physical slots and the
-updated logical mapping in `update_expert_location_with_recovery`.
+## Historical drift issue and the correct FT gate
 
-The second commit adds FT action state to the DP-attention MLP synchronization tensor and
-uses it to acknowledge pause. The pause request overlaps the rank-fault recovery window,
-although both reproduced logs show EPLB rebalance ending before the pause acknowledgement
-and subsequent resume. It also adds an inactive-rank CPU fallback and contiguous handling
-to expert-location metadata broadcast. The dedicated CPU fallback log did not appear in
-either FT run, so that branch is not proven active; the normal metadata path still deserves
-hash-level comparison because this area was manually conflict-resolved during rebase.
+The exact drift sequence was previously classified on 2026-07-23 using:
 
-The next discriminating instrumentation should record, for DP0/DP2/DP3 immediately after
-EPLB and again after FT resume:
+```text
+Qwen3-30B-A3B-FP8
+TP=2, DP=2, EP=2
+128 redundant experts
+DeepGEMM
+static expert dispatch
+deterministic inference
+no overlap
+count10
+temperature=0
+Mooncake d7fcbff4
+```
 
-- hashes of `physical_to_logical_map`, `logical_to_all_physical_map` and the rank-dispatch
-  map;
-- the missing-logical-expert set returned by `ExpertLocationUpdater.update`;
-- hashes for the physical expert slots reloaded on DP0 and DP2;
-- the FT action vector gathered by the MLP synchronization barrier.
+Three FT physical-kill cases—continue, pause/retry, and
+pause/scale_down—returned the same ten IDs as an e63 native Mooncake no-FT
+kill-survivor control:
 
-This is a localization supported by a passing exact parent control and two failing child
-runs, not yet a proven code-level root cause.
+`[3197,498,5545,220,16,15,15,11,2936,13]`
 
-All remote runs cleaned their owned process groups. Final preflight found GPU `4,5,6,7`
-idle at 15 MiB and zero utilization; both the local and remote SGLang worktrees remained
-clean at the selected commit.
+That historical experiment intentionally used native parity as the precision
+gate: if FT and native Mooncake produce the same exact output under the same
+oracle dimensions, FT has not added a precision difference, even if both differ
+from the healthy pre-fault sequence. It did not establish cross-topology or
+cross-version absolute-token stability.
+
+For the current D4 validation, the native and FT sides both return the healthy
+registered sequence in two cold runs. Therefore both the stronger absolute
+oracle and the required native-parity oracle pass.
+
+## Interpretation boundaries
+
+- Supported: no additional FT precision drift was observed for this exact
+  D4/static/deterministic/seeded configuration.
+- Supported: the earlier dynamic FT failure is insufficient evidence of a
+  rebase regression.
+- Not supported: dynamic redundant-expert dispatch is bitwise stable.
+- Not supported: every topology, model, kernel, or Mooncake revision is free
+  from native precision drift.
+- Not supported: the pre-rebase squash is dependency-equivalent to the rebased
+  branch.
+
+## Mooncake main-rebase follow-up
+
+Mooncake branch `codex/debug/mooncake-rejoin-taskcount` was subsequently rebased
+onto `origin/main@4c2fa8ab` and rebuilt at
+`1c2bbb502f8b8933d616a00d0dd2e8b01235b3a6`. The old head remains reachable as
+`codex/backup/mooncake-rejoin-taskcount-pre-main-20260731`.
+
+The canonical structured build used a separate task and run root:
+
+`/data2/iws/tasks/mooncake-rejoin-main-build-20260731/runs/build-1c2bbb50-main-rebase-r2-20260731`
+
+It produced and imported:
+
+```text
+mooncake-transfer-engine-cuda13==0.3.12.post1
+SHA-256 6f5c6e838ff1902a8383f34db112e02c28c660570ff261dbc050ac1aa154f878
+```
+
+The pre-rebase 0.3.11.post1 wheel, install root, and run artifacts were not
+modified. The first successful build remains preserved under the corresponding
+`r1` run. Its wheel hash was
+`9924d90e63d34c2e6d779a9667e86a24456ec662c75d89c6c21fb05b0255e4bd`;
+the differing hashes show that the wheel archive is not bit-for-bit
+reproducible across cold builds, so profiles must continue selecting one exact
+immutable path and hash.
+
+One integration run pointed rebased SGLang explicitly at the r1 run-local
+`verify-target`. Startup and dependency provenance passed, but killing DP1 did
+not reach the pause postcondition. DP2 and DP3 reported
+`CUDA error: invalid resource handle` while Mooncake main attempted to reopen
+the dead rank's CUDA IPC handle, then switched to fallback. SGLang logged the
+pause dispatch, but the survivor exceptions were ignored with
+`no healthy pause target`; the observed status remained
+`0=healthy,1=dead,2=healthy,3=healthy`.
+
+Artifact:
+
+`work/sglang-static-equivalence/artifacts-ft-mooncake-main/static-ft-1d85efdad-mooncake-1c2bbb50-r1-20260731`
+
+This failure occurs before post-fault generation, so it is a Mooncake-main
+integration/control-path incompatibility, not evidence of a precision mismatch.
+The successful FT precision conclusion above remains scoped to Mooncake
+`d7fcbff4`; the newly rebased Mooncake cannot yet replace that runtime in this
+case.
+
+All completed runs cleaned their owned process groups and left the selected
+SGLang worktrees clean.
