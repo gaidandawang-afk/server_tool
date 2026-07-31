@@ -241,8 +241,8 @@ memory fraction.
 | `fault-kill-pause-continuous-scale-down` | PASS | Three shrink rounds; DP0 exact after every round |
 | `fault-kill-pause-retry` | FAIL, 2/2 | DP0/DP2 exact; DP3 repeatedly returned the historical drift sequence |
 | `fault-kill-continue-status-only` | FAIL | DP0/DP2 exact; DP3 returned the same drift sequence |
-| `fault-kill-continue-whole-node-rejoin` | FAIL | Rejoined scheduler appeared, but world-group join did not finish in 180 seconds |
-| `fault-tpgt1-sibling-ep-retention` | INVALID | Static dispatch gave unequal DP0/DP1 baselines, so the contract stopped before fault injection |
+| `fault-kill-continue-whole-node-rejoin` | FAIL | Mooncake join/recover completed, but the primary FT status retained rejoined DP3 as dead |
+| `fault-tpgt1-sibling-ep-retention` | PASS (historical dynamic); INVALID (static variant) | Dynamic/nondeterministic FT passed; static gave unequal DP0/DP1 baselines before fault injection |
 
 The retry failure was reproduced in two independent cold starts. In both runs,
 the kill → pause → retry control chain passed, the dead DP1 route was rejected,
@@ -257,6 +257,14 @@ observation independent of the retry API: retaining DP3 after physical DP1 loss
 is the common condition. By contrast, scale_down rebuilt the survivor topology
 and DP3 returned the registered healthy sequence.
 
+The retry and scale-down contracts are not action-only equivalents. Retry first
+generates DP0--DP3 baselines and later compares each survivor with its own
+baseline; it resumes the original logical topology. Scale-down has no equivalent
+pre-fault requests, removes DP1 from the logical active mask, and compares the
+survivors directly with registered oracles. Both paths trigger recovery EPLB and
+weight reload, but their cache/request histories differ. An attribution run must
+first equalize those histories and then vary only `retry` versus `scale_down`.
+
 These results do **not** yet prove that FT introduced the DP3 drift. The existing
 no-FT native in-flight contract only asserts DP0, so it is not an equivalent DP3
 precision control. The minimum attribution experiment is a no-FT D4/static/
@@ -264,15 +272,37 @@ deterministic run with the same seed, physical DP1 kill, request order, and
 direct post-fault DP3 request. Native parity, rather than healthy absolute
 tokens alone, remains the required FT precision gate.
 
-The whole-node rejoin failure is also separate from precision. Node3 entered
-`mooncake_ep.join_group(torch.distributed.group.WORLD)` but did not complete
-before the contract timeout. Its later TCPStore reset occurred only after the
-contract cleaned the survivor processes.
+The original whole-node rejoin contract had a causal barrier incompatible with
+#30164: it waited for a pre-`join_group` log that #30164 removed before driving
+survivor forwards. Mooncake `join_group` blocks until survivors call
+`recover_ranks`, so the missing marker made the contract appear stuck. Debug
+commit `195f15fe7` restored explicit begin/done boundaries. With those logs,
+rejoined DP3 completed WORLD and all device/CPU group joins, and every survivor
+logged `recover ranks [3] done`.
 
-The TP>GT1 result is not a product failure. That historical contract required
-DP0 and DP1 to have equal pre-fault tokens, while static redundant-expert
-dispatch gave each rank a stable but different baseline. A static-compatible
-revision should compare each retained rank to its own pre-fault baseline.
+The remaining rejoin failure is after Mooncake recovery. The primary FT state
+keeps independent `process_active_ranks` and `mooncake_active_ranks` masks and
+routes their intersection. The primary watchdog sets DP3 process-active false
+when it dies. The relaunched DP3 reports process-active true only to its local
+tokenizer/FT manager, while Mooncake recovery updates the primary Mooncake mask.
+Consequently primary `/fault_tolerance/status` remains
+`0=healthy,1=healthy,2=healthy,3=dead`. This is an FT control-plane propagation
+defect layered on the #30164 rejoin path, not a Mooncake group-join stall.
+
+The TP>GT1 historical configuration remains valid: on rebased `1d85efdad`,
+dynamic dispatch, nondeterministic inference, and Mooncake 0.3.11.post1 passed
+the complete kill/retry contract with exact post-fault DP0 output. The static
+variant's unequal DP0/DP1 baseline is not caused by FT. Both `1d85efdad` with FT
+disabled and native base `300f63f79` produced the same DP1 sequence:
+
+```text
+[220,16,11,220,17,11,220,18,11,220]
+```
+
+Static dispatch constructs a rank-specific logical-to-physical expert map, so a
+cross-rank equality gate is inappropriate for TP>GT1. Keep the historical
+dynamic contract for functional regression; if static precision is required,
+compare each retained rank with its own pre-fault baseline.
 
 Representative artifacts:
 
@@ -280,6 +310,10 @@ Representative artifacts:
 - `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-kill-pause-retry-static-r2-20260731`
 - `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-kill-continue-static-20260731`
 - `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-continue-whole-node-rejoin-static-20260731`
+- `work/sglang-ft-rejoin-debug-30164/artifacts/rejoin-30164-boundary-logs-r4-20260731`
+- `work/sglang-dynamic-ft-2commits-tpgt1/artifacts/rebase-1d85ef-tpgt1-dynamic-historical-20260731`
+- `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-tpgt1-noft-static-20260731`
+- `work/sglang-static-equivalence/artifacts-native/native-300f-tpgt1-noft-static-20260731`
 - `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-exception-continue-discard-static-r2-20260731`
 - `work/sglang-static-ft-2commits-continuous-r384/artifacts/rebase-1d85ef-continuous-scale-down-r384-static-20260731`
 
