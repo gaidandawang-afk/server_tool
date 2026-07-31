@@ -90,6 +90,10 @@ class SGLangCaseContractTests(unittest.TestCase):
                 f"rank{rank}-r64",
                 oracle_ids,
             )
+        self.assertIn(
+            "qwen-fp8-d4t4e4-count10-no-overlap-rank0-r384",
+            oracle_ids,
+        )
         for run_sh in CASE_ROOT.glob("*/run.sh"):
             text = run_sh.read_text(encoding="utf-8")
             self.assertNotRegex(
