@@ -84,15 +84,17 @@ mapping. Strict token equality is not a valid FT regression gate unless the
 effective dispatch, deterministic flag, and seed are verified in the server
 arguments.
 
-## Equivalent static matrix
+## Static matrix and request-history correction
 
-All runs below used dispatch `static`, deterministic inference enabled, seed
-`468112651`, temperature 0, the same prompt/request order, and cold startup.
+The initial runs below used dispatch `static`, deterministic inference enabled,
+seed `468112651`, temperature 0, and cold startup. They did not use the same
+pre-fault request history: the FT scale-down contract generated only after
+recovery, while the native control used a DP0 stream to drive fault detection.
 
 | Group | Kernel | Cold runs | Result |
 | --- | --- | ---: | --- |
-| `1d85efdad`, FT kill → pause → scale_down | 0.4.5 | 2 | PASS; DP0/DP2/DP3 exact |
-| `300f63f79`, native kill/isolation, FT disabled | 0.4.5 | 2 | PASS; DP0/DP2/DP3 exact |
+| `1d85efdad`, FT kill → pause → scale_down, no pre-baseline | 0.4.5 | 2 | Post-fault DP0/DP2/DP3 matched the oracle; absolute pre/post stability was untested |
+| `300f63f79`, native kill/isolation with a DP0 stream, FT disabled | 0.4.5 | 2 | Post-fault DP0/DP2/DP3 matched the oracle; not request-equivalent to FT |
 | `cc4e294e`, pre-rebase squash, FT kill → pause → scale_down | 0.4.2.post1 | 2 | DP0/DP2 exact; DP3 returned the historical drift sequence |
 
 Artifacts:
@@ -114,6 +116,26 @@ failed startup artifact is:
 The squash result proves that the sequence can occur before the rebase, but the
 kernel mismatch means it is not an equal dependency control and must not be
 used to claim that the rebase either caused or fixed the behavior.
+
+The contracts were then aligned to generate DP0--DP3 baselines before killing
+DP1 and to generate DP0, DP2 and DP3 in that order after recovery. The only
+non-inference operations unique to FT are the pause/status/scale-down API calls.
+
+| Group | Cold runs | Absolute pre/post result | FT-vs-native result |
+| --- | ---: | --- | --- |
+| `1d85efdad`, FT kill → pause → scale_down | 2 | FAIL 2/2; DP3 drifted | Same DP3 IDs as native |
+| `300f63f79`, native idle DP1 kill, FT disabled | 1 | FAIL; DP3 drifted | Same DP3 IDs as FT |
+| `300f63f79`, native DP1 kill during an extra DP0 stream | 1 | PASS; all survivors exact | Different request history; diagnostic only |
+
+The aligned FT and native DP3 output was:
+
+```text
+[3197,498,5545,220,16,15,15,11,2936,13]
+```
+
+This proves that the fixed parameters make the result reproducible, but do not
+guarantee absolute native pre/post stability. Request history is a material
+input even with static dispatch and deterministic inference.
 
 ## Historical drift issue and the correct FT gate
 
@@ -144,19 +166,22 @@ oracle dimensions, FT has not added a precision difference, even if both differ
 from the healthy pre-fault sequence. It did not establish cross-topology or
 cross-version absolute-token stability.
 
-For the D4 kill → pause → scale_down validation, the native and FT sides both
-return the healthy registered sequence in two cold runs. Therefore both the
-stronger absolute oracle and the required native-parity oracle pass for that
-specific recovery path. The broader campaign below found a survivor-rank drift
-on continue and retry paths; those paths do not yet have an equivalent native
-DP3 control and are not covered by this conclusion.
+For the aligned D4 kill → pause → scale_down validation, native and FT both
+return the same DP3 drift sequence. Therefore absolute pre/post stability fails,
+but native parity passes: no additional FT precision drift was observed. The
+earlier healthy post-fault results came from a different pre-fault request
+history and cannot override the aligned result.
 
 ## Interpretation boundaries
 
-- Supported: no additional FT precision drift was observed for the exact
+- Supported: no additional FT precision drift was observed for the aligned
   D4/static/deterministic/seeded kill → pause → scale_down configuration.
+- Supported: absolute pre/post precision stability fails on DP3 for both FT and
+  native Mooncake under that aligned request history.
 - Supported: the earlier dynamic FT failure is insufficient evidence of a
   rebase regression.
+- Not supported: static/deterministic/seeded launch parameters guarantee that
+  native Mooncake shrink is absolutely token-stable.
 - Not supported: dynamic redundant-expert dispatch is bitwise stable.
 - Not supported: every topology, model, kernel, or Mooncake revision is free
   from native precision drift.
@@ -231,7 +256,7 @@ memory fraction.
 | `fault-kill-noft-native-inflight` | PASS | FT disabled; in-flight DP0 completed and post-fault DP0 was exact |
 | `fault-kill-continue-inflight` | PASS | In-flight and post-fault DP0 were exact |
 | `fault-kill-pause-inflight-retry` | PASS | Retry completed; post-fault DP0 was exact |
-| `fault-kill-pause-scale-down` | PASS | Two cold runs; DP0/DP2/DP3 exact |
+| `fault-kill-pause-scale-down` | CONTROL PASS; ABSOLUTE PRECISION FAIL, 2/2; NATIVE PARITY PASS | Aligned pre/post gate: DP0/DP2 exact, DP3 matched the native drift sequence |
 | `fault-exception-continue-discard-resume` | PASS | Expected 503 discard, one completion, all schedulers healthy, post-exception exact |
 | `fault-exception-pause-retry` | PASS | Pause/retry completed and precision assertions passed |
 | `fault-exception-pause-scale-down` | PASS | DP0/DP1/DP3 each matched its own baseline |
@@ -252,25 +277,19 @@ and DP3 returned:
 [3197,498,5545,220,16,15,15,11,2936,13]
 ```
 
-The continue-only contract returned the same sequence on DP3. This makes the
-observation independent of the retry API: retaining DP3 after physical DP1 loss
-is the common condition. By contrast, scale_down rebuilt the survivor topology
-and DP3 returned the registered healthy sequence.
+The continue-only contract returned the same sequence on DP3. After aligning
+the scale-down contract to retry's DP0--DP3 pre-fault baseline requests,
+scale-down also returned this sequence on DP3 in two cold runs. The original
+scale-down PASS was therefore a test-contract false conclusion caused by
+different request history, not an action-specific product difference.
 
-The retry and scale-down contracts are not action-only equivalents. Retry first
-generates DP0--DP3 baselines and later compares each survivor with its own
-baseline; it resumes the original logical topology. Scale-down has no equivalent
-pre-fault requests, removes DP1 from the logical active mask, and compares the
-survivors directly with registered oracles. Both paths trigger recovery EPLB and
-weight reload, but their cache/request histories differ. An attribution run must
-first equalize those histories and then vary only `retry` versus `scale_down`.
-
-These results do **not** yet prove that FT introduced the DP3 drift. The existing
-no-FT native in-flight contract only asserts DP0, so it is not an equivalent DP3
-precision control. The minimum attribution experiment is a no-FT D4/static/
-deterministic run with the same seed, physical DP1 kill, request order, and
-direct post-fault DP3 request. Native parity, rather than healthy absolute
-tokens alone, remains the required FT precision gate.
+The aligned native FT-disabled control used the same inference request order and
+returned the same DP3 sequence. Thus the correct classification is absolute
+precision failure with native-parity success: FT has not added drift beyond
+native Mooncake for this configuration. The committed retry and scale-down
+contracts now both require each survivor to match its own baseline and its
+registered oracle; control-flow and precision results can no longer collapse
+into one PASS.
 
 The original whole-node rejoin contract had a causal barrier incompatible with
 #30164: it waited for a pre-`join_group` log that #30164 removed before driving
@@ -283,9 +302,14 @@ logged `recover ranks [3] done`.
 The remaining rejoin failure is after Mooncake recovery. The primary FT state
 keeps independent `process_active_ranks` and `mooncake_active_ranks` masks and
 routes their intersection. The primary watchdog sets DP3 process-active false
-when it dies. The relaunched DP3 reports process-active true only to its local
-tokenizer/FT manager, while Mooncake recovery updates the primary Mooncake mask.
-Consequently primary `/fault_tolerance/status` remains
+when it dies. Before the rebase, a recovery joiner retained the shared
+`dist_init_port + 1` tokenizer endpoint, so its process-active rising edge
+reached the primary tokenizer. #30164 changed every EP joiner to derive
+`port_base` from its own HTTP port plus `ZMQ_TCP_PORT_DELTA`; the inherited FT
+report still sends to `PortArgs.tokenizer_ipc_name`. A nonzero recovery node
+runs no tokenizer on that private endpoint, so the report has no receiver.
+Mooncake recovery independently updates the primary Mooncake mask. Consequently
+primary `/fault_tolerance/status` remains
 `0=healthy,1=healthy,2=healthy,3=dead`. This is an FT control-plane propagation
 defect layered on the #30164 rejoin path, not a Mooncake group-join stall.
 
@@ -308,6 +332,10 @@ Representative artifacts:
 
 - `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-kill-pause-retry-static-20260731`
 - `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-kill-pause-retry-static-r2-20260731`
+- `work/sglang-static-equivalence/artifacts-ft-2commits/aligned-static-scale-down-1d85ef-20260731-01`
+- `work/sglang-static-equivalence/artifacts-ft-2commits/aligned-static-scale-down-1d85ef-20260731-02`
+- `work/sglang-static-equivalence/artifacts-native/aligned-static-native-prebaseline-300f-20260731-01`
+- `work/sglang-static-equivalence/artifacts-native/aligned-static-native-idle-kill-300f-20260731-01`
 - `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-kill-continue-static-20260731`
 - `work/sglang-static-equivalence/artifacts-ft-2commits/rebase-1d85ef-continue-whole-node-rejoin-static-20260731`
 - `work/sglang-ft-rejoin-debug-30164/artifacts/rejoin-30164-boundary-logs-r4-20260731`
