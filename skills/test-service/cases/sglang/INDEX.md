@@ -18,6 +18,12 @@ registered-oracle rejection-contract run. See the
 [DeepSeek-V2-Lite r64 validation record](VALIDATION-2026-07-30-DEEPSEEK-V2-LITE-R64.md)
 for the model-specific profile inputs and applicability limits.
 
+An exploratory run on the main-rebased
+`ft-2commits@1d85efdad2659ed8fbc19166bf728e8b289ba631` passed the complete kill/pause/
+scale-down control plane but failed DP2 post-scale-down precision. See the
+[ft-2commits validation record](VALIDATION-2026-07-31-FT-2COMMITS.md); this does not
+promote that branch into the stable contract's applicability list.
+
 | Scenario | Suite identifier | server_tool contract | Coverage | Status |
 | --- | --- | --- | --- | --- |
 | Native Mooncake isolates a killed idle DP while an unaffected stream completes | `fault_kill_noft_status_apply_generate.sh` plus cross-DP in-flight gate | `fault-kill-noft-native-inflight` | FT disabled, native broken-peer isolation, complete DP0 stream, post-fault precision | Validated once on `edfdb26091a89b05de9e1c2ac7944a8c3c1fe138`; see [validation record](VALIDATION-2026-07-30.md) |
