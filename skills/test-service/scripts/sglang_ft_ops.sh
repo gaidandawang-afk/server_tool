@@ -85,6 +85,11 @@ sg_launch_ft() {
   local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
   local sg_moe_runner_backend="${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"
   local sg_pause_timeout="${SGLANG_FT_PAUSE_TIMEOUT_SEC:-300}"
+  local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-dynamic}"
+  local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
+  local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
+  local -a sg_deterministic_args=()
+  local -a sg_random_seed_args=()
   case "$sg_strategy" in
     pause|continue) ;;
     *)
@@ -95,6 +100,28 @@ sg_launch_ft() {
   if ! [[ "$sg_pause_timeout" =~ ^[1-9][0-9]*$ ]]; then
     st_assert launch_pause_timeout false "positive integer" "$sg_pause_timeout"
     return 1
+  fi
+  case "$sg_dispatch_algorithm" in
+    dynamic|static) ;;
+    *)
+      st_assert launch_dispatch_algorithm false "dynamic|static" "$sg_dispatch_algorithm"
+      return 1
+      ;;
+  esac
+  case "$sg_deterministic" in
+    0) ;;
+    1) sg_deterministic_args+=(--enable-deterministic-inference) ;;
+    *)
+      st_assert launch_deterministic false "0|1" "$sg_deterministic"
+      return 1
+      ;;
+  esac
+  if [[ -n "$sg_random_seed" ]]; then
+    if ! [[ "$sg_random_seed" =~ ^[0-9]+$ ]]; then
+      st_assert launch_random_seed false "non-negative integer" "$sg_random_seed"
+      return 1
+    fi
+    sg_random_seed_args+=(--random-seed "$sg_random_seed")
   fi
 
   if [[ -n "$sg_fault_ranks" ]]; then
@@ -126,7 +153,7 @@ sg_launch_ft() {
     --moe-a2a-backend mooncake \
     --enable-eplb \
     --eplb-algorithm elasticity_aware \
-    --ep-dispatch-algorithm dynamic \
+    --ep-dispatch-algorithm "$sg_dispatch_algorithm" \
     --ep-num-redundant-experts "$sg_redundant_experts" \
     --elastic-ep-backend mooncake \
     --deepep-mode low_latency \
@@ -139,7 +166,8 @@ sg_launch_ft() {
     --context-length 1024 \
     --watchdog-timeout 120 \
     --disable-custom-all-reduce \
-    --enable-deterministic-inference \
+    "${sg_random_seed_args[@]}" \
+    "${sg_deterministic_args[@]}" \
     --disable-overlap-schedule \
     --disable-cuda-graph \
     --disable-piecewise-cuda-graph \
@@ -278,6 +306,33 @@ sg_launch_dp4_mooncake_noft() {
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
   local sg_moe_runner_backend="${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"
+  local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-dynamic}"
+  local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-0}"
+  local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
+  local -a sg_deterministic_args=()
+  local -a sg_random_seed_args=()
+  case "$sg_dispatch_algorithm" in
+    dynamic|static) ;;
+    *)
+      st_assert launch_dispatch_algorithm false "dynamic|static" "$sg_dispatch_algorithm"
+      return 1
+      ;;
+  esac
+  case "$sg_deterministic" in
+    0) ;;
+    1) sg_deterministic_args+=(--enable-deterministic-inference) ;;
+    *)
+      st_assert launch_deterministic false "0|1" "$sg_deterministic"
+      return 1
+      ;;
+  esac
+  if [[ -n "$sg_random_seed" ]]; then
+    if ! [[ "$sg_random_seed" =~ ^[0-9]+$ ]]; then
+      st_assert launch_random_seed false "non-negative integer" "$sg_random_seed"
+      return 1
+    fi
+    sg_random_seed_args+=(--random-seed "$sg_random_seed")
+  fi
   cd "$SERVER_TOOL_PROJECT_ROOT"
   st_launch_process_group "$sg_log_path" \
     python3 -u -m sglang.launch_server \
@@ -295,7 +350,7 @@ sg_launch_dp4_mooncake_noft() {
     --moe-a2a-backend mooncake \
     --enable-eplb \
     --eplb-algorithm elasticity_aware \
-    --ep-dispatch-algorithm dynamic \
+    --ep-dispatch-algorithm "$sg_dispatch_algorithm" \
     --ep-num-redundant-experts "$sg_redundant_experts" \
     --elastic-ep-backend mooncake \
     --deepep-mode low_latency \
@@ -308,6 +363,8 @@ sg_launch_dp4_mooncake_noft() {
     --context-length 1024 \
     --watchdog-timeout 120 \
     --disable-custom-all-reduce \
+    "${sg_random_seed_args[@]}" \
+    "${sg_deterministic_args[@]}" \
     --disable-overlap-schedule \
     --disable-cuda-graph \
     --disable-piecewise-cuda-graph \

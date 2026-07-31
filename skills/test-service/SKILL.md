@@ -46,6 +46,11 @@ Committed SGLang cases take the model from `MODEL_PATH`. A profile may also sele
 - `SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS` (default `128`);
 - `SGLANG_FT_MEM_FRACTION_STATIC` (default `0.75`);
 - `SGLANG_FT_MOE_RUNNER_BACKEND` (default `deep_gemm`);
+- `SGLANG_FT_EP_DISPATCH_ALGORITHM` (`dynamic` for ordinary launchers unless
+  explicitly selected; rejoin launchers default to `static`);
+- `SGLANG_FT_DETERMINISTIC_INFERENCE` (`1` for ordinary FT launchers and `0`
+  for native no-FT launchers unless explicitly selected);
+- `SGLANG_FT_RANDOM_SEED` for an optional fixed non-negative seed;
 - `SGLANG_DEEPEP_BF16_DISPATCH` (`0` by default; use `1` for a compatible
   DeepSeek BF16/DeepGEMM environment);
 - `SGLANG_FT_PRECISION_ORACLE_FAMILY` (default

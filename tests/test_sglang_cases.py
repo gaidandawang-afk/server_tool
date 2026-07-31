@@ -99,6 +99,35 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn('SGLANG_FT_RANDOM_SEED', unit)
         self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
 
+    def test_ordinary_launchers_honor_dispatch_determinism_and_seed(self):
+        unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        command = f"""
+set -Eeuo pipefail
+export SERVER_TOOL_PROJECT_ROOT=.
+export MODEL_PATH=/unused/model
+export SGLANG_FT_EP_DISPATCH_ALGORITHM=static
+export SGLANG_FT_DETERMINISTIC_INFERENCE=1
+export SGLANG_FT_RANDOM_SEED=424242
+source {unit.as_posix()!r}
+st_launch_process_group() {{ printf '%s\\n' "$@"; }}
+st_assert() {{ :; }}
+ft_command="$(sg_launch_dp4_ft pause 6200 /tmp/ft.log)"
+noft_command="$(sg_launch_dp4_mooncake_noft 6201 /tmp/noft.log)"
+for command_text in "$ft_command" "$noft_command"; do
+  grep -q -x -- '--ep-dispatch-algorithm' <<<"$command_text"
+  grep -q -x -- 'static' <<<"$command_text"
+  grep -q -x -- '--enable-deterministic-inference' <<<"$command_text"
+  grep -q -x -- '--random-seed' <<<"$command_text"
+  grep -q -x -- '424242' <<<"$command_text"
+done
+"""
+        completed = subprocess.run(
+            ["bash", "-c", command],
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_launchers_support_profile_selected_moe_backend_and_bf16_dispatch(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
