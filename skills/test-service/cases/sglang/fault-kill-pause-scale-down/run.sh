@@ -50,7 +50,7 @@ sg_wait_ft_status "$port" "$run_dir/status-initial.json" \
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
 for rank in 0 1 2 3; do
   st_http_json POST "http://127.0.0.1:${port}/generate" \
-    "${requests[$rank]}" "${baselines[$rank]}" 200 "baseline_dp${rank}" 600
+    "${requests[$rank]}" "${baselines[$rank]}" 200 "baseline_dp${rank}" 180
 done
 
 st_kill_owned_process "$server_pgid" "_TP1_EP" KILL kill_dp1
