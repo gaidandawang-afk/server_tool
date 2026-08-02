@@ -1,8 +1,8 @@
 # Kill one scheduler and continue serving
 
-Apply to SGLang branches `codex/dp-only-ft-squashed` and
-`worktree-dp-only-ft-revise`. Run two bounded cold repetitions for stability campaigns; one
-cold run is sufficient for a branch-usability validation round.
+Apply to SGLang branches `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, and
+the rebased `ft-2commits` validation branches. Run two bounded cold repetitions for
+stability campaigns; one cold run is sufficient for a branch-usability validation round.
 
 ```powershell
 python skills\test-service\scripts\run-case.py `
@@ -31,12 +31,12 @@ python skills\test-service\scripts\run-case.py `
 5. Reach `0=healthy,1=dead,2=healthy,3=healthy` with exactly three schedulers.
 6. Prove the continue path dispatched no pause command.
 7. Converge to HTTP 400 for explicit routing to dead DP1 within 180 seconds.
-8. Return HTTP 200 on DP0, DP2 and DP3, with each survivor matching its own pre-fault
-   ten-token baseline.
+8. Return HTTP 200 on DP0, DP2 and DP3, with each survivor output belonging to the
+   registered known-sequence set for the selected model and topology.
 9. Stop the owned service process group and leave the source checkout clean.
 
 ## Required artifacts
 
 Keep container and source provenance, imported package records, requests and responses, FT
 status JSON, server log, owned PGID, four baseline responses and precision JSON files, three
-post-fault precision JSON files, assertions and result JSON.
+post-fault known-sequence JSON files, assertions and result JSON.
