@@ -2,7 +2,7 @@
 
 ## Applicability
 
-- Source branches: `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`
+- Source branches: `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, rebased `ft-2commits` validation branches
 - TP=4, DP=4, EP=4 on the four profile-selected GPUs
 - Fault tolerance strategy: `pause`
 - Repetition: two independent cold runs

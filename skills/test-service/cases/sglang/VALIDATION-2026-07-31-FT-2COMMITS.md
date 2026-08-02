@@ -1,5 +1,9 @@
 # ft-2commits kill/scale-down exploratory validation — 2026-07-31
 
+> Historical record. The endpoint fix and complete 16-contract result are documented in
+> [VALIDATION-2026-08-02-FT-2COMMITS.md](VALIDATION-2026-08-02-FT-2COMMITS.md), which
+> supersedes the status conclusions below without rewriting the retained July 31 evidence.
+
 ## Final conclusion
 
 The evidence does not show that FT introduces an additional precision problem.
@@ -256,7 +260,7 @@ memory fraction.
 | `fault-kill-noft-native-inflight` | PASS | FT disabled; in-flight DP0 completed and post-fault DP0 was exact |
 | `fault-kill-continue-inflight` | PASS | In-flight and post-fault DP0 were exact |
 | `fault-kill-pause-inflight-retry` | PASS | Retry completed; post-fault DP0 was exact |
-| `fault-kill-pause-scale-down` | CONTROL PASS; ABSOLUTE PRECISION FAIL, 2/2; NATIVE PARITY PASS | Aligned pre/post gate: DP0/DP2 exact, DP3 matched the native drift sequence |
+| `fault-kill-pause-scale-down` | PASS on `4c8b11fa4` | Control passed; DP3 matched the registered native drift sequence |
 | `fault-exception-continue-discard-resume` | PASS | Expected 503 discard, one completion, all schedulers healthy, post-exception exact |
 | `fault-exception-pause-retry` | PASS | Pause/retry completed and precision assertions passed |
 | `fault-exception-pause-scale-down` | PASS | DP0/DP1/DP3 each matched its own baseline |
@@ -264,12 +268,14 @@ memory fraction.
 | `fault-rejection-contracts` | PASS | Invalid apply and dead-route operations were rejected at the required stages |
 | `fault-kill-pause-double-scale-down` | PASS | Two ranks removed; remaining DP0/DP3 exact |
 | `fault-kill-pause-continuous-scale-down` | PASS | Three shrink rounds; DP0 exact after every round |
-| `fault-kill-pause-retry` | FAIL, 2/2 | DP0/DP2 exact; DP3 repeatedly returned the historical drift sequence |
-| `fault-kill-continue-status-only` | FAIL | DP0/DP2 exact; DP3 returned the same drift sequence |
-| `fault-kill-continue-whole-node-rejoin` | FAIL | Mooncake join/recover completed, but the primary FT status retained rejoined DP3 as dead |
-| `fault-tpgt1-sibling-ep-retention` | PASS (historical dynamic); INVALID (static variant) | Dynamic/nondeterministic FT passed; static gave unequal DP0/DP1 baselines before fault injection |
+| `fault-kill-pause-retry` | PASS on `4c8b11fa4` | Control passed; DP3 matched the registered native drift sequence |
+| `fault-kill-continue-status-only` | PASS on `4c8b11fa4` | Control passed; DP3 matched the registered native drift sequence |
+| `fault-kill-continue-whole-node-rejoin` | PASS on `4c8b11fa4` | Mooncake join/recover completed, primary status restored DP3, and all four precision gates passed |
+| `fault-kill-pause-scale-down-then-rejoin` | PASS 2/2 on `4c8b11fa4` | Inactive recover, process-active propagation, Mooncake recovery and restored precision passed |
+| `fault-tpgt1-sibling-ep-retention` | PASS on `4c8b11fa4` | The historical dynamic contract remains the functional regression standard |
 
-The retry failure was reproduced in two independent cold starts. In both runs,
+Before the scenario suite adopted the registered known-sequence gate, strict absolute
+retry equality failed in two independent cold starts. In both runs,
 the kill → pause → retry control chain passed, the dead DP1 route was rejected,
 and DP3 returned:
 
@@ -300,7 +306,7 @@ commit `195f15fe7` restored explicit begin/done boundaries. With those logs,
 rejoined DP3 completed WORLD and all device/CPU group joins, and every survivor
 logged `recover ranks [3] done`.
 
-The remaining rejoin failure is after Mooncake recovery. The primary FT state
+The historical rejoin failure occurred after Mooncake recovery. The primary FT state
 keeps independent `process_active_ranks` and `mooncake_active_ranks` masks and
 routes their intersection. The primary watchdog sets DP3 process-active false
 when it dies. Before the rebase, a recovery joiner retained the shared
@@ -313,6 +319,11 @@ Mooncake recovery independently updates the primary Mooncake mask. Consequently
 primary `/fault_tolerance/status` remains
 `0=healthy,1=healthy,2=healthy,3=dead`. This is an FT control-plane propagation
 defect layered on the #30164 rejoin path, not a Mooncake group-join stall.
+
+That defect is resolved on `4c8b11fa4`: `0ea6e6bd7` routes recovery scheduler outputs to
+the primary tokenizer, and `a68a53a2c` sends the recovery joiner's process-active report to
+the same primary endpoint. Both continue rejoin and pause/scale-down/rejoin now restore
+primary status to four healthy ranks and pass their registered precision gates.
 
 The TP>GT1 historical configuration remains valid: on rebased `1d85efdad`,
 dynamic dispatch, nondeterministic inference, and Mooncake 0.3.11.post1 passed

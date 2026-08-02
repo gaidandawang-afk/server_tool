@@ -1,6 +1,7 @@
 # Kill, pause, and logical scale-down
 
-Validate the `codex/dp-only-ft-squashed` or `worktree-dp-only-ft-revise` SGLang branch with
+Validate `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, or the rebased
+`ft-2commits` validation branch with
 the kernel and Mooncake roots selected by the task profile. Run cold twice for stability
 campaigns; one cold run is sufficient for a branch-usability validation round.
 

@@ -4,6 +4,9 @@ Validate whole-node rejoin on the selected SGLang branch with the kernel and Moo
 selected by the task profile. One cold pass is sufficient for the current case-usability
 round.
 
+Applicable source branches include `worktree-dp-only-ft-revise` and rebased `ft-2commits`
+validation branches. Runtime scale-up is outside this contract.
+
 ```powershell
 python skills\test-service\scripts\run-case.py `
   --profile profiles\<profile>.local.env `

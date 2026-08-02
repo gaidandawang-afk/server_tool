@@ -1,7 +1,7 @@
 # Native Mooncake in-flight isolation without FT
 
-Validate `codex/dp-only-ft-squashed` or `worktree-dp-only-ft-revise` with fault tolerance
-disabled. One stream runs on DP0 while DP1 is killed. Mooncake must isolate the dead peer
+Validate `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, or the rebased
+`ft-2commits` validation branch with fault tolerance disabled. One stream runs on DP0 while DP1 is killed. Mooncake must isolate the dead peer
 without an FT apply operation, and the already-running DP0 stream must return a complete HTTP
 200 response.
 

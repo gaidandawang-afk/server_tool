@@ -1,5 +1,9 @@
 # Four-GPU FT revise-branch validation — 2026-07-30
 
+> Historical revise-branch record. Current main-rebased results, including both repaired
+> whole-node rejoin paths, are in
+> [VALIDATION-2026-08-02-FT-2COMMITS.md](VALIDATION-2026-08-02-FT-2COMMITS.md).
+
 ## Fixed inputs
 
 - SGLang checkout: `D:\Codex\repos\sglang-dp-only-ft-revise`

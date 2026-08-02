@@ -1,7 +1,7 @@
 # Kill one scheduler, pause, and retry
 
-Apply to SGLang branches `codex/dp-only-ft-squashed` and
-`worktree-dp-only-ft-revise`. Run two bounded cold repetitions for stability campaigns; one
+Apply to SGLang branches `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, and
+the rebased `ft-2commits` validation branches. Run two bounded cold repetitions for stability campaigns; one
 cold run is sufficient for a branch-usability validation round.
 
 ```powershell

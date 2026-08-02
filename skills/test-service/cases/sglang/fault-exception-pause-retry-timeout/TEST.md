@@ -1,6 +1,7 @@
 # Fail-stop after an unattended exception pause
 
-Validate the `codex/dp-only-ft-squashed` or `worktree-dp-only-ft-revise` SGLang branch with
+Validate `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, or the rebased
+`ft-2commits` validation branch with
 the kernel and Mooncake roots selected by the task profile. Use one bounded cold run for a
 branch-usability round; use two independent cold runs for a stability campaign.
 
