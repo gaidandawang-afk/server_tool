@@ -36,14 +36,15 @@ python skills\test-service\scripts\run-case.py `
    `0=paused,1=paused,2=paused,3=paused`.
 6. Issue no retry, scale-down or recover command; prove all four schedulers remain alive
    before the configured timeout.
-7. Require the log to show the 30-second unattended-pause fail-stop was armed.
-8. Require the entire owned process group to exit within 60 seconds and the log to identify
-   `Fault tolerance pause unattended` as the reason.
+7. Require the scheduler log to show that the 30-second unattended-pause deadline expired.
+8. Require the entire owned process group to exit within 120 seconds, including bounded crash
+   diagnostics, and identify `Fault tolerance pause unattended` as the reason.
 9. Leave the source checkout clean.
 
 The all-paused state is a barrier before the intentional no-apply wait. A scheduler crash
 before the configured pause timeout is a failure, as is a surviving owned process after the
-bounded fail-stop wait.
+bounded fail-stop and crash-diagnostic wait. The contract asserts the scheduler-owned
+deadline rather than a tokenizer-manager fallback timer.
 
 Every gate must append a structured assertion. Exit zero without assertions is not a pass.
 

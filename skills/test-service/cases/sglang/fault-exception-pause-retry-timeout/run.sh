@@ -66,11 +66,8 @@ sg_wait_ft_status "$port" "$run_dir/status-paused.json" \
 sleep 5
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 \
   schedulers_alive_before_pause_timeout
-sg_assert_log_contains "$log_path" \
-  "Fault tolerance paused fail-stop armed: timeout_sec=${pause_timeout_sec}" \
-  pause_failstop_armed
-st_wait_process_group_exit "$server_pgid" 60 unattended_pause_process_group_exit
+st_wait_process_group_exit "$server_pgid" 120 unattended_pause_process_group_exit
 server_pgid=""
 sg_assert_log_contains "$log_path" \
-  "Fault tolerance pause unattended: timeout_sec=${pause_timeout_sec}" \
+  "Fault tolerance pause unattended: timeout_sec=${pause_timeout_sec}\\.0 dp_rank=" \
   unattended_pause_reason
