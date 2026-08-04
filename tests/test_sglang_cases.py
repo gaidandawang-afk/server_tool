@@ -179,6 +179,32 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn('SGLANG_FT_RANDOM_SEED', unit)
         self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
 
+    def test_fault_tolerance_apply_payloads_use_new_schema(self):
+        unit = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+        rejection_case = (
+            REPO_ROOT
+            / "skills"
+            / "test-service"
+            / "cases"
+            / "sglang"
+            / "fault-rejection-contracts"
+            / "run.sh"
+        ).read_text(encoding="utf-8")
+
+        for content in (unit, rejection_case):
+            self.assertNotIn("fault_tolerance_instruction", content)
+            self.assertNotIn("fault_tolerance_params", content)
+            self.assertNotIn("fault_tolerance_timeout", content)
+        self.assertIn('"instruction": "scale_down"', unit)
+        self.assertIn('"instruction": "retry"', unit)
+        self.assertIn('"instruction": "recover"', unit)
+        self.assertIn(
+            '{"instruction":"retry","params":{"timeout":180}}',
+            rejection_case,
+        )
+
     def test_ordinary_launchers_honor_dispatch_determinism_and_seed(self):
         unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         command = f"""

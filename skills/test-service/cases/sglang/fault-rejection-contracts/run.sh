@@ -37,10 +37,10 @@ sg_prepare_dp4_runtime
 sg_write_rank_request "$run_dir/request-dp0.json" 0 10
 sg_write_rank_request "$run_dir/request-dp1.json" 1 10
 cat >"$run_dir/retry-request.json" <<'JSON'
-{"fault_tolerance_instruction":"retry","fault_tolerance_timeout":180}
+{"instruction":"retry","params":{"timeout":180}}
 JSON
 cat >"$run_dir/scale-down-no-paused-request.json" <<'JSON'
-{"fault_tolerance_instruction":"scale_down","fault_tolerance_timeout":180,"fault_tolerance_params":{"ranks":[1]}}
+{"instruction":"scale_down","params":{"timeout":180,"ranks":[1]}}
 JSON
 
 sg_launch_dp4_ft pause "$port" "$log_path"

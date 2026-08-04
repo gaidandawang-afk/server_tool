@@ -873,10 +873,10 @@ import sys
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
     json.dump(
         {
-            "fault_tolerance_instruction": "scale_down",
-            "fault_tolerance_timeout": 180,
-            "fault_tolerance_params": {
-                "ranks": [int(value) for value in sys.argv[2].split(",")]
+            "instruction": "scale_down",
+            "params": {
+                "timeout": 180,
+                "ranks": [int(value) for value in sys.argv[2].split(",")],
             },
         },
         handle,
@@ -898,8 +898,8 @@ import sys
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
     json.dump(
         {
-            "fault_tolerance_instruction": "retry",
-            "fault_tolerance_timeout": 180,
+            "instruction": "retry",
+            "params": {"timeout": 180},
         },
         handle,
         separators=(",", ":"),
@@ -921,9 +921,8 @@ import sys
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
     json.dump(
         {
-            "fault_tolerance_instruction": "recover",
-            "fault_tolerance_timeout": 180,
-            "fault_tolerance_params": {"ranks": [int(sys.argv[2])]},
+            "instruction": "recover",
+            "params": {"timeout": 180, "ranks": [int(sys.argv[2])]},
         },
         handle,
         separators=(",", ":"),
