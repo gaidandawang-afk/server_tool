@@ -184,8 +184,6 @@ sg_launch_dp4_ft_rejoin_node pause "$((base_port + 3))" \
   "${node_logs[3]}" 3 "$dist_init_addr" 1
 node_pgids[3]="$ST_LAST_PGID"
 sg_wait_scheduler_count "${node_pgids[3]}" 1 180 rejoin_scheduler
-sg_wait_log_contains "${node_logs[3]}" \
-  "Recovered rank joining Mooncake backend default_world" 180 rejoin_world_join
 for node in 0 1 2; do
   sg_drive_generate_until_log \
     "$base_port" "${requests[$node]}" "${node_logs[$node]}" \

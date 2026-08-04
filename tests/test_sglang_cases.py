@@ -219,6 +219,7 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("inactive_recover_empty_resume", case)
         self.assertIn('data.get("resumed_ranks")', case)
         self.assertNotIn("Fault tolerance apply plan", case)
+        self.assertNotIn("Recovered rank joining Mooncake backend", case)
 
     def test_ordinary_launchers_honor_dispatch_determinism_and_seed(self):
         unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"

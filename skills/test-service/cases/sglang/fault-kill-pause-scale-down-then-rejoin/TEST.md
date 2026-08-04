@@ -52,7 +52,9 @@ exactly against the post-scale-down DP0 output for the requested length.
    additional resume command is issued.
 8. Confirm the recover response contains an empty `resumed_ranks` list and rank 3 remains
    inactive.
-9. Restart only node 3 and observe world join plus recovery completion on all survivors.
+9. Restart only node 3, drive survivor forwards so Mooncake can admit the joiner, and
+   observe recovery completion on all survivors. Do not require debug-only group-boundary
+   log messages that are absent from normal source commits.
 10. Reach four healthy ranks; DP3 and DP0 return HTTP 200 with their registered token
     sequences.
 11. Stop only the four owned process groups and leave the selected source checkout clean.
