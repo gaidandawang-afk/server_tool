@@ -205,6 +205,21 @@ sg_launch_dp4_ft continue "$port" "$log_path"
             rejection_case,
         )
 
+    def test_rejoin_asserts_structured_empty_resume_response(self):
+        case = (
+            REPO_ROOT
+            / "skills"
+            / "test-service"
+            / "cases"
+            / "sglang"
+            / "fault-kill-pause-scale-down-then-rejoin"
+            / "run.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("inactive_recover_empty_resume", case)
+        self.assertIn('data.get("resumed_ranks")', case)
+        self.assertNotIn("Fault tolerance apply plan", case)
+
     def test_ordinary_launchers_honor_dispatch_determinism_and_seed(self):
         unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         command = f"""

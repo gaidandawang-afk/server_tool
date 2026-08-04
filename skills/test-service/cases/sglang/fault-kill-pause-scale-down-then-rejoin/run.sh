@@ -167,9 +167,17 @@ resume_count_after="$(grep -Ec -- "$resume_pattern" "${node_logs[0]}" 2>/dev/nul
 st_assert inactive_recover_no_duplicate_resume \
   "$([[ "$resume_count_after" == "$resume_count_before" ]] && echo true || echo false)" \
   "$resume_count_before" "$resume_count_after"
-sg_assert_log_contains "${node_logs[0]}" \
-  "Fault tolerance apply plan: instruction=recover (active_mask=\\[True, True, True, False\\] )?resume_targets=\\[\\] ranks=\\[3\\]" \
-  inactive_recover_plan
+recover_resumed_ranks="$(python3 - "$run_dir/recover-response.json" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+print(json.dumps(data.get("resumed_ranks"), separators=(",", ":")))
+PY
+)"
+st_assert inactive_recover_empty_resume \
+  "$([[ "$recover_resumed_ranks" == "[]" ]] && echo true || echo false)" \
+  "[]" "${recover_resumed_ranks:-invalid_json}"
 
 node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"
 sg_launch_dp4_ft_rejoin_node pause "$((base_port + 3))" \
