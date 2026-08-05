@@ -52,9 +52,6 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$request_dp0" "$baseline_dp0" 200 baseline_dp0 90
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$request_dp1" "$baseline_dp1" 200 baseline_dp1 90
-sg_assert_output_ids_equal \
-  "$baseline_dp0" "$baseline_dp1" "$run_dir/baseline-dp0-dp1-precision.json" \
-  baseline_dp0_dp1 10
 
 rank3_pid="$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 3)"
 if [[ -n "$rank3_pid" ]]; then

@@ -11,7 +11,8 @@
 ## Ordered phases and barriers
 
 1. Verify dependency identities and reach `0=healthy,1=healthy` with four schedulers.
-2. Generate bounded baselines on DP0 and DP1 and require equal ten-token output.
+2. Generate bounded baselines successfully on DP0 and DP1. Their sampled token sequences are
+   not required to match because the two routed DP groups have distinct deterministic RNG streams.
 3. Record global rank 3, then externally kill global rank 2 in the same DP1 block.
 4. Reach `0=healthy,1=dead`, retain rank 3 only as a pre-apply sibling, and prove admission
    is closed with HTTP 503.
