@@ -1,8 +1,7 @@
-# Kill, pause, and logical scale-down
+# Kill, self-pause, and whole-DP scale-down
 
-Validate `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, or the rebased
-`ft-2commits` validation branch with
-the kernel and Mooncake roots selected by the task profile. Run cold twice for stability
+Validate `codex/ft-self-pause-whole-dp` with the kernel and Mooncake roots selected by the
+task profile. Run cold twice for stability
 campaigns; one cold run is sufficient for a branch-usability validation round.
 
 ```powershell
@@ -28,10 +27,13 @@ python skills\test-service\scripts\run-case.py `
 2. Start with `0=healthy,1=healthy,2=healthy,3=healthy` and four schedulers.
 3. Complete one ten-token baseline generation on each DP before fault injection.
 4. Kill global scheduler rank 1.
-5. Reach `0=paused,1=dead,2=paused,3=paused` with three schedulers.
-6. Reject generation while paused with HTTP 503.
-7. Apply logical `scale_down` to rank 1 with HTTP 200.
-8. Reach `0=healthy,1=dead,2=healthy,3=healthy` without killing another scheduler.
+5. Reach `0=healthy,1=dead,2=healthy,3=healthy` with three schedulers. Public status does
+   not expose the survivors' Scheduler-local paused bits.
+6. Reject generation during the incident with HTTP 503 and prove no central pause command
+   was dispatched.
+7. Apply whole-DP `scale_down([1])` with HTTP 200. Require survivor prepare and resume ACKs;
+   rank 1 was already externally killed, so its whole-DP block is already empty.
+8. Remain `0=healthy,1=dead,2=healthy,3=healthy` with exactly three schedulers.
 9. Reject explicit DP1 routing with HTTP 400.
 10. Return HTTP 200 on DP0, DP2 and DP3; require each survivor output to belong
     to the registered known-sequence set for the selected model and topology.
@@ -44,6 +46,6 @@ Every gate must append a structured assertion. Exit zero without assertions is n
 - `container.env`, `provenance.env`, `invocation.json`
 - actual Python package version and import path
 - request and response JSON for every HTTP operation
-- FT status JSON, server log, owned PGIDs
+- FT status JSON, admission response, control-barrier log evidence, server log, owned PGIDs
 - four pre-fault baseline responses and per-survivor known-sequence result JSON
 - `assertions.jsonl` and `result.json`

@@ -1,7 +1,8 @@
 # Continuous scale-down to one surviving DP
 
-Validate three bounded kill/pause/scale-down rounds in one service lifetime. DP1, DP2 and DP3
-are removed sequentially; DP0 must resume and retain deterministic output after every round.
+Validate three bounded kill/self-pause/scale-down rounds in one service lifetime. DP1, DP2
+and DP3 are removed sequentially; DP0 must resume and retain deterministic output after every
+round.
 The default Qwen configuration uses 384 redundant experts and `mem_fraction_static=0.45`,
 matching the historical condition that retains the complete expert set on the final survivor.
 
@@ -13,7 +14,7 @@ applicable to this single-survivor case.
 
 ## Applicability
 
-- Source branches: `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, rebased `ft-2commits` validation branches
+- Source branch: `codex/ft-self-pause-whole-dp`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on four profile-selected GPUs
 - Repetition for branch-usability validation: one cold run
 
@@ -23,8 +24,9 @@ applicable to this single-survivor case.
    baseline before injecting the first fault.
 2. For each target rank 1, 2 and 3:
    - kill only that owned scheduler;
-   - reach the cumulative dead set with every survivor paused;
-   - apply scale-down only for the newly dead rank;
+   - reach the cumulative dead set while public survivor status remains healthy;
+   - prove the incident admission gate returns HTTP 503;
+   - apply whole-DP scale-down only for the newly dead rank;
    - reach the cumulative dead set with every survivor healthy;
    - confirm the scheduler count decreased by exactly one;
    - route a request to DP0 and match its registered ten-token oracle.
@@ -36,5 +38,6 @@ the current case-usability round.
 
 ## Required artifacts
 
-Preserve per-round status, apply request/response, DP0 generation and precision files, process
-counts, server log, provenance, assertions, result and cleanup evidence.
+Preserve per-round incident/final status, blocked admission and apply responses, DP0 generation
+and precision files, process counts, server log, provenance, assertions, result and cleanup
+evidence.

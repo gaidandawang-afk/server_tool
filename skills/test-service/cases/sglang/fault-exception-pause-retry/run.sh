@@ -54,15 +54,26 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
   "${requests[0]}" "$run_dir/trigger-response.json" 503 discard_current 180
 sg_wait_recoverable_fault_done "$done_file" 1 60 recoverable_fault_done
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_after_exception
-sg_wait_ft_status "$port" "$run_dir/status-paused.json" \
-  "0=paused,1=paused,2=paused,3=paused" 120 status_paused
+sg_wait_ft_status "$port" "$run_dir/status-unhealthy.json" \
+  "0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy" 120 status_unhealthy
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[1]}" "$run_dir/paused-response.json" 503 paused_blocks_generate 180
+  "${requests[1]}" "$run_dir/admission-closed-response.json" 503 \
+  admission_blocks_generate 180
 
+eplb_count_before="$(grep -c 'EPLB due to' "$log_path" 2>/dev/null || true)"
 sg_apply_retry "$port" "$run_dir/retry-request.json" "$run_dir/retry-response.json"
 sg_wait_ft_status "$port" "$run_dir/status-after-retry.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_after_retry
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 retry_keeps_all_schedulers
+sg_assert_log_contains "$log_path" \
+  "FT command complete: command=retry_reset acked=\\[0, 1, 2, 3\\]" \
+  retry_reset_all_expected_acked
+eplb_count_after="$(grep -c 'EPLB due to' "$log_path" 2>/dev/null || true)"
+if [[ "$eplb_count_after" == "$eplb_count_before" ]]; then
+  st_assert retry_does_not_run_eplb true "$eplb_count_before" "$eplb_count_after"
+else
+  st_assert retry_does_not_run_eplb false "$eplb_count_before" "$eplb_count_after"
+fi
 
 for rank in 0 1 2 3; do
   response="$run_dir/after-retry-dp${rank}.json"

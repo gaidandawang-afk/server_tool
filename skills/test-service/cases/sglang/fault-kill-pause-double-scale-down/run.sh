@@ -48,13 +48,16 @@ st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
 
 st_kill_owned_process "$server_pgid" "_TP1_EP" KILL kill_dp1
 sg_wait_ft_status "$port" "$run_dir/status-after-dp1-kill.json" \
-  "0=paused,1=dead,2=paused,3=paused" 120 status_after_dp1_kill
+  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_after_dp1_kill
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 schedulers_after_dp1_kill
 
 st_kill_owned_process "$server_pgid" "_TP2_EP" KILL kill_dp2
 sg_wait_ft_status "$port" "$run_dir/status-after-double-kill.json" \
-  "0=paused,1=dead,2=dead,3=paused" 120 status_after_double_kill
+  "0=healthy,1=dead,2=dead,3=healthy" 120 status_after_double_kill
 st_assert_process_count "$server_pgid" "sglang::scheduler" 2 schedulers_after_double_kill
+st_http_json POST "http://127.0.0.1:${port}/generate" \
+  "${requests[0]}" "$run_dir/admission-closed.json" 503 \
+  admission_blocks_generate 90
 
 sg_apply_scale_down_ranks "$port" "1,2" \
   "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"

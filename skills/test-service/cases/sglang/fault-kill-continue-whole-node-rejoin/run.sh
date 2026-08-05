@@ -84,20 +84,23 @@ sg_launch_dp4_ft_rejoin_node continue "$((base_port + 3))" \
   "${node_logs[3]}" 3 "$dist_init_addr" 1
 node_pgids[3]="$ST_LAST_PGID"
 sg_wait_scheduler_count "${node_pgids[3]}" 1 180 rejoin_scheduler
-sg_wait_log_contains "${node_logs[3]}" \
-  "Recovered rank joining Mooncake backend default_world" 180 rejoin_world_join
 sg_wait_ft_status "$base_port" "$run_dir/status-before-recovery.json" \
   "0=healthy,1=healthy,2=healthy,3=dead" 120 status_before_recovery
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[3]}" "$run_dir/before-recovery-dp3.json" 400 \
   before_recovery_dp3_closed 60
 
-for node in 0 1 2; do
-  sg_drive_generate_until_log \
-    "$base_port" "${requests[$node]}" "${node_logs[$node]}" \
-    "recover ranks \[3\] done" "$run_dir/recovery-drive-node${node}" 600 \
-    "node${node}_recovery_observed"
+sg_drive_generate_until_log \
+  "$base_port" "${requests[0]}" "${node_logs[0]}" \
+  "recover ranks \[3\] staged" "$run_dir/recovery-stage-drive" 600 \
+  recovery_stage_observed
+for node in 1 2; do
+  sg_wait_log_contains "${node_logs[$node]}" \
+    "recover ranks \[3\] staged" 180 "node${node}_recovery_staged"
 done
+st_http_json POST "http://127.0.0.1:${base_port}/generate" \
+  "${requests[0]}" "$run_dir/recovery-eplb-forward.json" 200 \
+  recovery_eplb_second_forward 600
 sg_wait_ft_status "$base_port" "$run_dir/status-recovered.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_recovered
 sg_wait_health_generate "$((base_port + 3))" "${node_pgids[3]}" 600 \

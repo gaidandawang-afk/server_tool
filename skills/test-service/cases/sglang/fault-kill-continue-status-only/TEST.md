@@ -1,7 +1,6 @@
 # Kill one scheduler and continue serving
 
-Apply to SGLang branches `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, and
-the rebased `ft-2commits` validation branches, including `4c8b11fa4`. Run two bounded cold repetitions for
+Apply to SGLang branch `codex/ft-self-pause-whole-dp`; revalidate its exact selected HEAD. Run two bounded cold repetitions for
 stability campaigns; one cold run is sufficient for a branch-usability validation round.
 
 ```powershell

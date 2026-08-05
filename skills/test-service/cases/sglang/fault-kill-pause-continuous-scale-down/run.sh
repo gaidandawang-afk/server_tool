@@ -52,10 +52,10 @@ sg_assert_known_output_ids \
   "$(sg_precision_oracle_id 0)" \
   "$run_dir/baseline-dp0-precision.json"
 
-declare -a paused_states=(
-  "0=paused,1=dead,2=paused,3=paused"
-  "0=paused,1=dead,2=dead,3=paused"
-  "0=paused,1=dead,2=dead,3=dead"
+declare -a incident_states=(
+  "0=healthy,1=dead,2=healthy,3=healthy"
+  "0=healthy,1=dead,2=dead,3=healthy"
+  "0=healthy,1=dead,2=dead,3=dead"
 )
 declare -a healthy_states=(
   "0=healthy,1=dead,2=healthy,3=healthy"
@@ -66,10 +66,13 @@ declare -a healthy_states=(
 for target in 1 2 3; do
   index=$((target - 1))
   st_kill_owned_process "$server_pgid" "_TP${target}_EP" KILL "kill_dp${target}"
-  sg_wait_ft_status "$port" "$run_dir/status-dp${target}-paused.json" \
-    "${paused_states[$index]}" 120 "status_dp${target}_paused"
+  sg_wait_ft_status "$port" "$run_dir/status-dp${target}-incident.json" \
+    "${incident_states[$index]}" 120 "status_dp${target}_incident"
   st_assert_process_count "$server_pgid" "sglang::scheduler" "$((4 - target))" \
     "schedulers_after_dp${target}_kill"
+  st_http_json POST "http://127.0.0.1:${port}/generate" \
+    "$request_dp0" "$run_dir/admission-closed-dp${target}.json" 503 \
+    "admission_closed_dp${target}" 90
   sg_apply_scale_down "$port" "$target" \
     "$run_dir/scale-down-dp${target}-request.json" \
     "$run_dir/scale-down-dp${target}-response.json"

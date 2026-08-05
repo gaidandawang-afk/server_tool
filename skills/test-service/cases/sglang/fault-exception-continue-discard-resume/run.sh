@@ -59,13 +59,19 @@ sg_wait_recoverable_fault_done "$done_file" 1 60 recoverable_fault_done
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 \
   schedulers_after_exception
 sg_wait_ft_status "$port" "$run_dir/status-after-discard.json" \
-  "0=healthy,1=healthy,2=healthy,3=healthy" 30 status_after_discard
+  "0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy" 30 \
+  status_unhealthy_after_discard
 sg_assert_log_count "$log_path" "FT command dispatch:.*command=pause" 0 \
   continue_has_no_pause
+sg_assert_log_count "$log_path" "FT command dispatch:.*command=retry_reset" 0 \
+  continue_has_no_retry_reset
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$run_dir/request-dp0.json" "$run_dir/post-exception-dp0.json" \
   200 post_exception_dp0 180
+sg_wait_ft_status "$port" "$run_dir/status-after-recovery-forward.json" \
+  "0=healthy,1=healthy,2=healthy,3=healthy" 30 \
+  status_healthy_after_recovery_forward
 sg_assert_known_output_ids \
   "$run_dir/post-exception-dp0.json" \
   "$(sg_precision_oracle_id 0)" \

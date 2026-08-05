@@ -1,7 +1,6 @@
 # Recoverable exception with continue and discard
 
-Validate `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, or the rebased
-`ft-2commits` validation branch with
+Validate `codex/ft-self-pause-whole-dp` with
 the kernel and Mooncake roots selected by the task profile. Use one bounded cold run for a
 branch-usability round; use two independent cold runs for a stability campaign.
 
@@ -30,13 +29,16 @@ python skills\test-service\scripts\run-case.py `
 4. Arm and trigger the one-shot DP0 forward exception.
 5. Require the affected request to return HTTP 503 and observe exactly one injection
    completion record.
-6. Retain all four schedulers, remain
-   `0=healthy,1=healthy,2=healthy,3=healthy`, and dispatch no pause command.
-7. Generate again on DP0 with HTTP 200 and the exact registered token IDs.
+6. Retain all four schedulers, reach
+   `0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy`, and dispatch neither a central pause
+   command nor retry reset.
+7. Because continue does not close admission, generate again on DP0 with HTTP 200 and the
+   exact registered token IDs. The successful native forward/report must then restore four
+   healthy ranks.
 8. Stop the owned process group and leave the source checkout clean.
 
-The exception-completion record is a barrier: retention, status and post-exception
-precision assertions may not run until the injected forward has actually raised.
+The exception-completion record is a barrier: the transient unhealthy status must be observed
+before the recovery forward. No retry operation is part of this continue contract.
 
 Every gate must append a structured assertion. Exit zero without assertions is not a pass.
 

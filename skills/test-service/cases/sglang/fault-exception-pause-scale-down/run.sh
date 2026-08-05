@@ -59,17 +59,29 @@ sg_start_recoverable_fault "$trigger_file"
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "${requests[2]}" "$run_dir/trigger-response.json" 503 discard_current 180
 sg_wait_recoverable_fault_done "$done_file" 1 60 recoverable_fault_done
-sg_wait_ft_status "$port" "$run_dir/status-paused.json" \
-  "0=paused,1=paused,2=paused,3=paused" 120 status_paused
-st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_paused
+sg_wait_ft_status "$port" "$run_dir/status-unhealthy.json" \
+  "0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy" 120 status_unhealthy
+st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_after_exception
+st_http_json POST "http://127.0.0.1:${port}/generate" \
+  "${requests[0]}" "$run_dir/admission-closed.json" 503 \
+  admission_blocks_generate 90
 
 sg_apply_scale_down \
   "$port" 2 "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
-sg_wait_ft_status "$port" "$run_dir/status-disabled.json" \
-  "0=healthy,1=healthy,2=disabled,3=healthy" 120 status_disabled
-st_assert_process_count "$server_pgid" "sglang::scheduler" 4 logical_scale_down_keeps_scheduler
+sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
+  "0=healthy,1=healthy,2=dead,3=healthy" 120 status_scaled_down
+sg_assert_log_contains "$log_path" \
+  "FT whole-DP shutdown dispatch: dp_ranks=\\[2\\]" whole_dp2_shutdown_dispatched
+st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
+  whole_dp2_shutdown_process_count
+dp2_pid="$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 2)"
+if [[ -z "$dp2_pid" ]]; then
+  st_assert global_rank2_shutdown true absent absent
+else
+  st_assert global_rank2_shutdown false absent "$dp2_pid"
+fi
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[2]}" "$run_dir/disabled-dp2.json" 400 disabled_dp2_closed 180
+  "${requests[2]}" "$run_dir/dead-dp2.json" 400 dead_dp2_closed 180
 
 for rank in 0 1 3; do
   response="$run_dir/after-scale-down-dp${rank}.json"
@@ -80,28 +92,6 @@ for rank in 0 1 3; do
     "$run_dir/after-scale-down-dp${rank}-precision.json" \
     "after_scale_down_dp${rank}" 10
 done
-sg_wait_ft_status "$port" "$run_dir/status-disabled-persisted.json" \
-  "0=healthy,1=healthy,2=disabled,3=healthy" 120 disabled_persists
-
-resume_count_before="$(grep -c 'DPC forwarding FT command:.*command=resume' "$log_path" || true)"
-sg_apply_recover \
-  "$port" 2 "$run_dir/recover-request.json" "$run_dir/recover-response.json"
-sg_wait_ft_status "$port" "$run_dir/status-recovered.json" \
-  "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_recovered
-st_assert_process_count "$server_pgid" "sglang::scheduler" 4 recover_keeps_all_schedulers
-sleep 2
-resume_count_after="$(grep -c 'DPC forwarding FT command:.*command=resume' "$log_path" || true)"
-if [[ "$resume_count_after" == "$resume_count_before" ]]; then
-  st_assert recover_has_no_resume true "$resume_count_before" "$resume_count_after"
-else
-  st_assert recover_has_no_resume false "$resume_count_before" "$resume_count_after"
-fi
-
-st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[2]}" "$run_dir/recovered-dp2.json" 200 recovered_dp2 90
-sg_assert_output_ids_equal \
-  "${baselines[2]}" "$run_dir/recovered-dp2.json" \
-  "$run_dir/recovered-dp2-precision.json" recovered_dp2 10
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"
 cp "$trigger_file" "$done_file" "$SERVER_TOOL_OUTPUT_ROOT/"

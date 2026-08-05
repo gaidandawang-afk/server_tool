@@ -13,6 +13,7 @@ cleanup() {
   local original_code="$?"
   trap - EXIT
   set +e
+  st_preserve_run_dir_files "$run_dir"
   if [[ -n "$server_pgid" ]]; then
     st_stop_owned_pgid "$server_pgid" server_process_group_cleanup
   fi
@@ -56,26 +57,50 @@ sg_assert_output_ids_equal \
   baseline_dp0_dp1 10
 
 rank3_pid="$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 3)"
-test -n "$rank3_pid"
+if [[ -n "$rank3_pid" ]]; then
+  st_assert rank3_sibling_present true present "$rank3_pid"
+else
+  st_assert rank3_sibling_present false present absent
+fi
 sg_kill_scheduler_global_rank "$server_pgid" 2 global_rank2_dp1
-sg_wait_ft_status "$port" "$run_dir/status-dp1-dead.json" \
-  "0=paused,1=dead" 120 status_dp1_dead
+sg_wait_ft_status "$port" "$run_dir/status-incident.json" \
+  "0=healthy,1=dead" 120 status_dp1_dead
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 schedulers_after_kill
-test "$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 3)" = "$rank3_pid"
-st_assert rank3_pid_retained true "$rank3_pid" "$rank3_pid"
+rank3_before_apply="$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 3)"
+if [[ "$rank3_before_apply" == "$rank3_pid" ]]; then
+  st_assert rank3_alive_before_scale_down true "$rank3_pid" "$rank3_before_apply"
+else
+  st_assert rank3_alive_before_scale_down false "$rank3_pid" "${rank3_before_apply:-absent}"
+fi
+st_http_json POST "http://127.0.0.1:${port}/generate" \
+  "$request_dp0" "$run_dir/incident-dp0.json" 503 admission_closed 90
 
-sg_apply_retry \
-  "$port" "$run_dir/retry-request.json" "$run_dir/retry-response.json"
-sg_wait_ft_status "$port" "$run_dir/status-after-retry.json" \
-  "0=healthy,1=dead" 120 status_after_retry
+sg_apply_scale_down \
+  "$port" 1 "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
+sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
+  "0=healthy,1=dead" 120 status_scaled_down
+sg_assert_log_contains "$log_path" \
+  "FT whole-DP shutdown dispatch: dp_ranks=\\[1\\]" whole_dp_shutdown_dispatched
+st_assert_process_count "$server_pgid" "sglang::scheduler" 2 schedulers_after_scale_down
+global_rank2_pid="$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 2)"
+if [[ -z "$global_rank2_pid" ]]; then
+  st_assert global_rank2_shutdown true absent absent
+else
+  st_assert global_rank2_shutdown false absent "$global_rank2_pid"
+fi
+global_rank3_pid="$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 3)"
+if [[ -z "$global_rank3_pid" ]]; then
+  st_assert global_rank3_shutdown true absent absent
+else
+  st_assert global_rank3_shutdown false absent "$global_rank3_pid"
+fi
+
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$request_dp1" "$run_dir/dead-route-dp1.json" 400 dp1_unroutable 90
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "$request_dp0" "$run_dir/post-kill-dp0.json" 200 post_kill_dp0 90
+  "$request_dp0" "$run_dir/post-scale-down-dp0.json" 200 post_scale_down_dp0 90
 sg_assert_output_ids_equal \
-  "$baseline_dp0" "$run_dir/post-kill-dp0.json" \
-  "$run_dir/sibling-ep-retention-precision.json" sibling_ep_retention 10
-test "$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 3)" = "$rank3_pid"
-st_assert rank3_pid_still_retained true "$rank3_pid" "$rank3_pid"
+  "$baseline_dp0" "$run_dir/post-scale-down-dp0.json" \
+  "$run_dir/whole-dp-shutdown-precision.json" whole_dp_shutdown 10
 
 cp "$run_dir"/*.json "$SERVER_TOOL_OUTPUT_ROOT/"
