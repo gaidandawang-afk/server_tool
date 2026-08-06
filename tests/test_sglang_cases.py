@@ -154,6 +154,13 @@ class SGLangCaseContractTests(unittest.TestCase):
             ],
         )
 
+    def test_exception_retry_uses_per_rank_precision_oracles(self):
+        case = (CASE_ROOT / "fault-exception-pause-retry" / "run.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('sg_precision_oracle_id "$rank"', case)
+        self.assertNotIn("sg_assert_output_ids_equal", case)
+
     def test_active_contracts_never_expect_public_paused_state(self):
         for case_root in CASE_ROOT.iterdir():
             if not (case_root / "run.sh").is_file():

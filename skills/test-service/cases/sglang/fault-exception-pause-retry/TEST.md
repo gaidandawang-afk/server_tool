@@ -20,8 +20,8 @@
 8. Apply maskless retry with HTTP 200; its completion covers the expected Scheduler command
    responses and DPC route update. Require no EPLB.
 9. Reach `0=healthy,1=healthy,2=healthy,3=healthy` with four schedulers.
-10. Generate on every DP, match DP0 to the registered ten-token oracle and require DP1/2/3
-    to match DP0.
+10. Generate on every DP and match each response to that DP's registered ten-token oracle;
+    different routed DP groups are not required to share a token sequence.
 11. Stop the owned process group and leave the source checkout clean.
 
 The exception-completion record is a barrier: no unhealthy-state or retry assertion may run
