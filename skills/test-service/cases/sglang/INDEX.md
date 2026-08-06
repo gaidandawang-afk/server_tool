@@ -4,9 +4,10 @@ This is the server_tool-owned index for the four-GPU DP-only FT regression set. 
 contracts target `codex/ft-self-pause-minimal` and the architecture defined by
 `SELF_PAUSE_WHOLE_DP_FT.md`. They must be validated against the exact selected source HEAD.
 
-**Validation state:** source `764933930`, case contracts `3b3b572`. Seven of fifteen active
-contracts are validated once, two are environment-blocked, and six still need an exact-HEAD
-run. No unresolved FT correctness failure has been observed. The PASS results retained in
+**Validation state:** source `764933930`, case contracts `3b3b572`. Five of fifteen active
+contracts meet the current pre-fault inference contract. Two earlier scenario passes need
+revalidation under that new gate, two are environment-blocked, and six remain unverified on
+the exact HEAD. No unresolved FT correctness failure has been observed. The PASS results retained in
 [the 2026-08-02 record](VALIDATION-2026-08-02-FT-2COMMITS.md) apply only to the old
 `4c8b11fa4` semantics and are not carried forward.
 
@@ -52,11 +53,11 @@ configuration.
 | Recoverable exception and whole-DP scale-down | `fault_exception_pause_scale_down.sh` | `fault-exception-pause-scale-down` | exact-HEAD run still required | NOT RUN |
 | Kill one member when A*C>1 and shut down its complete DP | `fault_tpgt1_whole_dp_shutdown.sh` | `fault-tpgt1-whole-dp-shutdown` | older-HEAD pass exists; exact-HEAD run still required | REVALIDATE |
 | Kill an in-flight stream with continue | `fault_kill_continue_inflight.sh` | `fault-kill-continue-inflight` | exact-HEAD run still required | NOT RUN |
-| Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | one multi-target explicit commit, both targets DEAD | VALIDATED ONCE |
+| Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | Earlier functional pass lacked the new direct pre-fault `/generate` gate | REVALIDATE |
 | Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | repeated explicit commits, final single survivor | VALIDATED ONCE |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | incident/empty-target/recover-before-DISABLED errors | VALIDATED ONCE |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | exact-HEAD run still required | NOT RUN |
-| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | DEAD -> DISABLED -> explicit recover -> HEALTHY | VALIDATED ONCE |
+| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | Earlier functional pass used health checks but lacked the new direct pre-fault `/generate` gate | REVALIDATE |
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | request discard, healthy status, no pause or retry | VALIDATED ONCE |
 | Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | exact-HEAD run still required | NOT RUN |
 
