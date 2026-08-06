@@ -23,6 +23,9 @@ index has yet passed on the new architecture. The PASS results retained in
   commits the expected mask and DPC route, changing the cohort to `healthy`.
 - The retained continue cases preserve native Mooncake membership, second-forward, and route
   behavior. The no-FT case remains a native baseline.
+- Every active contract must complete a real `/generate` request after startup and before any
+  fault injection or FT operation. Failure at this gate is an environment or baseline-runtime
+  blocker, not evidence about the scenario's FT operation.
 
 ## Precision classification
 

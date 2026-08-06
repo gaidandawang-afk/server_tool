@@ -10,7 +10,8 @@
 ## Ordered phases and barriers
 
 1. Verify the selected kernel and Mooncake identities.
-2. Reach `0=healthy,1=healthy,2=healthy,3=healthy` with four schedulers.
+2. Reach `0=healthy,1=healthy,2=healthy,3=healthy` with four schedulers and complete one
+   baseline inference.
 3. Arm a task-local one-shot recoverable forward exception for DP0.
 4. Trigger the exception and require the current request to return HTTP 503.
 5. Observe one injection completion record and retain all four schedulers.

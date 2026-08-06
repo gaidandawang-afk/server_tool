@@ -11,7 +11,7 @@ with one `scale_down([1,2])` operation.
 
 ## Ordered gates
 
-1. Start TP=4, DP=4, EP=4 with four healthy schedulers.
+1. Start TP=4, DP=4, EP=4 with four healthy schedulers and complete one baseline inference.
 2. Kill DP1, then reach either `healthy,dead,healthy,healthy` or
    `unhealthy,dead,unhealthy,unhealthy`; admission is closed even though
    local paused bits are not exposed in status.

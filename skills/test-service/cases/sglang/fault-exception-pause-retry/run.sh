@@ -49,6 +49,9 @@ st_wait_http_ready "$port" 180
 sg_wait_ft_status "$port" "$run_dir/status-initial.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_initial
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
+st_http_json POST "http://127.0.0.1:${port}/generate" \
+  "${requests[0]}" "$run_dir/baseline-inference.json" 200 \
+  baseline_inference 180
 
 sg_start_recoverable_fault "$trigger_file"
 st_http_json POST "http://127.0.0.1:${port}/generate" \

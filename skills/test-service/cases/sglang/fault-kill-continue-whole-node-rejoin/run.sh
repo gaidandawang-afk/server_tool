@@ -63,6 +63,9 @@ for node in 0 1 2 3; do
   st_assert_process_count "${node_pgids[$node]}" "sglang::scheduler" 1 \
     "node${node}_scheduler_initial"
 done
+st_http_json POST "http://127.0.0.1:${base_port}/generate" \
+  "${requests[0]}" "$run_dir/baseline-inference.json" 200 \
+  baseline_inference 600
 
 st_kill_owned_pgid "${node_pgids[3]}" node3_process_group_killed 30
 node_pgids[3]=""

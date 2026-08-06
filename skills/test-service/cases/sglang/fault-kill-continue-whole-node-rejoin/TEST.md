@@ -16,7 +16,8 @@ mode, and require native Mooncake recovery to restore its route and registered o
 
 ## Ordered gates
 
-1. Start four independently owned node process groups and reach four healthy DP ranks.
+1. Start four independently owned node process groups, reach four healthy DP ranks, and
+   complete one baseline inference.
 2. Kill the complete node3 process group; no node3 watchdog remains.
 3. Issue one survivor forward to trigger native Mooncake failure detection.
 4. Reach `0=healthy,1=healthy,2=healthy,3=dead`; keep one scheduler in each survivor group.

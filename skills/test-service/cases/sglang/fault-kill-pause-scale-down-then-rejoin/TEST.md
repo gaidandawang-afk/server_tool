@@ -25,7 +25,8 @@ but each variant requires its own run name and artifact directory.
 
 ## Ordered phases and barriers
 
-1. Verify provenance and start four healthy node process groups.
+1. Verify provenance, start four healthy node process groups, and complete one baseline
+   inference.
 2. Kill and confirm exit of node 3's complete owned process group, trigger Mooncake failure
    detection, reach `0=unhealthy,1=unhealthy,2=unhealthy,3=dead` after the survivors
    self-pause, and prove admission returns HTTP 503.

@@ -15,7 +15,8 @@ without an FT apply operation, and the already-running DP0 stream must return a 
 ## Ordered gates
 
 1. Import the profile-selected kernel and Mooncake builds.
-2. Start four schedulers and confirm the FT status API returns HTTP 503.
+2. Start four schedulers, confirm the FT status API returns HTTP 503, and complete one
+   baseline inference.
 3. Start a 64-token stream on DP0 and observe positive DP0 decode progress.
 4. Kill scheduler DP1 and retain exactly three schedulers.
 5. Observe native Mooncake broken-peer detection for rank 1.
