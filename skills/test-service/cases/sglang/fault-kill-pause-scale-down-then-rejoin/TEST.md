@@ -27,14 +27,14 @@ but each variant requires its own run name and artifact directory.
 
 1. Verify provenance and start four healthy node process groups.
 2. Kill and confirm exit of node 3's complete owned process group, trigger Mooncake failure
-   detection, reach `0=healthy,1=healthy,2=healthy,3=dead`, and prove admission returns
-   HTTP 503.
+   detection, reach `0=unhealthy,1=unhealthy,2=unhealthy,3=dead` after the survivors
+   self-pause, and prove admission returns HTTP 503.
 3. Apply `scale_down([3])`, remain `0=healthy,1=healthy,2=healthy,3=dead`, keep exactly the
    three survivor groups, reject DP3 routing with HTTP 400, and generate correctly on DP0.
 4. Only after the loss is committed by scale-down, start a complete NNODES=4 node-3 rejoin
    process group. Scheduler ProcessUp alone must leave DP3 `dead` and unroutable.
-5. Drive survivor forwards until Mooncake stages rank 3, then execute the next recovery forward
-   that performs forced EPLB and the second forward.
+5. Drive survivor forwards until Mooncake completes rank-3 recovery on every survivor, then
+   execute one post-recovery forward.
 6. Reach `0=healthy,1=healthy,2=healthy,3=disabled`; DP3 must still return HTTP 400. This is
    the native data-plane recovery barrier.
 7. Only now apply `recover([3])`. Its HTTP 200 completion updates the expected mask and DPC

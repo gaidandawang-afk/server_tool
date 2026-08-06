@@ -125,7 +125,7 @@ sg_issue_generate_fault_trigger \
   "$base_port" "$run_dir/fault-trigger-request.json" \
   "$run_dir/fault-trigger-response.json" mooncake_fault_trigger
 sg_wait_ft_status "$base_port" "$run_dir/status-incident.json" \
-  "0=healthy,1=healthy,2=healthy,3=dead" 120 status_incident
+  "0=unhealthy,1=unhealthy,2=unhealthy,3=dead" 120 status_incident
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/admission-closed.json" 503 \
   admission_blocks_generate 180
@@ -170,11 +170,11 @@ st_http_json POST "http://127.0.0.1:${base_port}/generate" \
 
 sg_drive_generate_until_log \
   "$base_port" "${requests[0]}" "${node_logs[0]}" \
-  "recover ranks \\[3\\] staged" "$run_dir/recovery-stage-drive" 600 \
-  recovery_stage_observed
+  "recover ranks \\[3\\] done" "$run_dir/recovery-stage-drive" 600 \
+  recovery_done_observed
 for node in 1 2; do
   sg_wait_log_contains "${node_logs[$node]}" \
-    "recover ranks \\[3\\] staged" 180 "node${node}_recovery_staged"
+    "recover ranks \\[3\\] done" 180 "node${node}_recovery_done"
 done
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/recovery-eplb-forward.json" 200 \

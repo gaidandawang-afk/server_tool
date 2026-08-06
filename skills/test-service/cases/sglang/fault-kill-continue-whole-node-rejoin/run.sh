@@ -92,11 +92,11 @@ st_http_json POST "http://127.0.0.1:${base_port}/generate" \
 
 sg_drive_generate_until_log \
   "$base_port" "${requests[0]}" "${node_logs[0]}" \
-  "recover ranks \[3\] staged" "$run_dir/recovery-stage-drive" 600 \
-  recovery_stage_observed
+  "recover ranks \[3\] done" "$run_dir/recovery-stage-drive" 600 \
+  recovery_done_observed
 for node in 1 2; do
   sg_wait_log_contains "${node_logs[$node]}" \
-    "recover ranks \[3\] staged" 180 "node${node}_recovery_staged"
+    "recover ranks \[3\] done" 180 "node${node}_recovery_done"
 done
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/recovery-eplb-forward.json" 200 \
