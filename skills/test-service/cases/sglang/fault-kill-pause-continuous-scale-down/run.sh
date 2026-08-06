@@ -53,9 +53,9 @@ sg_assert_known_output_ids \
   "$run_dir/baseline-dp0-precision.json"
 
 declare -a incident_states=(
-  "0=healthy,1=dead,2=healthy,3=healthy"
-  "0=healthy,1=dead,2=dead,3=healthy"
-  "0=healthy,1=dead,2=dead,3=dead"
+  "0=healthy,1=dead,2=healthy,3=healthy|0=unhealthy,1=dead,2=unhealthy,3=unhealthy"
+  "0=healthy,1=dead,2=dead,3=healthy|0=unhealthy,1=dead,2=dead,3=unhealthy"
+  "0=healthy,1=dead,2=dead,3=dead|0=unhealthy,1=dead,2=dead,3=dead"
 )
 declare -a healthy_states=(
   "0=healthy,1=dead,2=healthy,3=healthy"

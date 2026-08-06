@@ -12,10 +12,12 @@ with one `scale_down([1,2])` operation.
 ## Ordered gates
 
 1. Start TP=4, DP=4, EP=4 with four healthy schedulers.
-2. Kill DP1, then reach `healthy,dead,healthy,healthy`; admission is closed even though
+2. Kill DP1, then reach either `healthy,dead,healthy,healthy` or
+   `unhealthy,dead,unhealthy,unhealthy`; admission is closed even though
    local paused bits are not exposed in status.
 3. While the incident remains active, kill DP2.
-4. Reach `healthy,dead,dead,healthy` with two schedulers and prove admission returns HTTP 503.
+4. Reach either `healthy,dead,dead,healthy` or `unhealthy,dead,dead,unhealthy`
+   with two schedulers and prove admission returns HTTP 503.
 5. Apply one multi-rank scale-down for DP1 and DP2 with HTTP 200.
 6. Remain `healthy,dead,dead,healthy` after survivor prepare/route/resume completion.
 7. Reject explicit routing to both dead DPs with HTTP 400.

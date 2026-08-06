@@ -24,7 +24,8 @@ applicable to this single-survivor case.
    baseline before injecting the first fault.
 2. For each target rank 1, 2 and 3:
    - kill only that owned scheduler;
-   - reach the cumulative dead set while public survivor status remains healthy;
+   - reach the cumulative dead set while each survivor is healthy before its next forward
+     or unhealthy after its self-pause;
    - prove the incident admission gate returns HTTP 503;
    - apply whole-DP scale-down only for the newly dead rank;
    - reach the cumulative dead set with every survivor healthy;

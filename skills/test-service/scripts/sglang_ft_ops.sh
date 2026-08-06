@@ -844,7 +844,7 @@ data = json.load(open(sys.argv[1], encoding="utf-8"))
 print(",".join(f"{item['rank']}={item['state']}" for item in data["ranks"]))
 PY
 )"
-      if [[ "$sg_actual" == "$sg_expected" ]]; then
+      if [[ "|$sg_expected|" == *"|$sg_actual|"* ]]; then
         st_assert "$sg_label" true "$sg_expected" "$sg_actual"
         return 0
       fi
