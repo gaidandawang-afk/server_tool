@@ -109,8 +109,31 @@ class SGLangCaseContractTests(unittest.TestCase):
         self.assertIn("fault_exception_pause_retry.sh", identifiers)
         self.assertIn("fault_kill_scale_down_exception_retry.sh", identifiers)
         self.assertIn("fault_tpgt1_whole_dp_shutdown.sh", identifiers)
-        self.assertIn("pending on `codex/ft-self-pause-minimal`", index)
+        self.assertIn("**Validation state:** source", index)
         self.assertNotIn("All sixteen indexed contracts are recorded as PASS", index)
+
+    def test_active_cases_complete_inference_before_fault(self):
+        fault_markers = (
+            "st_kill_owned_",
+            "sg_kill_scheduler_",
+            "sg_start_recoverable_fault",
+            "sg_apply_",
+            "sg_issue_generate_fault_trigger",
+            "st_stop_owned_pgid",
+            "/fault_tolerance/apply",
+        )
+        for run_path in sorted(CASE_ROOT.glob("*/run.sh")):
+            with self.subTest(case=run_path.parent.name):
+                run_text = run_path.read_text(encoding="utf-8")
+                after_ready = run_text[run_text.index("st_wait_http_ready") :]
+                generate = after_ready.index("/generate")
+                fault = min(
+                    after_ready.index(marker)
+                    for marker in fault_markers
+                    if marker in after_ready
+                )
+                self.assertLess(generate, fault)
+                self.assertRegex(after_ready[generate:fault], r"\s200\s")
 
     def test_implemented_cases_have_complete_contracts(self):
         implemented = sorted(
