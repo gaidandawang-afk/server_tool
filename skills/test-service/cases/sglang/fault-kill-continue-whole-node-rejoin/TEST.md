@@ -1,13 +1,13 @@
 # Continue after whole-node loss and rejoin
 
-Validate `codex/ft-self-pause-whole-dp` with
+Validate `codex/ft-self-pause-minimal` with
 four logical nodes on one four-GPU host. Kill the
 complete node3 process group, retain precise service on nodes 0–2, restart node3 in rejoin
 mode, and require native Mooncake recovery to restore its route and registered output.
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-whole-dp`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4, NNODES=4 with one profile-selected GPU per logical node
 - Static EP dispatch, 128 redundant experts, deterministic inference
 - API ports: `PORT_BASE..PORT_BASE+3`

@@ -65,9 +65,6 @@ sg_apply_retry "$port" "$run_dir/retry-request.json" "$run_dir/retry-response.js
 sg_wait_ft_status "$port" "$run_dir/status-after-retry.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_after_retry
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 retry_keeps_all_schedulers
-sg_assert_log_contains "$log_path" \
-  "FT command complete: command=retry_reset acked=\\[0, 1, 2, 3\\]" \
-  retry_reset_all_expected_acked
 eplb_count_after="$(grep -c 'EPLB due to' "$log_path" 2>/dev/null || true)"
 if [[ "$eplb_count_after" == "$eplb_count_before" ]]; then
   st_assert retry_does_not_run_eplb true "$eplb_count_before" "$eplb_count_after"

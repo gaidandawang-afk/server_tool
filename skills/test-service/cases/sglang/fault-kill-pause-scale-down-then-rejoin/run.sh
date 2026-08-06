@@ -187,9 +187,6 @@ st_http_json POST "http://127.0.0.1:${base_port}/generate" \
 
 sg_apply_recover "$base_port" 3 \
   "$run_dir/recover-request.json" "$run_dir/recover-response.json"
-sg_assert_log_contains "${node_logs[0]}" \
-  "FT command complete: command=recover_commit acked=\\[0, 1, 2, 3\\]" \
-  recover_commit_all_candidates_acked
 sg_wait_ft_status "$base_port" "$run_dir/status-recovered.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_recovered
 sg_wait_health_generate "$((base_port + 3))" "${node_pgids[3]}" 600 \

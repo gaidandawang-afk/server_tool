@@ -109,7 +109,7 @@ class SGLangCaseContractTests(unittest.TestCase):
         self.assertIn("fault_exception_pause_retry.sh", identifiers)
         self.assertIn("fault_kill_scale_down_exception_retry.sh", identifiers)
         self.assertIn("fault_tpgt1_whole_dp_shutdown.sh", identifiers)
-        self.assertIn("pending on `codex/ft-self-pause-whole-dp`", index)
+        self.assertIn("pending on `codex/ft-self-pause-minimal`", index)
         self.assertNotIn("All sixteen indexed contracts are recorded as PASS", index)
 
     def test_implemented_cases_have_complete_contracts(self):
@@ -126,7 +126,7 @@ class SGLangCaseContractTests(unittest.TestCase):
                 self.assertTrue((case_root / "run.sh").is_file())
                 test_text = (case_root / "TEST.md").read_text(encoding="utf-8")
                 run_text = (case_root / "run.sh").read_text(encoding="utf-8")
-                self.assertIn("codex/ft-self-pause-whole-dp", test_text)
+                self.assertIn("codex/ft-self-pause-minimal", test_text)
                 self.assertIn("assertions", test_text)
                 self.assertNotRegex(run_text, r"REMOTE_AGENT|remote-agent")
 
@@ -311,7 +311,7 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("status-disabled.json", case)
         self.assertIn("0=healthy,1=healthy,2=healthy,3=disabled", case)
         self.assertIn("disabled_dp3_closed", case)
-        self.assertIn("recover_commit_all_candidates_acked", case)
+        self.assertNotIn("recover_commit", case)
         self.assertNotIn("inactive_recover", case)
         self.assertNotIn("resumed_ranks", case)
         self.assertNotIn("Fault tolerance apply plan", case)
@@ -349,7 +349,8 @@ sg_launch_dp4_ft continue "$port" "$log_path"
 
         self.assertIn("SGLANG_TEST_FT_RECOVERABLE_FAULT_LOCAL_ONLY=1", case)
         self.assertIn("0=unhealthy,1=dead,2=healthy,3=healthy", case)
-        self.assertIn("command=retry_reset acked=\\\\[0, 2, 3\\\\]", case)
+        self.assertNotIn("retry_reset", case)
+        self.assertIn("three_rank_topology_rebalanced", case)
         self.assertIn("retry_does_not_run_eplb", case)
         self.assertIn("retry_keeps_three_schedulers", case)
         self.assertIn("removed_dp1_stays_closed_after_retry", case)

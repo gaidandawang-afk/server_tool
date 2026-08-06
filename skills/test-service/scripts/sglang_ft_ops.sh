@@ -947,6 +947,21 @@ sg_assert_log_count() {
   fi
 }
 
+sg_log_count() {
+  grep -c -- "$2" "$1" 2>/dev/null || true
+}
+
+sg_assert_log_count_increased() {
+  local sg_actual
+  local sg_before="$3"
+  sg_actual="$(sg_log_count "$1" "$2")"
+  if (( sg_actual > sg_before )); then
+    st_assert "$4" true ">$sg_before" "$sg_actual"
+  else
+    st_assert "$4" false ">$sg_before" "$sg_actual"
+  fi
+}
+
 sg_assert_log_contains() {
   local sg_log_path="$1"
   local sg_pattern="$2"

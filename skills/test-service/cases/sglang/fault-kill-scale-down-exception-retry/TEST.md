@@ -2,7 +2,7 @@
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-whole-dp`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on the four profile-selected GPUs
 - Fault tolerance strategy: `pause`
 - Repetition: one bounded cold run for branch usability
@@ -27,19 +27,19 @@ the injector must not strand DP2/3 inside a collective.
 4. Inject one local recoverable exception on survivor DP0. Require the triggering request to
    return HTTP 503, observe one completion record, and reach
    `unhealthy,dead,healthy,healthy` while the scheduler count remains three.
-5. Apply maskless retry. Require the complete expected ACK set `[0,2,3]`, no EPLB during
-   retry, and final `healthy,dead,healthy,healthy` status.
+5. Apply maskless retry. Require no EPLB during retry and final
+   `healthy,dead,healthy,healthy` status.
 6. Prove the route did not expand: DP1 remains HTTP 400, DP0/2/3 return HTTP 200 with
    registered outputs, and the scheduler count remains three.
 7. Stop the owned process group and leave the source checkout clean.
 
 The completed scale-down status and DP1 route closure are barriers before exception injection.
-The retry response is not complete until all three expected survivors ACK and the three-rank
-route is installed.
+The retry response is not complete until the expected survivors respond and the three-rank
+route is installed; no runtime-reported mask may re-enable DP1.
 
 ## Required artifacts
 
 Keep source/container/GPU provenance, baseline and all request/response JSON, scale-down and
-retry payloads/responses, injection trigger/completion files, every status snapshot, ACK and
-no-EPLB log evidence, process counts, per-survivor precision JSON, server log, owned PGID,
+retry payloads/responses, injection trigger/completion files, every status snapshot,
+no-EPLB evidence, process counts, per-survivor precision JSON, server log, owned PGID,
 `assertions.jsonl`, and `result.json`.

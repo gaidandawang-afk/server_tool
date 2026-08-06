@@ -1,6 +1,6 @@
 # Kill one scheduler and continue serving
 
-Apply to SGLang branch `codex/ft-self-pause-whole-dp`; revalidate its exact selected HEAD. Run two bounded cold repetitions for
+Apply to SGLang branch `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD. Run two bounded cold repetitions for
 stability campaigns; one cold run is sufficient for a branch-usability validation round.
 
 ```powershell

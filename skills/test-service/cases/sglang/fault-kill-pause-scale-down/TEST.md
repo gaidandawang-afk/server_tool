@@ -1,6 +1,6 @@
 # Kill, self-pause, and whole-DP scale-down
 
-Validate `codex/ft-self-pause-whole-dp` with the kernel and Mooncake roots selected by the
+Validate `codex/ft-self-pause-minimal` with the kernel and Mooncake roots selected by the
 task profile. Run cold twice for stability
 campaigns; one cold run is sufficient for a branch-usability validation round.
 
@@ -31,8 +31,8 @@ python skills\test-service\scripts\run-case.py `
    not expose the survivors' Scheduler-local paused bits.
 6. Reject generation during the incident with HTTP 503 and prove no central pause command
    was dispatched.
-7. Apply whole-DP `scale_down([1])` with HTTP 200. Require survivor prepare and resume ACKs;
-   rank 1 was already externally killed, so its whole-DP block is already empty.
+7. Apply whole-DP `scale_down([1])` with HTTP 200. Rank 1 was already externally killed, so
+   its whole-DP block is already empty; require one survivor topology install and forced EPLB.
 8. Remain `0=healthy,1=dead,2=healthy,3=healthy` with exactly three schedulers.
 9. Reject explicit DP1 routing with HTTP 400.
 10. Return HTTP 200 on DP0, DP2 and DP3; require each survivor output to belong

@@ -66,12 +66,13 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
   "${requests[0]}" "$run_dir/admission-closed.json" 503 \
   admission_blocks_generate 90
 
+eplb_count_before="$(sg_log_count "$log_path" '\[EPLBManager\] rebalance start')"
 sg_apply_scale_down \
   "$port" 2 "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
 sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
   "0=healthy,1=healthy,2=dead,3=healthy" 120 status_scaled_down
-sg_assert_log_contains "$log_path" \
-  "FT whole-DP shutdown dispatch: dp_ranks=\\[2\\]" whole_dp2_shutdown_dispatched
+sg_assert_log_count_increased "$log_path" '\[EPLBManager\] rebalance start' \
+  "$eplb_count_before" whole_dp2_forced_eplb
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
   whole_dp2_shutdown_process_count
 dp2_pid="$(sg_find_scheduler_pid_by_global_rank "$server_pgid" 2)"

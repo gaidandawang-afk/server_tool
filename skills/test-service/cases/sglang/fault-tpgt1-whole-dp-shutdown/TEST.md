@@ -2,7 +2,7 @@
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-whole-dp`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
 - TP=4, DP=2, EP=4 on the four profile-selected GPUs
 - Attention TP=2, so each routed DP owns two global Scheduler siblings
 - Fault tolerance strategy: `pause`

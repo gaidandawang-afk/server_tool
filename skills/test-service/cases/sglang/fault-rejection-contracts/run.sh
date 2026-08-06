@@ -102,8 +102,6 @@ sg_apply_scale_down "$port" 1 \
   "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
 sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
   "0=healthy,1=dead,2=healthy,3=healthy" 120 status_scaled_down
-sg_assert_log_contains "$log_path" \
-  "FT whole-DP shutdown dispatch: dp_ranks=\\[1\\]" whole_dp1_shutdown_dispatched
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
   whole_dp1_shutdown_process_count
 

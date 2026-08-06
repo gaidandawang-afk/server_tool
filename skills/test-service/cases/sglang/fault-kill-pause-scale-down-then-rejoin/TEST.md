@@ -1,6 +1,6 @@
 # Whole-DP scale-down and complete node-group rejoin
 
-Validate `codex/ft-self-pause-whole-dp` with the kernel and Mooncake roots selected by the
+Validate `codex/ft-self-pause-minimal` with the kernel and Mooncake roots selected by the
 task profile. One bounded cold pass is sufficient for a branch-usability round; every new
 source HEAD requires fresh validation.
 
@@ -36,14 +36,14 @@ but each variant requires its own run name and artifact directory.
 5. Drive survivor forwards until Mooncake stages rank 3, then execute the next recovery forward
    that performs forced EPLB and the second forward.
 6. Reach `0=healthy,1=healthy,2=healthy,3=disabled`; DP3 must still return HTTP 400. This is
-   the provisional data-plane recovery barrier.
-7. Only now apply `recover([3])`. Its HTTP 200 completion must include the global
-   `recover_commit` ACK barrier and route ACK; then reach four `healthy` ranks.
+   the native data-plane recovery barrier.
+7. Only now apply `recover([3])`. Its HTTP 200 completion updates the expected mask and DPC
+   route without a Scheduler command; then reach four `healthy` ranks.
 8. Generate on DP3 and DP0, validate registered output, stop all four owned process groups,
    and leave the source checkout clean.
 
 No recover request may be sent before `disabled`; HTTP 200 is a completion response only after
-the recover-commit and route barriers.
+the route update.
 
 ## Required artifacts
 

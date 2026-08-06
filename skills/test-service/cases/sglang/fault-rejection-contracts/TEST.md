@@ -1,6 +1,6 @@
 # Reject invalid fault-tolerance operations
 
-Validate `codex/ft-self-pause-whole-dp` with one bounded cold run for branch usability.
+Validate `codex/ft-self-pause-minimal` with one bounded cold run for branch usability.
 Every selected source HEAD requires fresh validation.
 
 ## Topology

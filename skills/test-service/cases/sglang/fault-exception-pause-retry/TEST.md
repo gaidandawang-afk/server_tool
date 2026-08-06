@@ -2,10 +2,10 @@
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-whole-dp`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on the four profile-selected GPUs
 - Fault tolerance strategy: `pause`
-- Repetition: two independent cold runs
+- Repetition: one bounded cold run for branch usability
 
 ## Ordered phases and barriers
 
@@ -17,7 +17,8 @@
 6. Reach `0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy`; this reflects the
    coordinated exception, not the Scheduler-local paused bit.
 7. Require another request to return HTTP 503, proving admission remains closed.
-8. Apply maskless retry with HTTP 200; require all four Scheduler ACKs and no EPLB.
+8. Apply maskless retry with HTTP 200; its completion covers the expected Scheduler command
+   responses and DPC route update. Require no EPLB.
 9. Reach `0=healthy,1=healthy,2=healthy,3=healthy` with four schedulers.
 10. Generate on every DP, match DP0 to the registered ten-token oracle and require DP1/2/3
     to match DP0.
