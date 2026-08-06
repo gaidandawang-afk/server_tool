@@ -4,9 +4,9 @@ This is the server_tool-owned index for the four-GPU DP-only FT regression set. 
 contracts target `codex/ft-self-pause-minimal` and the architecture defined by
 `SELF_PAUSE_WHOLE_DP_FT.md`. They must be validated against the exact selected source HEAD.
 
-**Validation state:** source `764933930`, case contracts `3b3b572`. Five of fifteen active
+**Validation state:** source `764933930`, case contracts `3b3b572`. Six of fifteen active
 contracts meet the current pre-fault inference contract. Two earlier scenario passes need
-revalidation under that new gate, two are environment-blocked, and six remain unverified on
+revalidation under that new gate, one is environment-blocked, and six remain unverified on
 the exact HEAD. No unresolved FT correctness failure has been observed. The PASS results retained in
 [the 2026-08-02 record](VALIDATION-2026-08-02-FT-2COMMITS.md) apply only to the old
 `4c8b11fa4` semantics and are not carried forward.
@@ -47,7 +47,7 @@ configuration.
 | --- | --- | --- | --- | --- |
 | Native Mooncake isolates a killed idle DP while an unaffected stream completes | `fault_kill_noft_status_apply_generate.sh` | `fault-kill-noft-native-inflight` | Native isolation and EPLB completed; the stream kept progressing but did not finish under shared GPU load | ENVIRONMENT BLOCKED |
 | Kill one scheduler and continue on survivors | `fault_kill_continue_status_only.sh` | `fault-kill-continue-status-only` | native EPLB/second forward, DEAD route closure | VALIDATED ONCE |
-| Kill one scheduler and commit whole-DP scale-down | `fault_kill_pause_scale_down.sh` | `fault-kill-pause-scale-down` | Three runs stopped at the pre-fault inference gate; kill and scale-down were not executed | ENVIRONMENT BLOCKED |
+| Kill one scheduler and commit whole-DP scale-down | `fault_kill_pause_scale_down.sh` | `fault-kill-pause-scale-down` | All four baselines, explicit topology, forced EPLB, DEAD target and survivor precision passed in a clean execution window | VALIDATED ONCE |
 | Recoverable exception and retry | `fault_exception_pause_retry.sh` | `fault-exception-pause-retry` | exact-HEAD run still required | NOT RUN |
 | Retry after a committed 4-to-3 scale-down | `fault_kill_scale_down_exception_retry.sh` | `fault-kill-scale-down-exception-retry` | local survivor exception, mask reset, no EPLB or re-expansion | VALIDATED ONCE |
 | Recoverable exception and whole-DP scale-down | `fault_exception_pause_scale_down.sh` | `fault-exception-pause-scale-down` | exact-HEAD run still required | NOT RUN |
