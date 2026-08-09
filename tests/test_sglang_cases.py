@@ -1,10 +1,12 @@
 import json
+import os
 import re
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -54,21 +56,92 @@ class SGLangCaseContractTests(unittest.TestCase):
             9,
         )
 
-    def test_four_gpu_index_contains_all_sixteen_suite_identifiers(self):
+    def test_local_only_fault_injection_is_explicit_opt_in(self):
+        import sys
+
+        sys.path.insert(0, str(RECOVERABLE_INJECT_ROOT))
+        try:
+            import ft_forward_fault
+        finally:
+            sys.path.remove(str(RECOVERABLE_INJECT_ROOT))
+
+        with mock.patch.dict(
+            os.environ,
+            {ft_forward_fault.ENV_LOCAL_ONLY: ""},
+            clear=False,
+        ):
+            self.assertFalse(ft_forward_fault.local_only_fault_enabled())
+        with mock.patch.dict(
+            os.environ,
+            {ft_forward_fault.ENV_LOCAL_ONLY: "1"},
+            clear=False,
+        ):
+            self.assertTrue(ft_forward_fault.local_only_fault_enabled())
+
+    def test_local_only_fault_is_injected_after_the_model_forward(self):
+        injector = (
+            REPO_ROOT
+            / "skills"
+            / "test-service"
+            / "assets"
+            / "sglang"
+            / "recoverable_inject"
+            / "ft_forward_fault.py"
+        ).read_text(encoding="utf-8")
+        local_only_branch = injector.index(
+            "if local_only_fault_enabled():", injector.index("def patched_forward")
+        )
+        local_forward = injector.index(
+            "original_forward(self, forward_batch, **kwargs)", local_only_branch
+        )
+        injected = injector.index("injected[0] = True", local_only_branch)
+        injected_raise = injector.index("raise RuntimeError(", injected)
+        self.assertLess(local_forward, injected)
+        self.assertLess(injected, injected_raise)
+
+    def test_index_contains_fifteen_active_new_architecture_contracts(self):
         index = (CASE_ROOT / "INDEX.md").read_text(encoding="utf-8")
         identifiers = re.findall(r"`(fault_[a-z0-9_]+\.sh)`", index)
-        self.assertEqual(len(identifiers), 16)
-        self.assertEqual(len(set(identifiers)), 16)
+        self.assertEqual(len(identifiers), 15)
+        self.assertEqual(len(set(identifiers)), 15)
+        self.assertNotIn("fault_kill_pause_retry.sh", identifiers)
+        self.assertNotIn("fault_kill_pause_inflight_retry.sh", identifiers)
+        self.assertIn("fault_exception_pause_retry.sh", identifiers)
+        self.assertIn("fault_kill_scale_down_exception_retry.sh", identifiers)
+        self.assertIn("fault_tpgt1_whole_dp_shutdown.sh", identifiers)
+        self.assertIn("**Validation state:** source", index)
+        self.assertNotIn("All sixteen indexed contracts are recorded as PASS", index)
+
+    def test_active_cases_complete_inference_before_fault(self):
+        fault_markers = (
+            "st_kill_owned_",
+            "sg_kill_scheduler_",
+            "sg_start_recoverable_fault",
+            "sg_apply_",
+            "sg_issue_generate_fault_trigger",
+            "st_stop_owned_pgid",
+            "/fault_tolerance/apply",
+        )
+        for run_path in sorted(CASE_ROOT.glob("*/run.sh")):
+            with self.subTest(case=run_path.parent.name):
+                run_text = run_path.read_text(encoding="utf-8")
+                after_ready = run_text[run_text.index("st_wait_http_ready") :]
+                generate = after_ready.index("/generate")
+                fault = min(
+                    after_ready.index(marker)
+                    for marker in fault_markers
+                    if marker in after_ready
+                )
+                self.assertLess(generate, fault)
+                self.assertRegex(after_ready[generate:fault], r"\s200\s")
 
     def test_implemented_cases_have_complete_contracts(self):
-        implemented = (
-            "fault-kill-continue-status-only",
-            "fault-kill-pause-retry",
-            "fault-kill-pause-scale-down",
-            "fault-rejection-contracts",
-            "fault-exception-continue-discard-resume",
-            "fault-exception-pause-retry-timeout",
+        implemented = sorted(
+            case_root.name
+            for case_root in CASE_ROOT.iterdir()
+            if case_root.is_dir() and (case_root / "run.sh").is_file()
         )
+        self.assertEqual(len(implemented), 15)
         for case in implemented:
             with self.subTest(case=case):
                 case_root = CASE_ROOT / case
@@ -76,9 +149,51 @@ class SGLangCaseContractTests(unittest.TestCase):
                 self.assertTrue((case_root / "run.sh").is_file())
                 test_text = (case_root / "TEST.md").read_text(encoding="utf-8")
                 run_text = (case_root / "run.sh").read_text(encoding="utf-8")
-                self.assertIn("--repeat 2", test_text)
+                self.assertIn("codex/ft-self-pause-minimal", test_text)
                 self.assertIn("assertions", test_text)
                 self.assertNotRegex(run_text, r"REMOTE_AGENT|remote-agent")
+
+    def test_kill_retry_contracts_are_not_executable(self):
+        index = (CASE_ROOT / "INDEX.md").read_text(encoding="utf-8")
+        for case in (
+            "fault-kill-pause-retry",
+            "fault-kill-pause-inflight-retry",
+        ):
+            with self.subTest(case=case):
+                self.assertFalse((CASE_ROOT / case).exists())
+                self.assertNotIn(f"`{case}`", index)
+
+    def test_only_exception_injection_contracts_execute_retry(self):
+        retry_cases = sorted(
+            run_sh.parent.name
+            for run_sh in CASE_ROOT.glob("*/run.sh")
+            if "sg_apply_retry" in run_sh.read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            retry_cases,
+            [
+                "fault-exception-pause-retry",
+                "fault-kill-scale-down-exception-retry",
+            ],
+        )
+
+    def test_exception_retry_uses_per_rank_precision_oracles(self):
+        case = (CASE_ROOT / "fault-exception-pause-retry" / "run.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('sg_precision_oracle_id "$rank"', case)
+        self.assertNotIn("sg_assert_output_ids_equal", case)
+
+    def test_active_contracts_never_expect_public_paused_state(self):
+        for case_root in CASE_ROOT.iterdir():
+            if not (case_root / "run.sh").is_file():
+                continue
+            with self.subTest(case=case_root.name):
+                content = "\n".join(
+                    path.read_text(encoding="utf-8")
+                    for path in (case_root / "TEST.md", case_root / "run.sh")
+                )
+                self.assertNotIn("=paused", content)
 
     def test_default_precision_oracles_exist_and_cases_use_resolver(self):
         registry = json.loads(ORACLE_PATH.read_text(encoding="utf-8"))
@@ -89,8 +204,7 @@ class SGLangCaseContractTests(unittest.TestCase):
                 oracle_ids,
             )
             self.assertIn(
-                "deepseek-v2-lite-chat-bf16-d4t4e4-count10-no-overlap-"
-                f"rank{rank}-r64",
+                f"deepseek-v2-lite-chat-bf16-d4t4e4-count10-no-overlap-rank{rank}-r64",
                 oracle_ids,
             )
         self.assertIn(
@@ -176,7 +290,7 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         ).read_text(encoding="utf-8")
-        self.assertIn('SGLANG_FT_RANDOM_SEED', unit)
+        self.assertIn("SGLANG_FT_RANDOM_SEED", unit)
         self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
 
     def test_fault_tolerance_apply_payloads_use_new_schema(self):
@@ -192,6 +306,15 @@ sg_launch_dp4_ft continue "$port" "$log_path"
             / "fault-rejection-contracts"
             / "run.sh"
         ).read_text(encoding="utf-8")
+        exception_retry_case = (
+            REPO_ROOT
+            / "skills"
+            / "test-service"
+            / "cases"
+            / "sglang"
+            / "fault-exception-pause-retry"
+            / "run.sh"
+        ).read_text(encoding="utf-8")
 
         for content in (unit, rejection_case):
             self.assertNotIn("fault_tolerance_instruction", content)
@@ -200,12 +323,10 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn('"instruction": "scale_down"', unit)
         self.assertIn('"instruction": "retry"', unit)
         self.assertIn('"instruction": "recover"', unit)
-        self.assertIn(
-            '{"instruction":"retry","params":{"timeout":180}}',
-            rejection_case,
-        )
+        self.assertIn("sg_apply_retry", exception_retry_case)
+        self.assertNotIn('"instruction":"retry"', rejection_case)
 
-    def test_rejoin_asserts_structured_empty_resume_response(self):
+    def test_pause_rejoin_waits_for_disabled_before_recover(self):
         case = (
             REPO_ROOT
             / "skills"
@@ -216,10 +337,71 @@ sg_launch_dp4_ft continue "$port" "$log_path"
             / "run.sh"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("inactive_recover_empty_resume", case)
-        self.assertIn('data.get("resumed_ranks")', case)
+        self.assertIn("process_up_remains_dead", case)
+        self.assertIn("status-disabled.json", case)
+        self.assertIn("0=healthy,1=healthy,2=healthy,3=disabled", case)
+        self.assertIn("disabled_dp3_closed", case)
+        self.assertNotIn("recover_commit", case)
+        self.assertNotIn("inactive_recover", case)
+        self.assertNotIn("resumed_ranks", case)
         self.assertNotIn("Fault tolerance apply plan", case)
         self.assertNotIn("Recovered rank joining Mooncake backend", case)
+        owner_group_kill_index = case.index("node3_owner_process_group_killed")
+        owner_group_gone_index = case.index("node3_owner_process_group_confirmed_gone")
+        scale_down_index = case.index("sg_apply_scale_down")
+        rejoin_index = case.index(
+            'node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"'
+        )
+        disabled_index = case.index("status-disabled.json")
+        recover_index = case.index("sg_apply_recover")
+        healthy_index = case.index("status-recovered.json")
+        self.assertNotIn("st_kill_owned_process", case)
+        self.assertLess(owner_group_kill_index, owner_group_gone_index)
+        self.assertLess(owner_group_gone_index, scale_down_index)
+        self.assertLess(scale_down_index, rejoin_index)
+        self.assertLess(rejoin_index, disabled_index)
+        self.assertLess(disabled_index, recover_index)
+        self.assertLess(recover_index, healthy_index)
+
+    def test_exception_scale_down_kills_target_without_direct_recover(self):
+        case = (CASE_ROOT / "fault-exception-pause-scale-down" / "run.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("whole_dp2_shutdown_process_count", case)
+        self.assertIn("global_rank2_shutdown", case)
+        self.assertIn("0=healthy,1=healthy,2=dead,3=healthy", case)
+        self.assertNotIn("sg_apply_recover", case)
+
+    def test_retry_after_scale_down_preserves_committed_three_rank_topology(self):
+        case = (
+            CASE_ROOT / "fault-kill-scale-down-exception-retry" / "run.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("SGLANG_TEST_FT_RECOVERABLE_FAULT_LOCAL_ONLY=1", case)
+        self.assertIn("0=unhealthy,1=dead,2=healthy,3=healthy", case)
+        self.assertNotIn("retry_reset", case)
+        self.assertIn("three_rank_topology_rebalanced", case)
+        self.assertIn("retry_does_not_run_eplb", case)
+        self.assertIn("retry_keeps_three_schedulers", case)
+        self.assertIn("removed_dp1_stays_closed_after_retry", case)
+        kill_index = case.index("st_kill_owned_process")
+        scale_down_index = case.index("sg_apply_scale_down")
+        exception_index = case.index("sg_start_recoverable_fault")
+        retry_index = case.index("sg_apply_retry")
+        self.assertLess(kill_index, scale_down_index)
+        self.assertLess(scale_down_index, exception_index)
+        self.assertLess(exception_index, retry_index)
+
+    def test_attention_siblings_are_removed_by_whole_dp_scale_down(self):
+        case_root = CASE_ROOT / "fault-tpgt1-whole-dp-shutdown"
+        test_text = (case_root / "TEST.md").read_text(encoding="utf-8")
+        run_text = (case_root / "run.sh").read_text(encoding="utf-8")
+        self.assertIn("both global ranks 2 and 3", test_text)
+        self.assertIn("global_rank2_shutdown", run_text)
+        self.assertIn("global_rank3_shutdown", run_text)
+        self.assertIn("sg_apply_scale_down", run_text)
+        self.assertNotIn("sg_apply_retry", run_text)
+        self.assertFalse((CASE_ROOT / "fault-tpgt1-sibling-ep-retention").exists())
 
     def test_ordinary_launchers_honor_dispatch_determinism_and_seed(self):
         unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
@@ -271,7 +453,7 @@ done
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         ).read_text(encoding="utf-8")
         self.assertIn(
-            'SGLANG_KERNEL_REQUIRED_SYMBOL:-fp8_blockwise_scaled_mm',
+            "SGLANG_KERNEL_REQUIRED_SYMBOL:-fp8_blockwise_scaled_mm",
             unit,
         )
         self.assertIn('"$sg_kernel_required_symbol"', unit)

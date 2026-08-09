@@ -5,18 +5,21 @@ with one `scale_down([1,2])` operation.
 
 ## Applicability
 
-- Source branches: `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, rebased `ft-2commits` validation branches
+- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on four profile-selected GPUs
 - Repetition for branch-usability validation: one cold run
 
 ## Ordered gates
 
-1. Start TP=4, DP=4, EP=4 with four healthy schedulers.
-2. Kill DP1, then reach `healthy/paused, dead, paused, paused`.
-3. While the survivors remain paused, kill DP2.
-4. Reach `paused,dead,dead,paused` with two schedulers.
+1. Start TP=4, DP=4, EP=4 with four healthy schedulers and complete one baseline inference.
+2. Kill DP1, then reach either `healthy,dead,healthy,healthy` or
+   `unhealthy,dead,unhealthy,unhealthy`; admission is closed even though
+   local paused bits are not exposed in status.
+3. While the incident remains active, kill DP2.
+4. Reach either `healthy,dead,dead,healthy` or `unhealthy,dead,dead,unhealthy`
+   with two schedulers and prove admission returns HTTP 503.
 5. Apply one multi-rank scale-down for DP1 and DP2 with HTTP 200.
-6. Reach `healthy,dead,dead,healthy` without another scheduler exit.
+6. Remain `healthy,dead,dead,healthy` after survivor prepare/route/resume completion.
 7. Reject explicit routing to both dead DPs with HTTP 400.
 8. Generate on DP0 and DP3 and match their registered ten-token oracles.
 9. Clean the owned process group and source worktree.

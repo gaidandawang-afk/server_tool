@@ -1,7 +1,6 @@
 # Native Mooncake in-flight isolation without FT
 
-Validate `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, or the rebased
-`ft-2commits` validation branch with fault tolerance disabled. One stream runs on DP0 while DP1 is killed. Mooncake must isolate the dead peer
+Validate `codex/ft-self-pause-minimal` with fault tolerance disabled. One stream runs on DP0 while DP1 is killed. Mooncake must isolate the dead peer
 without an FT apply operation, and the already-running DP0 stream must return a complete HTTP
 200 response.
 
@@ -16,7 +15,8 @@ without an FT apply operation, and the already-running DP0 stream must return a 
 ## Ordered gates
 
 1. Import the profile-selected kernel and Mooncake builds.
-2. Start four schedulers and confirm the FT status API returns HTTP 503.
+2. Start four schedulers, confirm the FT status API returns HTTP 503, and complete one
+   baseline inference.
 3. Start a 64-token stream on DP0 and observe positive DP0 decode progress.
 4. Kill scheduler DP1 and retain exactly three schedulers.
 5. Observe native Mooncake broken-peer detection for rank 1.

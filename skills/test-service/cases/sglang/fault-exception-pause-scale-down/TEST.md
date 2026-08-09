@@ -1,8 +1,8 @@
-# Recoverable exception, disable and recover
+# Recoverable exception and whole-DP scale-down
 
 ## Applicability
 
-- Source branches: `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, rebased `ft-2commits` validation branches
+- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on the four profile-selected GPUs
 - Fault tolerance strategy: `pause`
 - Repetition for this validation round: one cold run
@@ -14,17 +14,19 @@
    requests also warm every route before the fault.
 3. Arm a task-local recoverable exception for DP2.
 4. Require the triggering request to return HTTP 503 and observe the completion record.
-5. Reach `0=paused,1=paused,2=paused,3=paused`.
-6. Apply logical scale-down for DP2.
-7. Reach `0=healthy,1=healthy,2=disabled,3=healthy` while retaining four schedulers.
+5. Reach `0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy` and prove admission remains
+   closed with HTTP 503.
+6. Apply `scale_down([2])`. The operation must prepare the survivor topology and actively
+   shut down DP2's complete Scheduler block.
+7. Reach `0=healthy,1=healthy,2=dead,3=healthy` with exactly three schedulers and no
+   remaining global rank 2 process.
 8. Require DP2 routing to return HTTP 400.
 9. Generate on DP0/1/3 and compare each output with that DP's own baseline.
-10. Prove ordinary survivor forwards do not clear DP2's disabled state.
-11. Explicitly recover DP2 and reach four healthy ranks without another scheduler resume.
-12. Generate on DP2 and compare it with DP2's own baseline.
-13. Stop the owned process group and leave source clean.
+10. Stop the owned process group and leave source clean. This contract does not call recover;
+    recovery requires a complete owner-node process-group rejoin first.
 
 ## Required artifacts
 
 Keep provenance, package records, requests/responses, all state snapshots, injection records,
-server log, resume-count assertion, precision records, owned PGID, assertions and result JSON.
+server log, process-level shutdown evidence, precision records, owned PGID, assertions and
+result JSON.

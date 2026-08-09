@@ -844,7 +844,7 @@ data = json.load(open(sys.argv[1], encoding="utf-8"))
 print(",".join(f"{item['rank']}={item['state']}" for item in data["ranks"]))
 PY
 )"
-      if [[ "$sg_actual" == "$sg_expected" ]]; then
+      if [[ "|$sg_expected|" == *"|$sg_actual|"* ]]; then
         st_assert "$sg_label" true "$sg_expected" "$sg_actual"
         return 0
       fi
@@ -944,6 +944,21 @@ sg_assert_log_count() {
     st_assert "$sg_label" true "$sg_expected" "$sg_actual"
   else
     st_assert "$sg_label" false "$sg_expected" "$sg_actual"
+  fi
+}
+
+sg_log_count() {
+  grep -c -- "$2" "$1" 2>/dev/null || true
+}
+
+sg_assert_log_count_increased() {
+  local sg_actual
+  local sg_before="$3"
+  sg_actual="$(sg_log_count "$1" "$2")"
+  if (( sg_actual > sg_before )); then
+    st_assert "$4" true ">$sg_before" "$sg_actual"
+  else
+    st_assert "$4" false ">$sg_before" "$sg_actual"
   fi
 }
 

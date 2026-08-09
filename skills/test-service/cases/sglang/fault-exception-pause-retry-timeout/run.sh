@@ -60,8 +60,11 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
 sg_wait_recoverable_fault_done "$done_file" 1 60 recoverable_fault_done
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 \
   schedulers_after_exception
-sg_wait_ft_status "$port" "$run_dir/status-paused.json" \
-  "0=paused,1=paused,2=paused,3=paused" 10 status_paused
+sg_wait_ft_status "$port" "$run_dir/status-unhealthy.json" \
+  "0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy" 10 status_unhealthy
+st_http_json POST "http://127.0.0.1:${port}/generate" \
+  "$run_dir/request-dp0.json" "$run_dir/admission-closed.json" 503 \
+  admission_blocks_generate 30
 
 sleep 5
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 \

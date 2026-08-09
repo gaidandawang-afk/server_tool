@@ -1,8 +1,7 @@
 # Fail-stop after an unattended exception pause
 
-Validate `codex/dp-only-ft-squashed`, `worktree-dp-only-ft-revise`, or the rebased
-`ft-2commits` validation branch with
-the kernel and Mooncake roots selected by the task profile. Use one bounded cold run for a
+Validate `codex/ft-self-pause-minimal` with the kernel and Mooncake roots selected by the
+task profile. Use one bounded cold run for a
 branch-usability round; use two independent cold runs for a stability campaign.
 
 ```powershell
@@ -33,23 +32,24 @@ python skills\test-service\scripts\run-case.py `
 4. Require the affected request to return HTTP 503 and observe exactly one injection
    completion record.
 5. Retain all four schedulers and reach
-   `0=paused,1=paused,2=paused,3=paused`.
-6. Issue no retry, scale-down or recover command; prove all four schedulers remain alive
+   `0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy`.
+6. Require a second request to return HTTP 503, proving the admission gate remains closed.
+7. Issue no retry, scale-down or recover command; prove all four schedulers remain alive
    before the configured timeout.
-7. Require the scheduler log to show that the 30-second unattended-pause deadline expired.
-8. Require the entire owned process group to exit within 120 seconds, including bounded crash
+8. Require the scheduler log to show that the 30-second unattended-pause deadline expired.
+9. Require the entire owned process group to exit within 120 seconds, including bounded crash
    diagnostics, and identify `Fault tolerance pause unattended` as the reason.
-9. Leave the source checkout clean.
+10. Leave the source checkout clean.
 
-The all-paused state is a barrier before the intentional no-apply wait. A scheduler crash
-before the configured pause timeout is a failure, as is a surviving owned process after the
-bounded fail-stop and crash-diagnostic wait. The contract asserts the scheduler-owned
-deadline rather than a tokenizer-manager fallback timer.
+The all-unhealthy status and HTTP 503 are barriers before the intentional no-apply wait. A
+scheduler crash before the configured pause timeout is a failure, as is a surviving owned
+process after the bounded fail-stop and crash-diagnostic wait. The contract asserts the
+Scheduler-owned deadline rather than a tokenizer-manager fallback timer.
 
 Every gate must append a structured assertion. Exit zero without assertions is not a pass.
 
 ## Required artifacts
 
 Keep source/container/GPU provenance, imported package records, baseline and trigger response
-JSON, trigger and completion records, paused status JSON, server log, owned PGID, precision
-record, `assertions.jsonl` and `result.json`.
+JSON, trigger and completion records, unhealthy status and admission JSON, server log, owned
+PGID, precision record, `assertions.jsonl` and `result.json`.

@@ -54,16 +54,22 @@ for rank in 0 1 2 3; do
 done
 
 st_kill_owned_process "$server_pgid" "_TP1_EP" KILL kill_dp1
-sg_wait_ft_status "$port" "$run_dir/status-paused.json" \
-  "0=paused,1=dead,2=paused,3=paused" 120 status_paused
+sg_wait_ft_status "$port" "$run_dir/status-incident.json" \
+  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_incident
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 schedulers_after_kill
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[0]}" "$run_dir/paused-generate.json" 503 paused_blocks_generate 180
+  "${requests[0]}" "$run_dir/admission-closed.json" 503 admission_blocks_generate 180
+sg_assert_log_count "$log_path" "FT command dispatch:.*command=pause" 0 \
+  no_central_pause_command
+eplb_count_before="$(sg_log_count "$log_path" '\[EPLBManager\] rebalance start')"
 sg_apply_scale_down "$port" 1 "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
 sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
   "0=healthy,1=dead,2=healthy,3=healthy" 120 status_scaled_down
-st_assert_process_count "$server_pgid" "sglang::scheduler" 3 logical_scale_down_retains_survivors
+sg_assert_log_count_increased "$log_path" '\[EPLBManager\] rebalance start' \
+  "$eplb_count_before" scale_down_forced_eplb
+st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
+  whole_dp1_shutdown_complete
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "${requests[1]}" "$run_dir/scaled-down-dp1.json" 400 scaled_down_dp1_closed 180

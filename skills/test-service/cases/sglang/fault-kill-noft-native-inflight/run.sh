@@ -50,6 +50,9 @@ st_wait_http_ready "$port" 180
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 schedulers_initial
 st_http_json GET "http://127.0.0.1:${port}/fault_tolerance/status" \
   "" "$run_dir/ft-status-disabled.json" 503 ft_status_disabled 30
+st_http_json POST "http://127.0.0.1:${port}/generate" \
+  "$post_request" "$run_dir/baseline-inference.json" 200 \
+  baseline_inference 180
 
 sg_start_stream_request "$port" "$stream_request" "$stream_output" "$stream_error" 180
 stream_pid="$ST_LAST_STREAM_PID"

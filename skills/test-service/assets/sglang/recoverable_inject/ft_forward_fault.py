@@ -8,6 +8,7 @@ import sys
 ENV_RANKS = "SGLANG_TEST_FT_RECOVERABLE_FAULT_RANK"
 ENV_TRIGGER = "SGLANG_TEST_FT_RECOVERABLE_FAULT_FILE"
 ENV_DONE = "SGLANG_TEST_FT_RECOVERABLE_FAULT_DONE_FILE"
+ENV_LOCAL_ONLY = "SGLANG_TEST_FT_RECOVERABLE_FAULT_LOCAL_ONLY"
 TARGET_MODULE = "sglang.srt.model_executor.model_runner"
 
 
@@ -25,6 +26,15 @@ def resolve_model_runner_rank(model_runner):
     if tp_rank is None:
         raise AttributeError("ModelRunner has no DP or TP rank metadata")
     return tp_rank
+
+
+def local_only_fault_enabled():
+    return os.environ.get(ENV_LOCAL_ONLY, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 class FaultInjectLoader(importlib.abc.Loader):
@@ -82,19 +92,29 @@ def patch_forward(module):
             not trigger_file or os.path.exists(trigger_file)
         )
 
-        import torch
-        import torch.distributed as dist
+        should_fault = local_trigger
+        if not local_only_fault_enabled():
+            import torch
+            import torch.distributed as dist
 
-        fault_flag = torch.tensor([int(local_trigger)], dtype=torch.int32)
-        tp_group = getattr(self, "tp_group", None)
-        if tp_group is not None and tp_group.world_size > 1:
-            dist.all_reduce(
-                fault_flag,
-                op=dist.ReduceOp.MAX,
-                group=tp_group.cpu_group,
-            )
-        if not fault_flag.item():
+            fault_flag = torch.tensor([int(local_trigger)], dtype=torch.int32)
+            tp_group = getattr(self, "tp_group", None)
+            if tp_group is not None and tp_group.world_size > 1:
+                dist.all_reduce(
+                    fault_flag,
+                    op=dist.ReduceOp.MAX,
+                    group=tp_group.cpu_group,
+                )
+            should_fault = bool(fault_flag.item())
+        if not should_fault:
             return original_forward(self, forward_batch, **kwargs)
+
+        # With a sparse committed topology, throwing before the model forward
+        # would leave the other surviving DP ranks entering the EP collective
+        # alone.  Complete the coordinated forward first, then inject the
+        # Scheduler-local recoverable failure on the selected rank.
+        if local_only_fault_enabled():
+            original_forward(self, forward_batch, **kwargs)
 
         injected[0] = True
         if local_trigger and done_file:
