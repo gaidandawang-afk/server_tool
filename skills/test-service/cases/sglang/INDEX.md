@@ -10,8 +10,13 @@ at source `764933930` (case contracts `3b3b572`) in a clean GPU 3,4,6,7 window, 
 functionally unaffected by the rejoin-state revision. The two rejoin contracts
 (`fault-kill-pause-scale-down-then-rejoin`, `fault-kill-continue-whole-node-rejoin`) were
 revised on 2026-08-09 for the derived-rank-state semantics of `b7c6f9229` and are pending
-revalidation on the exact new HEAD. No unresolved FT correctness failure has been observed. The
-PASS results retained in
+revalidation on the exact new HEAD. Two bounded cold attempts of the pause rejoin contract on
+2026-08-09 (`pause-rejoin-b7c6f9229-20260809-r2` and `-r3`) were baseline-runtime blocked on
+shared GPU 0,1,2,3: all ranks reached `healthy`, but `/health` remained HTTP 503 for the full
+600-second startup gate while the GPUs were near 100% utilization. Neither attempt reached the
+pre-fault `/generate`, so they are not FT correctness failures. The continue rejoin contract was
+not run in that blocked window. No unresolved FT correctness failure has been observed. The PASS
+results retained in
 [the 2026-08-02 record](VALIDATION-2026-08-02-FT-2COMMITS.md) apply only to the old
 `4c8b11fa4` semantics and are not carried forward.
 
@@ -64,7 +69,7 @@ configuration.
 | Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | repeated explicit commits, final single survivor | VALIDATED ONCE |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | incident/empty-target/recover-before-DISABLED errors | VALIDATED ONCE |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | contract revised 2026-08-09: ProcessUp reports `healthy` with the route closed (HTTP 400) until native recovery; prior `gpu3467-r1` evidence ran the pre-revision dead-state contract | REVALIDATION PENDING |
-| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | contract revised 2026-08-09: ProcessUp → `disabled` with recover rejected (`recover_requires_recovered_ranks`) until native recovery; prior `gpu3467-r1` evidence ran the pre-revision dead-state contract | REVALIDATION PENDING |
+| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | contract revised 2026-08-09: ProcessUp → `disabled` with recover rejected (`recover_requires_recovered_ranks`) until native recovery; two exact-HEAD shared-GPU attempts timed out at the pre-fault HTTP 200 startup gate, before scenario execution | BASELINE BLOCKED; REVALIDATION PENDING |
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | request discard, healthy status, no pause or retry | VALIDATED ONCE |
 | Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | exact-HEAD run; exception → all unhealthy, schedulers stay alive, unattended self-pause converges to process-group exit with recorded reason (`gpu3467-r1`) | VALIDATED ONCE |
 
