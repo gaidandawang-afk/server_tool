@@ -23,7 +23,8 @@ mode, and require native Mooncake recovery to restore its route and registered o
 4. Reach `0=healthy,1=healthy,2=healthy,3=dead`; keep one scheduler in each survivor group.
 5. Generate successfully on DP0, DP1 and DP2 to prove degraded survivor service.
 6. Restart the complete node3 process group with `--elastic-ep-rejoin`; ProcessUp alone must
-   leave DP3 dead and routed closed with HTTP 400.
+   report DP3 `healthy` while its route remains closed with HTTP 400 until native recovery
+   completes.
 7. Drive one forward until rank 3 is staged, then another forward for forced EPLB and the
    native second-forward path.
 8. Reach four healthy ranks and require node3 `/health_generate`.

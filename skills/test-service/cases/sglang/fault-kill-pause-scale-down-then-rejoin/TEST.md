@@ -33,18 +33,22 @@ but each variant requires its own run name and artifact directory.
 3. Apply `scale_down([3])`, remain `0=healthy,1=healthy,2=healthy,3=dead`, keep exactly the
    three survivor groups, reject DP3 routing with HTTP 400, and generate correctly on DP0.
 4. Only after the loss is committed by scale-down, start a complete NNODES=4 node-3 rejoin
-   process group. Scheduler ProcessUp alone must leave DP3 `dead` and unroutable.
+   process group. Scheduler ProcessUp alone must leave DP3 `disabled` and unroutable, and a
+   `recover([3])` sent at this point must be rejected with HTTP 400
+   `recover_requires_recovered_ranks`.
 5. Drive survivor forwards until Mooncake completes rank-3 recovery on every survivor, then
    execute one post-recovery forward.
-6. Reach `0=healthy,1=healthy,2=healthy,3=disabled`; DP3 must still return HTTP 400. This is
-   the native data-plane recovery barrier.
+6. Reach `0=healthy,1=healthy,2=healthy,3=disabled`; DP3 must still return HTTP 400. The
+   completed native data-plane recovery, not a rank-state change, is the barrier that makes
+   `recover([3])` admissible.
 7. Only now apply `recover([3])`. Its HTTP 200 completion updates the expected mask and DPC
    route without a Scheduler command; then reach four `healthy` ranks.
 8. Generate on DP3 and DP0, validate registered output, stop all four owned process groups,
    and leave the source checkout clean.
 
-No recover request may be sent before `disabled`; HTTP 200 is a completion response only after
-the route update.
+Recover is gated by native data-plane recovery, not by the rank state: once DP3 reports
+`disabled` a recover request is rejected with `recover_requires_recovered_ranks` until the
+native recovery completes; HTTP 200 is a completion response only after the route update.
 
 ## Required artifacts
 

@@ -4,10 +4,14 @@ This is the server_tool-owned index for the four-GPU DP-only FT regression set. 
 contracts target `codex/ft-self-pause-minimal` and the architecture defined by
 `SELF_PAUSE_WHOLE_DP_FT.md`. They must be validated against the exact selected source HEAD.
 
-**Validation state:** source `764933930`, case contracts `3b3b572`. All fifteen active
-contracts meet the current pre-fault inference contract on the exact HEAD, validated on
-2026-08-06 in a clean GPU 3,4,6,7 window. No unresolved FT correctness failure has been
-observed. The PASS results retained in
+**Validation state:** source `b7c6f9229`, case contracts revised 2026-08-09. Thirteen of the
+fifteen active contracts meet the current pre-fault inference contract, validated on 2026-08-06
+at source `764933930` (case contracts `3b3b572`) in a clean GPU 3,4,6,7 window, and are
+functionally unaffected by the rejoin-state revision. The two rejoin contracts
+(`fault-kill-pause-scale-down-then-rejoin`, `fault-kill-continue-whole-node-rejoin`) were
+revised on 2026-08-09 for the derived-rank-state semantics of `b7c6f9229` and are pending
+revalidation on the exact new HEAD. No unresolved FT correctness failure has been observed. The
+PASS results retained in
 [the 2026-08-02 record](VALIDATION-2026-08-02-FT-2COMMITS.md) apply only to the old
 `4c8b11fa4` semantics and are not carried forward.
 
@@ -20,9 +24,12 @@ observed. The PASS results retained in
   converge through `scale_down`; kill-based retry is not an executable contract.
 - `scale_down` kills every Scheduler member of each target DP, waits for the retained watchdog
   process facts, then installs the explicit survivor topology, forces EPLB and updates DPC route.
-- Rejoin is always a complete native `nnodes` process-group lifecycle. ProcessUp alone remains
-  `dead`; a successful native recovery forward/EPLB becomes `disabled`; explicit recover only
-  commits the expected mask and DPC route, changing the cohort to `healthy`.
+- Rejoin is always a complete native `nnodes` process-group lifecycle. ProcessUp alone reports
+  the derived rank state from the expected mask: a DP scaled out of the expected mask becomes
+  `disabled`; a DP still in the expected mask becomes `healthy` but unroutable. A successful
+  native recovery forward/EPLB clears the pending-recovery gate and makes `recover` admissible
+  without changing the reported rank state; explicit recover only commits the expected mask and
+  DPC route, changing the cohort to `healthy`.
 - The retained continue cases preserve native Mooncake membership, second-forward, and route
   behavior. The no-FT case remains a native baseline.
 - Every active contract must complete a real `/generate` request after startup and before any
@@ -56,8 +63,8 @@ configuration.
 | Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | pre-fault baseline gate passed; two kills accumulated dead ranks, one multi-rank scale_down, both dead routes 400, two survivors precision matched (`gpu3467-r4`) | VALIDATED ONCE |
 | Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | repeated explicit commits, final single survivor | VALIDATED ONCE |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | incident/empty-target/recover-before-DISABLED errors | VALIDATED ONCE |
-| Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | exact-HEAD run; node3 group killed, Mooncake fault, survivors continue, rejoin → native recovery EPLB/second-forward → healthy, all four DP precision matched (`gpu3467-r1`) | VALIDATED ONCE |
-| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | pre-fault baseline gate passed; scale_down then rejoin; ProcessUp stays dead, native recovery → disabled, recover → healthy, recovered DP precision matched (`gpu3467-r1`) | VALIDATED ONCE |
+| Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | contract revised 2026-08-09: ProcessUp reports `healthy` with the route closed (HTTP 400) until native recovery; prior `gpu3467-r1` evidence ran the pre-revision dead-state contract | REVALIDATION PENDING |
+| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | contract revised 2026-08-09: ProcessUp → `disabled` with recover rejected (`recover_requires_recovered_ranks`) until native recovery; prior `gpu3467-r1` evidence ran the pre-revision dead-state contract | REVALIDATION PENDING |
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | request discard, healthy status, no pause or retry | VALIDATED ONCE |
 | Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | exact-HEAD run; exception → all unhealthy, schedulers stay alive, unattended self-pause converges to process-group exit with recorded reason (`gpu3467-r1`) | VALIDATED ONCE |
 
