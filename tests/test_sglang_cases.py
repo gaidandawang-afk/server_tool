@@ -337,7 +337,9 @@ sg_launch_dp4_ft continue "$port" "$log_path"
             / "run.sh"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("process_up_remains_dead", case)
+        self.assertIn("process_up_becomes_disabled", case)
+        self.assertIn("recover_rejected_before_native_recovery", case)
+        self.assertIn("recover_requires_recovered_ranks", case)
         self.assertIn("status-disabled.json", case)
         self.assertIn("0=healthy,1=healthy,2=healthy,3=disabled", case)
         self.assertIn("disabled_dp3_closed", case)
