@@ -9,8 +9,11 @@ fifteen active contracts meet the current pre-fault inference contract, validate
 at source `764933930` (case contracts `3b3b572`) in a clean GPU 3,4,6,7 window, and are
 functionally unaffected by the rejoin-state revision. The two rejoin contracts
 (`fault-kill-pause-scale-down-then-rejoin`, `fault-kill-continue-whole-node-rejoin`) were
-revised to match the native Scheduler-ready barrier of `b7c6f9229` and are pending
-revalidation on the exact new HEAD. Two bounded cold attempts of the prior pause rejoin contract on
+revised to match the native Scheduler-ready barrier and each passed one bounded cold run on
+exact source `b7c6f9229` with clean GPU 4,5,6,7 on 2026-08-10: pause run
+`pause-rejoin-b7c6f9229-native-first-20260810-r1` passed 52/52 assertions, and continue run
+`continue-rejoin-b7c6f9229-native-first-20260810-r1` passed 47/47 assertions. Two bounded cold
+attempts of the prior pause rejoin contract on
 2026-08-09 (`pause-rejoin-b7c6f9229-20260809-r2` and `-r3`) were baseline-runtime blocked on
 shared GPU 0,1,2,3: all ranks reached `healthy`, but `/health` remained HTTP 503 for the full
 600-second startup gate while the GPUs were near 100% utilization. Neither attempt reached the
@@ -70,8 +73,8 @@ configuration.
 | Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | pre-fault baseline gate passed; two kills accumulated dead ranks, one multi-rank scale_down, both dead routes 400, two survivors precision matched (`gpu3467-r4`) | VALIDATED ONCE |
 | Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | repeated explicit commits, final single survivor | VALIDATED ONCE |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | incident/empty-target/recover-before-DISABLED errors | VALIDATED ONCE |
-| Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | contract revised 2026-08-10: replacement remains `dead` while native join waits; survivor recovery-drive precedes ready/ProcessUp and automatic healthy routing | REVALIDATION PENDING |
-| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | contract revised 2026-08-10: replacement remains `dead` while native join waits; survivor recovery-drive precedes ready/ProcessUp → `disabled` → explicit recover; two prior shared-GPU attempts were baseline-blocked before scenario execution | REVALIDATION PENDING |
+| Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → ready/ProcessUp → automatic healthy route; four-rank precision and cleanup passed, 47/47 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
+| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → `disabled` → explicit recover → healthy; precision and cleanup passed, 52/52 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | request discard, healthy status, no pause or retry | VALIDATED ONCE |
 | Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | exact-HEAD run; exception → all unhealthy, schedulers stay alive, unattended self-pause converges to process-group exit with recorded reason (`gpu3467-r1`) | VALIDATED ONCE |
 
