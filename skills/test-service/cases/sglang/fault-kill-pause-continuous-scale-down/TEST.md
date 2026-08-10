@@ -16,7 +16,7 @@ applicable to this single-survivor case.
 
 - Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on four profile-selected GPUs
-- Repetition for branch-usability validation: one cold run
+- Repetition for branch-usability validation: three independent cold runs; all three must pass
 
 For an explicit historical-code A/B only, a profile may set
 `SGLANG_FT_INCIDENT_STATE_SCHEMA=legacy-paused` together with the legacy apply-request
@@ -39,8 +39,10 @@ state; it does not make that source branch an applicable current-architecture va
 3. Finish at `0=healthy,1=dead,2=dead,3=dead` with one scheduler.
 4. Clean the owned process group and source worktree.
 
-Every phase is causally ordered and independently bounded. One cold PASS is sufficient for
-the current case-usability round.
+Every phase is causally ordered and independently bounded. Because the v7 failure is a
+survivor-boundary race that has both passed and failed under identical parameters, a single
+cold PASS is not sufficient; branch-usability acceptance requires three independent cold
+PASS runs with separate run names and artifact directories.
 
 ## Required artifacts
 
