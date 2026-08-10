@@ -22,12 +22,14 @@ mode, and require native Mooncake recovery to restore its route and registered o
 3. Issue one survivor forward to trigger native Mooncake failure detection.
 4. Reach `0=healthy,1=healthy,2=healthy,3=dead`; keep one scheduler in each survivor group.
 5. Generate successfully on DP0, DP1 and DP2 to prove degraded survivor service.
-6. Restart the complete node3 process group with `--elastic-ep-rejoin`; ProcessUp alone must
-   report DP3 `healthy` while its route remains closed with HTTP 400 until native recovery
-   completes.
-7. Drive one forward until rank 3 is staged, then another forward for forced EPLB and the
-   native second-forward path.
-8. Reach four healthy ranks and require node3 `/health_generate`.
+6. Restart the complete node3 process group with `--elastic-ep-rejoin`; require its Scheduler
+   process to exist while DP3 remains `dead` and its route remains closed with HTTP 400. The
+   DPC cannot report ProcessUp while Scheduler initialization is waiting in native join.
+7. Explicitly route survivor forwards to DP0 until rank 3 is staged, then execute another
+   forward for forced EPLB and the native second-forward path.
+8. After native join lets the Scheduler become ready, ProcessUp and native-active converge
+   the continue route automatically; reach four healthy ranks and require node3
+   `/health_generate`.
 9. Generate on DP0..DP3 and match every registered known-sequence oracle.
 10. Stop all owned process groups and leave the source worktree clean.
 

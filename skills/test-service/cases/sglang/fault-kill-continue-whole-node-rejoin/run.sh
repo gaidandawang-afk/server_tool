@@ -88,7 +88,7 @@ sg_launch_dp4_ft_rejoin_node continue "$((base_port + 3))" \
 node_pgids[3]="$ST_LAST_PGID"
 sg_wait_scheduler_count "${node_pgids[3]}" 1 180 rejoin_scheduler
 sg_wait_ft_status "$base_port" "$run_dir/status-before-recovery.json" \
-  "0=healthy,1=healthy,2=healthy,3=healthy" 120 process_up_reports_healthy
+  "0=healthy,1=healthy,2=healthy,3=dead" 30 rejoin_waits_for_native_recovery
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[3]}" "$run_dir/before-recovery-dp3.json" 400 \
   before_recovery_dp3_closed 60

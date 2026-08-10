@@ -165,21 +165,11 @@ sg_launch_dp4_ft_rejoin_node pause "$((base_port + 3))" \
   "${node_logs[3]}" 3 "$dist_init_addr" 1
 node_pgids[3]="$ST_LAST_PGID"
 sg_wait_scheduler_count "${node_pgids[3]}" 1 180 rejoin_scheduler
-sg_wait_ft_status "$base_port" "$run_dir/status-after-process-up.json" \
-  "0=healthy,1=healthy,2=healthy,3=disabled" 120 process_up_becomes_disabled
+sg_wait_ft_status "$base_port" "$run_dir/status-rejoin-waiting.json" \
+  "0=healthy,1=healthy,2=healthy,3=dead" 30 rejoin_waits_for_native_recovery
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
-  "${requests[3]}" "$run_dir/process-up-dp3.json" 400 \
-  process_up_keeps_dp3_closed 60
-cat >"$run_dir/recover-too-early-request.json" <<'JSON'
-{"instruction":"recover","params":{"timeout":180,"ranks":[3]}}
-JSON
-st_http_json POST "http://127.0.0.1:${base_port}/fault_tolerance/apply" \
-  "$run_dir/recover-too-early-request.json" \
-  "$run_dir/recover-too-early-response.json" 400 \
-  recover_rejected_before_native_recovery 60
-sg_assert_ft_failure_message \
-  "$run_dir/recover-too-early-response.json" recover_requires_recovered_ranks \
-  recover_rejected_before_native_recovery_reason
+  "${requests[3]}" "$run_dir/rejoin-waiting-dp3.json" 400 \
+  rejoin_waiting_keeps_dp3_closed 60
 
 sg_drive_generate_until_log \
   "$base_port" "${requests[0]}" "${node_logs[0]}" \
