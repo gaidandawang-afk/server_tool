@@ -10,6 +10,14 @@ have at least one bounded cold PASS on GPU 4,5,6,7. The corrected
 `continuous-unhealthy-barrier-b7c6f9229-gpu4567-20260810-r2`; together with the other fourteen
 contracts, the latest successful runs total 466/466 passing assertions.
 
+**New-HEAD delta validation:** exact source `27743e8f2`, 2026-08-10. The updated pause rejoin
+contract passed 49/49 assertions in
+`auto-rejoin-no-recover-27743e8f2-gpu4567-20260810-r4`: DP3 remained `dead` and HTTP 400 while
+its replacement process waited for native backend readiness, then automatically became
+`healthy` and returned HTTP 200 after process-active, native-active and pending-recovery facts
+converged. No FT recover API was called. This is targeted delta evidence; the other fourteen
+rows retain their exact `b7c6f9229` evidence until separately revalidated on the new HEAD.
+
 The continuous case has two mandatory preconditions. First, shrinking Qwen's 128 logical
 experts at EP4 to one survivor requires at least `128 * (4 - 1) = 384` redundant experts.
 Second, after every kill, **all candidate survivors must have reached Scheduler self-pause and
@@ -77,7 +85,7 @@ configuration.
 | Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | exact `b7c6f9229`, r384: corrected contract starts an in-flight stream and requires every candidate survivor `unhealthy` before each apply; 4->3->2->1, three forced EPLB rounds, post-round generations and precision passed 38/38 in each of `continuous-unhealthy-barrier-...-r2`, `...-acceptance-01`, and `...-acceptance-02`. Earlier early-apply hangs are retained as negative ordering evidence | VALIDATED THREE COLD RUNS |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | exact `b7c6f9229`: all status/error-message invariants and post-scale-down precision passed, 35/35 (`20260810-r1`) | VALIDATED ONCE |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → ready/ProcessUp → automatic healthy route; four-rank precision and cleanup passed, 47/47 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
-| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | Contract updated for automatic `dead` → `healthy` rejoin without a recover API; exact new-HEAD evidence pending | NEEDS REVALIDATION |
+| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | exact `27743e8f2`: kill and scale-down retained DP3 `dead`; replacement Scheduler existed while DP3 stayed unroutable/HTTP 400; one bounded recovery drive completed native recovery on all survivors; process/native/pending facts converged to automatic four-DP `healthy` without recover API; DP3/DP0 HTTP 200 and registered precision, cleanup and source-clean gates passed, 49/49 (`auto-rejoin-no-recover-...-r4`) | VALIDATED ONCE |
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | exact `b7c6f9229`: current request discarded, healthy/no-pause state retained, next forward and precision passed, 22/22 (`20260810-r1`) | VALIDATED ONCE |
 | Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | exact `b7c6f9229`: exception → all unhealthy, schedulers initially retained, unattended local deadline exited the owned group, 21/21 (`20260810-r1`) | VALIDATED ONCE |
 
