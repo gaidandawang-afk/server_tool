@@ -109,7 +109,8 @@ class SGLangCaseContractTests(unittest.TestCase):
         self.assertIn("fault_exception_pause_retry.sh", identifiers)
         self.assertIn("fault_kill_scale_down_exception_retry.sh", identifiers)
         self.assertIn("fault_tpgt1_whole_dp_shutdown.sh", identifiers)
-        self.assertIn("**Validation state:** source", index)
+        self.assertIn("**Validation state:**", index)
+        self.assertIn("exact source", index)
         self.assertNotIn("All sixteen indexed contracts are recorded as PASS", index)
 
     def test_active_cases_complete_inference_before_fault(self):
@@ -193,6 +194,13 @@ class SGLangCaseContractTests(unittest.TestCase):
                     path.read_text(encoding="utf-8")
                     for path in (case_root / "TEST.md", case_root / "run.sh")
                 )
+                if case_root.name == "fault-kill-pause-continuous-scale-down":
+                    self.assertIn(
+                        'incident_state_schema="${SGLANG_FT_INCIDENT_STATE_SCHEMA:-self-pause}"',
+                        content,
+                    )
+                    self.assertIn("0=unhealthy,1=dead,2=unhealthy,3=unhealthy", content)
+                    continue
                 self.assertNotIn("=paused", content)
 
     def test_default_precision_oracles_exist_and_cases_use_resolver(self):
@@ -352,9 +360,10 @@ sg_launch_dp4_ft continue "$port" "$log_path"
             / "run.sh"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("process_up_becomes_disabled", case)
-        self.assertIn("recover_rejected_before_native_recovery", case)
-        self.assertIn("recover_requires_recovered_ranks", case)
+        self.assertIn("rejoin_waits_for_native_recovery", case)
+        self.assertIn("rejoin_waiting_keeps_dp3_closed", case)
+        self.assertIn("recovery_done_observed", case)
+        self.assertIn("recovery_eplb_second_forward", case)
         self.assertIn("status-disabled.json", case)
         self.assertIn("0=healthy,1=healthy,2=healthy,3=disabled", case)
         self.assertIn("disabled_dp3_closed", case)
