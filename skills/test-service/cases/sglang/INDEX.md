@@ -24,8 +24,10 @@ still draining Mooncake `op 5` and had not self-paused. Under the corrected orde
 used an in-flight DP0 stream to expose the membership fault, then observed respectively
 `0/2/3=unhealthy`, `0/3=unhealthy`, and `0=unhealthy` before apply. All survivor EPLB begin/end
 pairs completed, all three scale-down calls returned HTTP 200, and every post-round DP0
-precision check matched. This is one cold PASS; the contract still requires three independent
-cold PASS runs for branch-usability acceptance.
+precision check matched. Two further independent cold runs,
+`continuous-unhealthy-barrier-b7c6f9229-gpu4567-20260810-acceptance-01` and `-02`, each passed
+the same 38/38 assertions. The corrected contract therefore satisfies its three-cold-run
+branch-usability acceptance gate.
 
 ## Architecture contract
 
@@ -75,7 +77,7 @@ configuration.
 | Kill one member when A*C>1 and shut down its complete DP | `fault_tpgt1_whole_dp_shutdown.sh` | `fault-tpgt1-whole-dp-shutdown` | exact `b7c6f9229`: rank2 killed with sibling rank3 alive; scale-down removed both and retained DP0 precision, 27/27 (`20260810-r1`) | VALIDATED ONCE |
 | Kill an in-flight stream with continue | `fault_kill_continue_inflight.sh` | `fault-kill-continue-inflight` | exact `b7c6f9229`: rank1 stream interrupted, DP1 dead, DP0 continued with matching precision, 19/19 (`20260810-r1`) | VALIDATED ONCE |
 | Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | exact `b7c6f9229`: DP1/DP2 dead, one multi-rank scale-down, DP0/DP3 precision passed, 26/26 (`20260810-r1`) | VALIDATED ONCE |
-| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | exact `b7c6f9229`, r384: corrected contract starts an in-flight stream and requires every candidate survivor `unhealthy` before each apply; 4->3->2->1, three forced EPLB rounds, post-round generations and precision passed, 38/38 (`continuous-unhealthy-barrier-...-r2`). Earlier early-apply hangs are retained as negative ordering evidence | VALIDATED ONCE; TWO MORE COLD PASSES REQUIRED |
+| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | exact `b7c6f9229`, r384: corrected contract starts an in-flight stream and requires every candidate survivor `unhealthy` before each apply; 4->3->2->1, three forced EPLB rounds, post-round generations and precision passed 38/38 in each of `continuous-unhealthy-barrier-...-r2`, `...-acceptance-01`, and `...-acceptance-02`. Earlier early-apply hangs are retained as negative ordering evidence | VALIDATED THREE COLD RUNS |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | exact `b7c6f9229`: all status/error-message invariants and post-scale-down precision passed, 35/35 (`20260810-r1`) | VALIDATED ONCE |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → ready/ProcessUp → automatic healthy route; four-rank precision and cleanup passed, 47/47 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
 | Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → `disabled` → explicit recover → healthy; precision and cleanup passed, 52/52 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
