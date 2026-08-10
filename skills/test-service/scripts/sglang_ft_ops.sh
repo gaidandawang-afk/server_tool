@@ -867,21 +867,31 @@ sg_apply_scale_down_ranks() {
   local sg_ranks="$2"
   local sg_request="$3"
   local sg_response="$4"
-  python3 - "$sg_request" "$sg_ranks" <<'PY'
+  local sg_apply_schema="${SGLANG_FT_APPLY_REQUEST_SCHEMA:-current}"
+  python3 - "$sg_request" "$sg_ranks" "$sg_apply_schema" <<'PY'
 import json
 import sys
-with open(sys.argv[1], "w", encoding="utf-8") as handle:
-    json.dump(
-        {
-            "instruction": "scale_down",
-            "params": {
-                "timeout": 180,
-                "ranks": [int(value) for value in sys.argv[2].split(",")],
-            },
+schema = sys.argv[3]
+if schema == "legacy":
+    payload = {
+        "fault_tolerance_instruction": "scale_down",
+        "fault_tolerance_timeout": 180,
+        "fault_tolerance_params": {
+            "ranks": [int(value) for value in sys.argv[2].split(",")],
         },
-        handle,
-        separators=(",", ":"),
-    )
+    }
+elif schema == "current":
+    payload = {
+        "instruction": "scale_down",
+        "params": {
+            "timeout": 180,
+            "ranks": [int(value) for value in sys.argv[2].split(",")],
+        },
+    }
+else:
+    raise SystemExit(f"unsupported SGLANG_FT_APPLY_REQUEST_SCHEMA={schema!r}")
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, separators=(",", ":"))
     handle.write("\n")
 PY
   st_http_json POST "http://127.0.0.1:${sg_port}/fault_tolerance/apply" \

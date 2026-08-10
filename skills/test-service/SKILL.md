@@ -56,6 +56,9 @@ Committed SGLang cases take the model from `MODEL_PATH`. A profile may also sele
 - `SGLANG_FT_PRECISION_ORACLE_FAMILY` (default
   `qwen-fp8-d4t4e4-count10-no-overlap`);
 - `SGLANG_FT_RELIABLE_ORACLE_ID` for the optional four-token rejoin request.
+- `SGLANG_FT_APPLY_REQUEST_SCHEMA=legacy` when validating a pre-simplification
+  FT source commit whose `/fault_tolerance/apply` endpoint still expects the
+  `fault_tolerance_*` request fields (default `current`).
 
 Ordinary fault-scenario gates resolve their oracle as
 `<family>-rank<rank>-r<redundant-experts>` and accept only sequences already listed in that

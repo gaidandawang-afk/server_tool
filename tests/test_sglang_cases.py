@@ -293,7 +293,7 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("SGLANG_FT_RANDOM_SEED", unit)
         self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
 
-    def test_fault_tolerance_apply_payloads_use_new_schema(self):
+    def test_fault_tolerance_apply_payloads_support_current_and_legacy_schema(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         ).read_text(encoding="utf-8")
@@ -316,11 +316,12 @@ sg_launch_dp4_ft continue "$port" "$log_path"
             / "run.sh"
         ).read_text(encoding="utf-8")
 
-        for content in (unit, rejection_case):
-            self.assertNotIn("fault_tolerance_instruction", content)
-            self.assertNotIn("fault_tolerance_params", content)
-            self.assertNotIn("fault_tolerance_timeout", content)
+        self.assertNotIn("fault_tolerance_instruction", rejection_case)
+        self.assertNotIn("fault_tolerance_params", rejection_case)
+        self.assertNotIn("fault_tolerance_timeout", rejection_case)
         self.assertIn('"instruction": "scale_down"', unit)
+        self.assertIn('"fault_tolerance_instruction": "scale_down"', unit)
+        self.assertIn('SGLANG_FT_APPLY_REQUEST_SCHEMA', unit)
         self.assertIn('"instruction": "retry"', unit)
         self.assertIn('"instruction": "recover"', unit)
         self.assertIn("sg_apply_retry", exception_retry_case)
