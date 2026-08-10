@@ -18,6 +18,11 @@ applicable to this single-survivor case.
 - TP=4, DP=4, EP=4 on four profile-selected GPUs
 - Repetition for branch-usability validation: one cold run
 
+For an explicit historical-code A/B only, a profile may set
+`SGLANG_FT_INCIDENT_STATE_SCHEMA=legacy-paused` together with the legacy apply-request
+schema. This changes only the pre-apply status oracle needed by the old public `paused`
+state; it does not make that source branch an applicable current-architecture validation.
+
 ## Ordered gates
 
 1. Start TP=4, DP=4, EP=4 with all ranks healthy, then complete a deterministic DP0

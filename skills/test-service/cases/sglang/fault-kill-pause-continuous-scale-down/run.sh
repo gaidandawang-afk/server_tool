@@ -8,6 +8,7 @@ readonly port="$PORT_BASE"
 readonly run_dir="$SERVER_TOOL_WORK_ROOT/case"
 readonly log_path="$SERVER_TOOL_OUTPUT_ROOT/server.log"
 readonly request_dp0="$run_dir/request-dp0.json"
+readonly incident_state_schema="${SGLANG_FT_INCIDENT_STATE_SCHEMA:-self-pause}"
 server_pgid=""
 
 export SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-384}"
@@ -52,11 +53,29 @@ sg_assert_known_output_ids \
   "$(sg_precision_oracle_id 0)" \
   "$run_dir/baseline-dp0-precision.json"
 
-declare -a incident_states=(
-  "0=healthy,1=dead,2=healthy,3=healthy|0=unhealthy,1=dead,2=unhealthy,3=unhealthy"
-  "0=healthy,1=dead,2=dead,3=healthy|0=unhealthy,1=dead,2=dead,3=unhealthy"
-  "0=healthy,1=dead,2=dead,3=dead|0=unhealthy,1=dead,2=dead,3=dead"
-)
+case "$incident_state_schema" in
+  self-pause)
+    declare -a incident_states=(
+      "0=healthy,1=dead,2=healthy,3=healthy|0=unhealthy,1=dead,2=unhealthy,3=unhealthy"
+      "0=healthy,1=dead,2=dead,3=healthy|0=unhealthy,1=dead,2=dead,3=unhealthy"
+      "0=healthy,1=dead,2=dead,3=dead|0=unhealthy,1=dead,2=dead,3=dead"
+    )
+    ;;
+  legacy-paused)
+    declare -a incident_states=(
+      "0=paused,1=dead,2=paused,3=paused"
+      "0=paused,1=dead,2=dead,3=paused"
+      "0=paused,1=dead,2=dead,3=dead"
+    )
+    ;;
+  *)
+    st_assert incident_state_schema false "self-pause|legacy-paused" \
+      "$incident_state_schema"
+    exit 1
+    ;;
+esac
+printf 'incident_state_schema=%s\n' "$incident_state_schema" \
+  >"$SERVER_TOOL_OUTPUT_ROOT/case-inputs.env"
 declare -a healthy_states=(
   "0=healthy,1=dead,2=healthy,3=healthy"
   "0=healthy,1=dead,2=dead,3=healthy"

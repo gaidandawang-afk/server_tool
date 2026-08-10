@@ -59,6 +59,9 @@ Committed SGLang cases take the model from `MODEL_PATH`. A profile may also sele
 - `SGLANG_FT_APPLY_REQUEST_SCHEMA=legacy` when validating a pre-simplification
   FT source commit whose `/fault_tolerance/apply` endpoint still expects the
   `fault_tolerance_*` request fields (default `current`).
+- `SGLANG_FT_INCIDENT_STATE_SCHEMA=legacy-paused` for the continuous-scale-down
+  historical-code A/B whose old status endpoint still publishes `paused` (default
+  `self-pause`).
 
 Ordinary fault-scenario gates resolve their oracle as
 `<family>-rank<rank>-r<redundant-experts>` and accept only sequences already listed in that

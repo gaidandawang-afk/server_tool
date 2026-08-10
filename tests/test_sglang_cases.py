@@ -327,6 +327,20 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("sg_apply_retry", exception_retry_case)
         self.assertNotIn('"instruction":"retry"', rejection_case)
 
+    def test_continuous_scale_down_supports_legacy_status_control(self):
+        case = (
+            REPO_ROOT
+            / "skills"
+            / "test-service"
+            / "cases"
+            / "sglang"
+            / "fault-kill-pause-continuous-scale-down"
+            / "run.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("SGLANG_FT_INCIDENT_STATE_SCHEMA", case)
+        self.assertIn("legacy-paused", case)
+        self.assertIn("0=paused,1=dead,2=paused,3=paused", case)
+
     def test_pause_rejoin_waits_for_disabled_before_recover(self):
         case = (
             REPO_ROOT
