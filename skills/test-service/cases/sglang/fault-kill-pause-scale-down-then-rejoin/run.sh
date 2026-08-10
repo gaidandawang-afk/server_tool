@@ -182,16 +182,8 @@ done
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/recovery-eplb-forward.json" 200 \
   recovery_eplb_second_forward 600
-sg_wait_ft_status "$base_port" "$run_dir/status-disabled.json" \
-  "0=healthy,1=healthy,2=healthy,3=disabled" 120 status_disabled
-st_http_json POST "http://127.0.0.1:${base_port}/generate" \
-  "${requests[3]}" "$run_dir/disabled-dp3.json" 400 \
-  disabled_dp3_closed 60
-
-sg_apply_recover "$base_port" 3 \
-  "$run_dir/recover-request.json" "$run_dir/recover-response.json"
 sg_wait_ft_status "$base_port" "$run_dir/status-recovered.json" \
-  "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_recovered
+  "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_auto_recovered
 sg_wait_health_generate "$((base_port + 3))" "${node_pgids[3]}" 600 \
   node3_rejoined_health_generate
 

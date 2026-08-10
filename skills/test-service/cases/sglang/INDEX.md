@@ -33,19 +33,16 @@ branch-usability acceptance gate.
 
 - `pause` is a Scheduler-local event-loop state. The control plane closes admission but does
   not publish a `PAUSED` rank state or dispatch a central pause command.
-- Public rank states are only `healthy`, `unhealthy`, `dead`, and `disabled`.
+- Public rank states are only `healthy`, `unhealthy`, and `dead`.
 - A recoverable exception is the only supported retry trigger. Process or node loss must
   converge through `scale_down`; kill-based retry is not an executable contract.
 - `scale_down` kills every Scheduler member of each target DP, waits for the retained watchdog
   process facts, then installs the explicit survivor topology, forces EPLB and updates DPC route.
 - Rejoin is always a complete native `nnodes` process-group lifecycle. The replacement
   Scheduler waits in native join before it becomes ready, so survivor recovery-drive precedes
-  ProcessUp. ProcessUp then reports the derived rank state from the expected mask: a DP scaled
-  out of the expected mask becomes `disabled`; a DP still in the expected mask becomes
-  `healthy`. A successful native recovery forward/EPLB clears the pending-recovery gate and
-  makes `recover` admissible
-  without changing the reported rank state; explicit recover only commits the expected mask and
-  DPC route, changing the cohort to `healthy`.
+  ProcessUp. Process readiness and native data-plane readiness may be observed in either order;
+  a scaled-out DP remains `dead` until both are ready, then FT automatically restores its
+  expected membership and DPC route without an explicit recover API.
 - The retained continue cases preserve native Mooncake membership, second-forward, and route
   behavior. The no-FT case remains a native baseline.
 - Every active contract must complete a real `/generate` request after startup and before any
@@ -80,7 +77,7 @@ configuration.
 | Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | exact `b7c6f9229`, r384: corrected contract starts an in-flight stream and requires every candidate survivor `unhealthy` before each apply; 4->3->2->1, three forced EPLB rounds, post-round generations and precision passed 38/38 in each of `continuous-unhealthy-barrier-...-r2`, `...-acceptance-01`, and `...-acceptance-02`. Earlier early-apply hangs are retained as negative ordering evidence | VALIDATED THREE COLD RUNS |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | exact `b7c6f9229`: all status/error-message invariants and post-scale-down precision passed, 35/35 (`20260810-r1`) | VALIDATED ONCE |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → ready/ProcessUp → automatic healthy route; four-rank precision and cleanup passed, 47/47 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
-| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → `disabled` → explicit recover → healthy; precision and cleanup passed, 52/52 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
+| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | Contract updated for automatic `dead` → `healthy` rejoin without a recover API; exact new-HEAD evidence pending | NEEDS REVALIDATION |
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | exact `b7c6f9229`: current request discarded, healthy/no-pause state retained, next forward and precision passed, 22/22 (`20260810-r1`) | VALIDATED ONCE |
 | Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | exact `b7c6f9229`: exception → all unhealthy, schedulers initially retained, unattended local deadline exited the owned group, 21/21 (`20260810-r1`) | VALIDATED ONCE |
 

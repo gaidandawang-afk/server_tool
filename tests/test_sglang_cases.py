@@ -349,7 +349,7 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("legacy-paused", case)
         self.assertIn("0=paused,1=dead,2=paused,3=paused", case)
 
-    def test_pause_rejoin_waits_for_disabled_before_recover(self):
+    def test_pause_rejoin_automatically_reopens_after_native_recovery(self):
         case = (
             REPO_ROOT
             / "skills"
@@ -364,30 +364,25 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("rejoin_waiting_keeps_dp3_closed", case)
         self.assertIn("recovery_done_observed", case)
         self.assertIn("recovery_eplb_second_forward", case)
-        self.assertIn("status-disabled.json", case)
-        self.assertIn("0=healthy,1=healthy,2=healthy,3=disabled", case)
-        self.assertIn("disabled_dp3_closed", case)
-        self.assertNotIn("recover_commit", case)
-        self.assertNotIn("inactive_recover", case)
-        self.assertNotIn("resumed_ranks", case)
-        self.assertNotIn("Fault tolerance apply plan", case)
-        self.assertNotIn("Recovered rank joining Mooncake backend", case)
+        self.assertIn("status-recovered.json", case)
+        self.assertIn("0=healthy,1=healthy,2=healthy,3=healthy", case)
+        self.assertIn("status_auto_recovered", case)
+        self.assertNotIn("status-disabled.json", case)
+        self.assertNotIn("sg_apply_recover", case)
         owner_group_kill_index = case.index("node3_owner_process_group_killed")
         owner_group_gone_index = case.index("node3_owner_process_group_confirmed_gone")
         scale_down_index = case.index("sg_apply_scale_down")
         rejoin_index = case.index(
             'node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"'
         )
-        disabled_index = case.index("status-disabled.json")
-        recover_index = case.index("sg_apply_recover")
+        recovery_done_index = case.index("recovery_done_observed")
         healthy_index = case.index("status-recovered.json")
         self.assertNotIn("st_kill_owned_process", case)
         self.assertLess(owner_group_kill_index, owner_group_gone_index)
         self.assertLess(owner_group_gone_index, scale_down_index)
         self.assertLess(scale_down_index, rejoin_index)
-        self.assertLess(rejoin_index, disabled_index)
-        self.assertLess(disabled_index, recover_index)
-        self.assertLess(recover_index, healthy_index)
+        self.assertLess(rejoin_index, recovery_done_index)
+        self.assertLess(recovery_done_index, healthy_index)
 
     def test_exception_scale_down_kills_target_without_direct_recover(self):
         case = (CASE_ROOT / "fault-exception-pause-scale-down" / "run.sh").read_text(

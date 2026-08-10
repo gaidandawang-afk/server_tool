@@ -39,20 +39,14 @@ but each variant requires its own run name and artifact directory.
 5. While DP3 is still `dead`, explicitly route survivor forwards to DP0 until Mooncake
    completes rank-3 recovery on every survivor, then execute one post-recovery forward.
 6. After native join lets the replacement Scheduler become ready and the DPC reports
-   ProcessUp, reach `0=healthy,1=healthy,2=healthy,3=disabled`; DP3 must still return HTTP
-   400. Completed native data-plane recovery is the barrier that makes `recover([3])`
-   admissible.
-7. Only now apply `recover([3])`. Its HTTP 200 completion updates the expected mask and DPC
-   route without a Scheduler command; then reach four `healthy` ranks.
-8. Generate on DP3 and DP0, validate registered output, stop all four owned process groups,
+   ProcessUp, the existing FT observation chain must automatically restore the expected mask
+   and route. Reach four `healthy` ranks without calling `/fault_tolerance/apply`.
+7. Generate on DP3 and DP0, validate registered output, stop all four owned process groups,
    and leave the source checkout clean.
 
-Recover is gated by native data-plane recovery, not by the displayed rank state. In this
-native rejoin path, Scheduler readiness and ProcessUp occur only after the survivor-driven
-Mooncake join has completed, so the end-to-end contract does not claim an observable
-`disabled`-but-pending window. The state-machine unit contract separately verifies that
-`recover` rejects members which are still in `pending_recovery`. HTTP 200 is a completion
-response only after the route update.
+Automatic route reopening is gated by both process readiness and native data-plane recovery.
+The two signals may arrive in either order; until both have been observed, DP3 remains `dead`
+and unroutable. There is no public `disabled` state and no explicit FT recover operation.
 
 ## Required artifacts
 
