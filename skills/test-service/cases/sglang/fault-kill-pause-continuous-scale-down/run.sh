@@ -8,8 +8,10 @@ readonly port="$PORT_BASE"
 readonly run_dir="$SERVER_TOOL_WORK_ROOT/case"
 readonly log_path="$SERVER_TOOL_OUTPUT_ROOT/server.log"
 readonly request_dp0="$run_dir/request-dp0.json"
+readonly stream_request_dp0="$run_dir/stream-request-dp0.json"
 readonly incident_state_schema="${SGLANG_FT_INCIDENT_STATE_SCHEMA:-self-pause}"
 server_pgid=""
+stream_pid=""
 
 export SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-384}"
 export SGLANG_FT_MEM_FRACTION_STATIC="${SGLANG_FT_MEM_FRACTION_STATIC:-0.45}"
@@ -18,6 +20,9 @@ cleanup() {
   local original_code="$?"
   trap - EXIT
   set +e
+  if [[ -n "$stream_pid" ]]; then
+    st_stop_owned_pid "$stream_pid" stream_request_cleanup
+  fi
   st_preserve_run_dir_files "$run_dir"
   if [[ -n "$server_pgid" ]]; then
     st_stop_owned_pgid "$server_pgid" server_process_group_cleanup
@@ -39,6 +44,7 @@ trap cleanup EXIT
 mkdir -p "$run_dir"
 sg_prepare_dp4_runtime
 sg_write_rank_request "$request_dp0" 0 10
+sg_write_stream_rank_request "$stream_request_dp0" 0 64
 
 sg_launch_dp4_ft pause "$port" "$log_path"
 server_pgid="$ST_LAST_PGID"
@@ -56,9 +62,9 @@ sg_assert_known_output_ids \
 case "$incident_state_schema" in
   self-pause)
     declare -a incident_states=(
-      "0=healthy,1=dead,2=healthy,3=healthy|0=unhealthy,1=dead,2=unhealthy,3=unhealthy"
-      "0=healthy,1=dead,2=dead,3=healthy|0=unhealthy,1=dead,2=dead,3=unhealthy"
-      "0=healthy,1=dead,2=dead,3=dead|0=unhealthy,1=dead,2=dead,3=dead"
+      "0=unhealthy,1=dead,2=unhealthy,3=unhealthy"
+      "0=unhealthy,1=dead,2=dead,3=unhealthy"
+      "0=unhealthy,1=dead,2=dead,3=dead"
     )
     ;;
   legacy-paused)
@@ -84,9 +90,22 @@ declare -a healthy_states=(
 
 for target in 1 2 3; do
   index=$((target - 1))
+  stream_output="$run_dir/inflight-dp${target}.jsonl"
+  stream_error="$run_dir/inflight-dp${target}.stderr"
+  sg_start_stream_request "$port" "$stream_request_dp0" \
+    "$stream_output" "$stream_error" 60
+  stream_pid="$ST_LAST_STREAM_PID"
+  sg_wait_stream_decode_rank "$stream_output" 0 60
   st_kill_owned_process "$server_pgid" "_TP${target}_EP" KILL "kill_dp${target}"
   sg_wait_ft_status "$port" "$run_dir/status-dp${target}-incident.json" \
     "${incident_states[$index]}" 120 "status_dp${target}_incident"
+  if kill -0 "$stream_pid" 2>/dev/null; then
+    st_stop_owned_pid "$stream_pid" "inflight_dp${target}_request_cleanup"
+  fi
+  set +e
+  wait "$stream_pid" 2>/dev/null
+  set -e
+  stream_pid=""
   st_assert_process_count "$server_pgid" "sglang::scheduler" "$((4 - target))" \
     "schedulers_after_dp${target}_kill"
   st_http_json POST "http://127.0.0.1:${port}/generate" \

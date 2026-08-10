@@ -28,9 +28,11 @@ state; it does not make that source branch an applicable current-architecture va
 1. Start TP=4, DP=4, EP=4 with all ranks healthy, then complete a deterministic DP0
    baseline before injecting the first fault.
 2. For each target rank 1, 2 and 3:
+   - start a DP0 streaming request and prove it has entered decode;
    - kill only that owned scheduler;
-   - reach the cumulative dead set while each survivor is healthy before its next forward
-     or unhealthy after its self-pause;
+   - wait until the cumulative dead set is visible and **every survivor is `unhealthy`**;
+     a central HTTP 503 or process-DOWN observation is not a substitute for this Scheduler
+     self-pause barrier;
    - prove the incident admission gate returns HTTP 503;
    - apply whole-DP scale-down only for the newly dead rank;
    - reach the cumulative dead set with every survivor healthy;
@@ -46,6 +48,6 @@ PASS runs with separate run names and artifact directories.
 
 ## Required artifacts
 
-Preserve per-round incident/final status, blocked admission and apply responses, DP0 generation
-and precision files, process counts, server log, provenance, assertions, result and cleanup
-evidence.
+Preserve per-round in-flight stream output/error, incident/final status, blocked admission and
+apply responses, DP0 generation and precision files, process counts, server log, provenance,
+assertions, result and cleanup evidence.
