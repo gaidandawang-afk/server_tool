@@ -4,31 +4,28 @@ This is the server_tool-owned index for the four-GPU DP-only FT regression set. 
 contracts target `codex/ft-self-pause-minimal` and the architecture defined by
 `SELF_PAUSE_WHOLE_DP_FT.md`. They must be validated against the exact selected source HEAD.
 
-**Validation state:** exact source `b7c6f9229`, 2026-08-10. Fourteen of fifteen active contracts
-passed one bounded cold run on GPU 4,5,6,7, totaling 428/428 passing structured assertions in
-their successful runs. The unresolved contract is `fault-kill-pause-continuous-scale-down`.
-The suite profile initially supplied 128 redundant experts, but shrinking Qwen's 128 logical
-experts at EP4 to one survivor requires at least `128 * (4 - 1) = 384`; 384 is therefore a
-capacity prerequisite, not the explanation for the remaining hang.
+**Validation state:** exact source `b7c6f9229`, 2026-08-10. All fifteen active contracts now
+have at least one bounded cold PASS on GPU 4,5,6,7. The corrected
+`fault-kill-pause-continuous-scale-down` contract passed 38/38 structured assertions in
+`continuous-unhealthy-barrier-b7c6f9229-gpu4567-20260810-r2`; together with the other fourteen
+contracts, the latest successful runs total 466/466 passing assertions.
 
-With 384 redundant experts, two clean cold runs of exact `b7c6f9229` still hung at different
-rounds (3->2 and 4->3). Instrumented source `8dd277bd6` produced one full PASS and one 4->3
-failure in which only DP2 entered EPLB. A second instrumentation layer at `9f9a8254d` reproduced
-the failure during 3->2: Node 0 DPC completed command sends to both DP0 and DP3, but only DP0's
-Scheduler consumed the command and synchronously entered `rebalance(force=True)`; DP3 was still
-draining the preceding Mooncake peer-failure operation (`op 5`) and never reached command
-consumption within 180 seconds. This is a missing survivor request-boundary park/barrier before
-the v7 synchronous forced-EPLB phase, not a DPC send failure or GPU-memory shortage.
+The continuous case has two mandatory preconditions. First, shrinking Qwen's 128 logical
+experts at EP4 to one survivor requires at least `128 * (4 - 1) = 384` redundant experts.
+Second, after every kill, **all candidate survivors must have reached Scheduler self-pause and
+report `unhealthy` before `scale_down` is submitted**. A process-DOWN observation or central
+HTTP 503 only proves admission is closed; it does not prove every survivor has returned from
+the preceding Mooncake operation.
 
-As a control, the exact current case stages and parameters (GPU 4,5,6,7, Qwen, redundant=384,
-ratio=0.45, static dispatch, the same Mooncake/kernel directories) passed on historical v6
-source `1d85efdad` after only adapting the current harness to v6's legacy apply/status wire
-schema. This excludes the environment and test-stage ordering as the primary cause. The v6
-path resumed survivors before EPLB, so the next forward naturally aligned them at a request
-boundary; v7 instead invokes forced EPLB synchronously in each Scheduler's FT command handler.
-The contract remains failed until a cohort-safe boundary is implemented and repeated cold runs
-pass. Historical PASS results in
-[the 2026-08-02 record](VALIDATION-2026-08-02-FT-2COMMITS.md) are not silently carried forward.
+Earlier r384 runs allowed either `healthy` or `unhealthy` survivors and could therefore submit
+`scale_down` too early. Delivery debug `9f9a8254d` captured that invalid ordering during 3->2:
+DPC sent to both DP0 and DP3, DP0 consumed the command and entered forced EPLB, while DP3 was
+still draining Mooncake `op 5` and had not self-paused. Under the corrected ordering, each round
+used an in-flight DP0 stream to expose the membership fault, then observed respectively
+`0/2/3=unhealthy`, `0/3=unhealthy`, and `0=unhealthy` before apply. All survivor EPLB begin/end
+pairs completed, all three scale-down calls returned HTTP 200, and every post-round DP0
+precision check matched. This is one cold PASS; the contract still requires three independent
+cold PASS runs for branch-usability acceptance.
 
 ## Architecture contract
 
@@ -78,7 +75,7 @@ configuration.
 | Kill one member when A*C>1 and shut down its complete DP | `fault_tpgt1_whole_dp_shutdown.sh` | `fault-tpgt1-whole-dp-shutdown` | exact `b7c6f9229`: rank2 killed with sibling rank3 alive; scale-down removed both and retained DP0 precision, 27/27 (`20260810-r1`) | VALIDATED ONCE |
 | Kill an in-flight stream with continue | `fault_kill_continue_inflight.sh` | `fault-kill-continue-inflight` | exact `b7c6f9229`: rank1 stream interrupted, DP1 dead, DP0 continued with matching precision, 19/19 (`20260810-r1`) | VALIDATED ONCE |
 | Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | exact `b7c6f9229`: DP1/DP2 dead, one multi-rank scale-down, DP0/DP3 precision passed, 26/26 (`20260810-r1`) | VALIDATED ONCE |
-| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | exact `b7c6f9229`, r384: hangs nondeterministically at 4->3 or 3->2; delivery logs at debug `9f9a8254d` prove DPC sent to both survivors while only DP0 consumed the command and entered forced EPLB as DP3 drained the prior Mooncake fault op. The same current stages passed on v6 `1d85efdad` with legacy-wire adapters only. Root cause is the missing v7 survivor request-boundary park/barrier; not fixed | ROOT CAUSE CONFIRMED; FIX REQUIRED |
+| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | exact `b7c6f9229`, r384: corrected contract starts an in-flight stream and requires every candidate survivor `unhealthy` before each apply; 4->3->2->1, three forced EPLB rounds, post-round generations and precision passed, 38/38 (`continuous-unhealthy-barrier-...-r2`). Earlier early-apply hangs are retained as negative ordering evidence | VALIDATED ONCE; TWO MORE COLD PASSES REQUIRED |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | exact `b7c6f9229`: all status/error-message invariants and post-scale-down precision passed, 35/35 (`20260810-r1`) | VALIDATED ONCE |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → ready/ProcessUp → automatic healthy route; four-rank precision and cleanup passed, 47/47 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
 | Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | exact `b7c6f9229`: replacement `dead` while native join waits; survivor recovery-drive → `disabled` → explicit recover → healthy; precision and cleanup passed, 52/52 assertions (`native-first-20260810-r1`) | VALIDATED ONCE |
