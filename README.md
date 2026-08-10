@@ -11,7 +11,7 @@
 - `build-source`：Mooncake、SGLang 等源码的隔离构建。
 - `run-service`：任务内服务启动、观察和清理。
 - `test-service`：按源码分支的 `TEST.md + run.sh` 执行用例。
-- `debug-service`：在具体用例失败后定位根因。
+- `debug-service`：在具体用例失败后定位根因，并维护仓库内的可复用调试经验池。
 
 每次任务先从 `profiles/task.example.env` 复制一个忽略的 `.local.env` profile，
 显式选择源码、容器、GPU、端口和依赖版本目录，再读取对应 skill。一次性任务材料
@@ -32,6 +32,9 @@ work/                     Git ignored 的 task-local 工作区和 artifact
 远程执行使用 `tools/server_tool.py`。稳定用例位于
 `skills/test-service/cases/`，并通过 `skills/test-service/scripts/run-case.py`
 组合提交的执行单元；外部项目只可作为设计参考，不是运行时依赖。
+
+调试经验池位于 `skills/debug-service/pool.json`，只通过
+`python skills/debug-service/scripts/manage_pool.py` 读取或更新，不依赖其他仓库。
 
 典型测试入口：
 

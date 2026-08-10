@@ -1,0 +1,701 @@
+[
+  {
+    "id": "exp-001",
+    "category": "code-pattern",
+    "title": "connection.wait on sentinels must deduplicate dead ranks",
+    "content": "After a scheduler child exits, connection.wait keeps firing on the same sentinel. Without a reported-set guard, record_fault loops and re-pauses healthy ranks, racing with commit_scale_down. Fix: maintain a reported set, skip already-reported ranks in both DPC watchdog and tokenizer sentinel/pipe readers.",
+    "score": 5,
+    "votes": [
+      {
+        "delta": 3,
+        "reason": "Found and fixed DPC watchdog flooding record_fault that prevented scale_down status transition to healthy",
+        "date": "2026-06-10"
+      },
+      {
+        "delta": 1,
+        "reason": "Duplicate exception/rank-fault observations must be ignored while recovery is in progress; this directly guided the tokenizer duplicate exception fix.",
+        "date": "2026-06-22"
+      },
+      {
+        "delta": 1,
+        "reason": "TP>1 scheduler child sentinels repeatedly reported the same physical rank; fix kept a reported_exit_ranks guard and reset it on rejoin.",
+        "date": "2026-07-06"
+      }
+    ]
+  },
+  {
+    "id": "exp-002",
+    "category": "code-pattern",
+    "title": "watchdog_reader must flow through all launch paths to avoid psutil fallback",
+    "content": "Engine._launch_subprocesses had scheduler_procs and watchdog_reader locals but did not return them. http_server.py launch_server could only pass scheduler_info to start_fault_tolerance_watchdog, causing psutil fallback. Fix: move watchdog start into _launch_subprocesses itself so every code path gets the right params.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry - DPC pipe unread caused send failures and psutil fallback",
+        "date": "2026-06-10"
+      }
+    ]
+  },
+  {
+    "id": "exp-003",
+    "category": "test-script",
+    "title": "Expected commit must come from server_tool, not hardcoded case hashes",
+    "content": "Case scripts must not hardcode source commit hashes. server_tool derives SERVER_TOOL_EXPECTED_HEAD from the clean local branch HEAD and the remote runner verifies the checked-out source against it. This avoids updating every case after each SGLang commit.",
+    "score": 4,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Hit this 3+ times today: force-push didn't work, sync overwrites, wrong hash silently fails",
+        "date": "2026-06-10"
+      },
+      {
+        "delta": 1,
+        "reason": "Hit 3+ times: force-push overwritten by sync, wrong hash caused silent failures",
+        "date": "2026-06-10"
+      },
+      {
+        "delta": 1,
+        "reason": "two SGLang commits required EXPECT_COMMIT updates in all 9 case scripts",
+        "date": "2026-06-11"
+      }
+    ]
+  },
+  {
+    "id": "exp-004",
+    "category": "test-script",
+    "title": "Windows-created .sh files carry CRLF that bash rejects with syntax error",
+    "content": "Any .sh file created or edited on Windows must be converted to LF before remote run. Symptom: bash reports 'syntax error near unexpected token $'\\r''. Fix: open file in 'rb', content.replace(b'\\r\\n', b'\\n'), write back in 'wb'.",
+    "score": 6,
+    "votes": [
+      {
+        "delta": 3,
+        "reason": "Hit 4+ times today across multiple script creations and edits",
+        "date": "2026-06-10"
+      },
+      {
+        "delta": 1,
+        "reason": "Hit 4+ times in this session: every script creation/edit reintroduced CRLF",
+        "date": "2026-06-10"
+      },
+      {
+        "delta": 1,
+        "reason": "multiple .sh files created during session required CRLF->LF",
+        "date": "2026-06-11"
+      },
+      {
+        "delta": 1,
+        "reason": "Directly hit this session: Set-Content introduced CRLF, causing bash syntax error on remote",
+        "date": "2026-06-18"
+      }
+    ]
+  },
+  {
+    "id": "exp-005",
+    "category": "cache",
+    "title": "Changing scheduler.py invalidates all Triton/Inductor kernel caches",
+    "content": "TorchInductor torch-key includes module source hash. Any change to scheduler.py (even adding a parameter to an unrelated method) changes the key, causing cache miss for ALL Triton kernels in scheduler workers. First run after scheduler.py change will be slow. Subsequent runs hit the new cache.",
+    "score": 4,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Explained 20-minute scale_down hang that looked like a deadlock but was just recompilation",
+        "date": "2026-06-10"
+      },
+      {
+        "delta": 1,
+        "reason": "cold Triton cache after scheduler.py change slowed diag run, masking DP routing race that manifested in subsequent warm-cache run",
+        "date": "2026-06-11"
+      },
+      {
+        "delta": 1,
+        "reason": "Scheduler changes in this session repeatedly caused slow first startup and first generate due to Triton/Inductor recompilation, which was essential for separating environment timeout from FT regressions.",
+        "date": "2026-06-22"
+      }
+    ]
+  },
+  {
+    "id": "exp-006",
+    "category": "server-tool",
+    "title": "Remote worktree gets dirty from killed processes; clean before new tests",
+    "content": "When a test run is killed (pkill -KILL), git status --short may show dirty files. sg_assert_project_clean fails. Run a clean-worktree script (git checkout -- . && git clean -fd) before running tests if the previous run was killed.",
+    "score": 1,
+    "votes": [
+      {
+        "delta": 1,
+        "reason": "One-time issue, but recurring pattern with killed runs",
+        "date": "2026-06-10"
+      }
+    ]
+  },
+  {
+    "id": "exp-007",
+    "category": "environment",
+    "title": "libcurl.so.4 version-info warning is harmless Mooncake build artifact",
+    "content": "The Mooncake dependency libcurl.so.4 in LD_LIBRARY_PATH lacks embedded version information. Every curl call prints a warning. This is a build issue in the Mooncake dependencies, not fixable from our side, and does not affect HTTP behavior.",
+    "score": 1,
+    "votes": [
+      {
+        "delta": 1,
+        "reason": "Harmless but distracting; document so future debuggers don't waste time",
+        "date": "2026-06-10"
+      }
+    ]
+  },
+  {
+    "id": "exp-008",
+    "category": "code-pattern",
+    "title": "broadcast_pyobj with dead ranks in process group hangs or corrupts data",
+    "content": "After a scheduler rank is killed, remaining schedulers call recv_requests() -> broadcast_pyobj() with the TP/attn_tp group that still includes the dead rank. gloo backend either hangs indefinitely (blocking the event loop) or returns corrupted bytes (_pickle.UnpicklingError). Fix: in recv_requests() (scheduler.py), wrap each broadcast_pyobj() call in try-except; on failure, fall back to locally-received ZMQ data ([] if None).",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-11"
+      }
+    ]
+  },
+  {
+    "id": "exp-010",
+    "category": "scale-down",
+    "title": "Publish inactive DPC routing before dead-rank control or follow-up generate",
+    "content": "In kill+scale_down, DPC must learn the dead-rank mask before dead-rank abort/control fanout or the next /generate is released. Otherwise fallback control can block on an inactive worker socket or a follow-up request can still route to the dead rank. Fix pattern: update active-mask/routing first and make DPC control skip inactive workers; do not paper over the race with arbitrary sleeps.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-12"
+      }
+    ]
+  },
+  {
+    "id": "exp-011",
+    "category": "test-script",
+    "title": "Treat one FT pass as a flake until bounded reruns pass",
+    "content": "Continuous scale_down can pass once and fail on the next run. Use bounded apply/generate steps with a 180s cap and require repeat success before calling a root cause fixed; unbounded scripts hide hangs and single-run success creates false groundtruth.",
+    "score": 7,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-12"
+      },
+      {
+        "delta": 1,
+        "reason": "This session confirmed that single pass or single post-shrink generate is insufficient; repeat checks were necessary.",
+        "date": "2026-06-26"
+      },
+      {
+        "delta": 1,
+        "reason": "Bounded reruns across ft_preview and ft_dev exposed flakiness and prevented treating a single precision run as proof.",
+        "date": "2026-07-02"
+      },
+      {
+        "delta": 1,
+        "reason": "The dynamic failure was intermittent, so static was accepted only after two consecutive full strict N4 rejoin passes.",
+        "date": "2026-07-20"
+      },
+      {
+        "delta": 1,
+        "reason": "The intermittent pause-ACK fix was only accepted after two bounded reruns of the exact whole-node kill scenario passed.",
+        "date": "2026-07-21"
+      },
+      {
+        "delta": 1,
+        "reason": "Both reduced final-HEAD gates were accepted only after two independent clean passes; a single pass or construction run was retained as diagnostic evidence, not promoted to ground truth.",
+        "date": "2026-07-22"
+      }
+    ]
+  },
+  {
+    "id": "exp-012",
+    "category": "code-pattern",
+    "title": "Log FT control at tokenizer, DPC, and scheduler boundaries",
+    "content": "When an FT command times out, add command-level logs at tokenizer dispatch, DPC forward, scheduler receive, and command completion. This separates send-queue blockage from scheduler execution blockage and avoids guessing from endpoint symptoms.",
+    "score": 4,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-12"
+      },
+      {
+        "delta": 1,
+        "reason": "Boundary logs isolated shutdown timeout to DPC fanout vs scheduler receive and exposed the correct fix.",
+        "date": "2026-06-22"
+      },
+      {
+        "delta": 1,
+        "reason": "This session confirmed boundary logs across tokenizer, DPC, and scheduler were decisive for locating scale_down collective skew.",
+        "date": "2026-06-23"
+      }
+    ]
+  },
+  {
+    "id": "exp-015",
+    "category": "scale-down",
+    "title": "Validate the baseline before widening parameters or suite defaults",
+    "content": "If historical/manual behavior says a case should pass with default parameters, rerun that exact baseline before treating a workaround as necessary. Keep any narrow parameter override scoped to the scenario that needs it; a failure under the normal baseline should trigger debugging of the new code or test change, not an automatic promotion of suite defaults until the run turns green.",
+    "score": 4,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-12"
+      },
+      {
+        "delta": 1,
+        "reason": "The session required reconciling historical baseline passes before accepting a new workaround or fix as sufficient.",
+        "date": "2026-06-26"
+      },
+      {
+        "delta": 1,
+        "reason": "Returning to the exact Mooncake 0.3.11.post1 baseline and equivalent static deterministic controls separated FT precision from the incompatible Mooncake main upgrade.",
+        "date": "2026-07-31"
+      }
+    ]
+  },
+  {
+    "id": "exp-016",
+    "category": "server-tool",
+    "title": "Track unresolved flakes separately from pass criteria",
+    "content": "An unexplained transient error should be recorded as unresolved evidence, not absorbed into test defaults or described as fixed. Preserve the run name, artifact path and exact failure conditions in the owning case INDEX or validation record, then keep tests faithful to their intended defaults until root cause is proven.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-12"
+      }
+    ]
+  },
+  {
+    "id": "exp-017",
+    "category": "scale-down",
+    "title": "Mooncake fallback dispatch must mask inactive ranks even when token counts look valid",
+    "content": "In no-HCA SGLang scale_down, Mooncake does not run EP fast path; unset MOONCAKE_EP_FORCE_FALLBACK first attempts ep.Buffer then auto-falls back. Precision can still drift if fallback dispatch only applies active_ranks when token counts are invalid, because a dead rank may return a valid stale count. Fix pattern: always compute effective_active_ranks and zero inactive rank token counts before dispatch layout construction.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-15"
+      }
+    ]
+  },
+  {
+    "id": "exp-018",
+    "category": "scale-down",
+    "title": "Do not auto-prepare schedulers after non-recoverable rank death",
+    "content": "When multiple scheduler ranks die close together, the first fault can compute active ranks before later deaths are recorded and send a pause/prepare command to a rank that is already gone. That stale pending command blocks DPC command processing and the explicit scale_down request times out. For pause strategy on non-recoverable process exit, record the fault and close admission, but leave scheduler recovery commands to the explicit scale_down path.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-16"
+      }
+    ]
+  },
+  {
+    "id": "exp-019",
+    "category": "test-script",
+    "title": "no-FT inflight stream wait blocks recovery check by 165s",
+    "content": "In sglang_mooncake_no_ft_auto_isolate.sh, a background curl stream targeting the killed rank was left running with --max-time 180. The script called wait on the stream PID before checking /generate recovery. The server completed EPLB rebalance + weight reload in ~15s, but the script blocked for ~165s waiting for the dead stream to timeout. Fix: kill the stream PID immediately after fault detection (sg_assert_scheduler_alive), then check recovery. The stream bytes are informational, not a pass condition.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-17"
+      }
+    ]
+  },
+  {
+    "id": "exp-021",
+    "category": "test-script",
+    "title": "Use --fault-tolerance-timeout, not deprecated recovery-timeout arg",
+    "content": "The v5 SGLang FT code uses --fault-tolerance-timeout (default 60s) instead of the old --fault-tolerance-recovery-timeout-sec. All launch functions in sglang_ft_ops.sh must use the new arg name. Symptom: sglang serve: error: unrecognized arguments: --fault-tolerance-recovery-timeout-sec.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-18"
+      }
+    ]
+  },
+  {
+    "id": "exp-022",
+    "category": "code-pattern",
+    "title": "Do not restrict tp_size in is_ft_supported_config without real TP-coordination blocker",
+    "content": "FaultToleranceManager operates on dp_size only; tp_size is an orthogonal implementation detail. The tp_size=1 check in is_ft_supported_config was an overly restrictive guard that blocked valid tp=4,dp=4 configurations. Only add tp checks when there is a proven coordination bug across TP ranks.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-18"
+      }
+    ]
+  },
+  {
+    "id": "exp-023",
+    "category": "test-script",
+    "title": "All curl calls must use short timeouts with polling loops, never a single long-blocking call",
+    "content": "Curl calls in sglang_ft_ops.sh must use --connect-timeout 5 and --max-time 15-60. The outer polling loop handles retry with sleep intervals. Never use timeout 180s curl --max-time 180. Default case timeout (180s) controls the polling loop deadline, not the per-request curl timeout. Apply operations may use 60s; status/ready checks use 15s.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-18"
+      }
+    ]
+  },
+  {
+    "id": "exp-024",
+    "category": "code-pattern",
+    "title": "Pause exception FT tests should report through DPC only",
+    "content": "In DP-attention SGLang FT tests, raising a synthetic scheduler exception and also reporting a DPC exception creates duplicate-event and missed-pause races. For pause-strategy recoverable exception tests, let the scheduler hook only record the trigger/done marker and let DPC uniquely report FaultToleranceRankFaultOutput. This keeps the control-plane path deterministic while still validating pause/retry/scale_down semantics.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-22"
+      }
+    ]
+  },
+  {
+    "id": "exp-026",
+    "category": "test-script",
+    "title": "Make coordinated forward fault injection one-shot on every rank",
+    "content": "A test-only all-reduce executed on every ModelRunner.forward can hang after scale-down because an inactive rank no longer reaches the hook. When the coordinated fault is observed, mark injection complete on every participating rank before raising so all later forwards bypass the test hook.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-22"
+      }
+    ]
+  },
+  {
+    "id": "exp-028",
+    "category": "code-pattern",
+    "title": "FT commands must enter DPC control fanout roots",
+    "content": "In DP-attention without local control broadcast, scheduler control messages must be sent to control roots such as rank 0 and then broadcast by recv_requests(). Directly sending FaultToleranceCommandReqInput to a non-root target rank can be silently ignored because the tp_group broadcast source has no control_req. Fix DPC FT command forwarding to use the same control fanout path, while scheduler still filters execution by target_ranks.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-22"
+      }
+    ]
+  },
+  {
+    "id": "exp-029",
+    "category": "scale-down",
+    "title": "For live paused scale_down ranks, apply mask and routing before shutdown and keep survivors running",
+    "content": "When scale_down isolates a rank that is still a live paused scheduler, first apply the inactive Mooncake mask to live schedulers and update DPC routing so survivors run on the new topology. Only then should DPC terminate the isolated scheduler and ack shutdown locally; killing it too early breaks control synchronization, and re-parking survivors after scale_down can consume an idle collective before the real next request.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-22"
+      }
+    ]
+  },
+  {
+    "id": "exp-031",
+    "category": "server-tool",
+    "title": "Detect exited SGLang servers during ready and generate waits",
+    "content": "Symptom: server_tool reports a timeout while the SGLang server process already exited. Root cause: the wait loops only polled HTTP readiness/generate result and did not inspect the recorded server PGID/PID liveness. Fix pattern: during ready/generate polling, fail fast when the launched SGLang process group exits so crashes are not misreported as timing issues.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-23"
+      }
+    ]
+  },
+  {
+    "id": "exp-032",
+    "category": "test-script",
+    "title": "Give continuous scale-down a 500-second case timeout",
+    "content": "The P0 continuous scale-down case can exceed the 180-second outer run budget while every completed status transition and scale-down operation remains correct; the symptom is exit 124 during a later rank round. Use the documented 500-second case timeout while keeping per-request curl timeouts short and SGLANG_FT_MAX_STEP_SEC unchanged.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-24"
+      }
+    ]
+  },
+  {
+    "id": "exp-033",
+    "category": "code-pattern",
+    "title": "Use CPU metadata broadcast for Mooncake no-HCA fallback recovery",
+    "content": "In Mooncake forced TCP/no-HCA fallback, recovered ranks can pass join_group/recover_ranks but fail on the next CUDA op with cudaErrorInvalidValue if expert-location metadata is broadcast through the default Mooncake CUDA group. Keep normal HCA paths strict, but in MOONCAKE_EP_FORCE_FALLBACK=1 recovery broadcast expert-location metadata over the world CPU group and copy it back to device locally.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-25"
+      }
+    ]
+  },
+  {
+    "id": "exp-034",
+    "category": "test-script",
+    "title": "HTTP 200 scale_down pass is not a precision gate",
+    "content": "Existing FT scale_down cases can pass by checking status and /generate HTTP 200 while still not proving deterministic output stability. Add initial output capture, healthy direct rank checks, and repeated post-shrink output equality for precision-sensitive paths.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-26"
+      }
+    ]
+  },
+  {
+    "id": "exp-035",
+    "category": "test-script",
+    "title": "Validate historical pass evidence from result.json and stdout",
+    "content": "Grep can falsely count embedded CASE_RESULT strings from attached scripts as real passes. For server_tool artifacts, verify result.json exit_code plus stdout runtime lines before using old runs as ground truth.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-26"
+      }
+    ]
+  },
+  {
+    "id": "exp-036",
+    "category": "scale-down",
+    "title": "Reload fixing moved experts proves runtime-state inequivalence, not tensor corruption",
+    "content": "When post-shrink output drift is fixed by reloading moved experts, do not overclaim that FP8 tensor P2P bytes are corrupted. Reload reconstructs weights plus quantization metadata, slot bindings, side tables, and kernel-visible state, so the proven boundary is that P2P/update did not recreate loader-equivalent expert runtime state.",
+    "score": 3,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-26"
+      },
+      {
+        "delta": 1,
+        "reason": "It kept the investigation from overclaiming FP8 metadata corruption; the final boundary was transport completion semantics before loader-equivalent reload.",
+        "date": "2026-06-30"
+      }
+    ]
+  },
+  {
+    "id": "exp-037",
+    "category": "test-script",
+    "title": "Measure long first-generate tasks with one-shot requests before blaming SGLang",
+    "content": "If a test reports a very long first /generate, first rule out helper-side retry amplification. In this session, sg_generate_expect retried every 15 seconds and round-robin dispatch spread duplicate prefills across DP ranks, inflating an actual 19-second overlap+tbo first generate into a 271-second apparent latency. Fix by measuring with a one-shot long-timeout curl first, then set the case-local poll window above the measured single-request latency.",
+    "score": 6,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-27"
+      },
+      {
+        "delta": 1,
+        "reason": "This session proved a reported 271-second overlap+tbo first generate was helper retry amplification; one-shot measurement showed the real single-request latency was 19 seconds, making this a reusable high-signal test-script lesson.",
+        "date": "2026-06-27"
+      },
+      {
+        "delta": 1,
+        "reason": "The long-first-generate guidance prevented treating a pre-fault case timeout as an FT hang; logs showed 82-second startup and 110-second first generation before the bounded 360-second rerun passed.",
+        "date": "2026-06-30"
+      },
+      {
+        "delta": 1,
+        "reason": "Precision validation needed one-shot generation to separate real output drift from helper retry amplification.",
+        "date": "2026-07-06"
+      },
+      {
+        "delta": 1,
+        "reason": "The first static run timed out before baseline because slow first-path warmup and ready generate amplification left work queued; logs showed forward completion rather than a static-dispatch crash.",
+        "date": "2026-07-20"
+      }
+    ]
+  },
+  {
+    "id": "exp-038",
+    "category": "environment",
+    "title": "Upgrading sgl-deep-gemm fixes DeepSeek BF16 dispatch after FP8-first Mooncake path failures",
+    "content": "In the Mooncake low_latency + elastic_ep + deep_gemm path, DeepSeek-V2-Lite-Chat first failed at EPMoE with 'forward_deepgemm_masked is deprecated'. Enabling SGLANG_DEEPEP_BF16_DISPATCH=1 correctly bypassed that deprecated FP8/LL branch, but the run then failed deeper with AttributeError: deep_gemm has no m_grouped_bf16_gemm_nt_masked. Root cause was the shared SGLang venv still pinned to sgl-deep-gemm 0.1.0, which exposed FP8 masked kernels but not the BF16 masked kernel needed by DeepSeek BF16 dispatch. Upgrading the shared venv to sgl-deep-gemm 0.1.3 added m_grouped_bf16_gemm_nt_masked and immediately turned the same DeepSeek configuration into a 12/12 P0 pass baseline. Reusable debug sequence: reproduce on DeepSeek BF16 with SGLANG_DEEPEP_BF16_DISPATCH=1, inspect deep_gemm exported symbols before changing model code, then upgrade sgl-deep-gemm before blaming SGLang FT or Mooncake logic.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-29"
+      }
+    ]
+  },
+  {
+    "id": "exp-039",
+    "category": "scale-down",
+    "title": "TCP WRITE completion must mean remote memory is visible",
+    "content": "In Mooncake forced-TCP/no-HCA P2P, marking a WRITE complete when the local socket write drains lets a following small control write overtake a large expert payload on another TCP connection. Symptom: post-shrink expert transfer hashes differ only in large receive tensors while SGLang slot copy is exact; reloading moved experts fixes output by overwriting corrupted slots. Fix pattern: server acknowledges WRITE completion only after reading the full payload and copying it into target memory, and the client reports completion only after receiving that acknowledgement.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-30"
+      }
+    ]
+  },
+  {
+    "id": "exp-040",
+    "category": "retry",
+    "title": "Keep FT v5 retry requests parameter-free",
+    "content": "If all ranks pause correctly but /fault_tolerance/apply retry returns HTTP 400, inspect the request contract before debugging recovery. SGLang e8eeaf7dd rejects every non-empty fault_tolerance_params object for retry; remove obsolete fields such as recapture_cuda_graph and verify exception, kill, and in-flight retry paths.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-30"
+      }
+    ]
+  },
+  {
+    "id": "exp-041",
+    "category": "test-script",
+    "title": "Budget sequential FT cases by measured total runtime",
+    "content": "A case-level 180-second timeout can expire before fault injection when startup and first-generation compilation consume most of the budget. Keep curl timeouts short, but set an explicit larger outer and step deadline for genuinely sequential cases after measuring the baseline; the three-stage continuous scale-down case required 272 seconds under GPU contention and passed with a 360-second budget.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-06-30"
+      }
+    ]
+  },
+  {
+    "id": "exp-042",
+    "category": "code-pattern",
+    "title": "Resume only ranks that are still live in physical rank space",
+    "content": "When FT applies a DP active mask, some parked scheduler ranks may have exited after the mask was computed. Resuming by mask alone can revive dead physical ranks and corrupt controller state. Fix by intersecting resume targets with the current live physical scheduler ranks before sending resume commands.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-07-06"
+      }
+    ]
+  },
+  {
+    "id": "exp-043",
+    "category": "code-pattern",
+    "title": "For TP/DP/CP rank math, use physical ranks_per_dp before CP leaders",
+    "content": "In TP>1 with context parallelism, logical CP leaders are not the same as physical scheduler members. Mapping global rank to DP rank must use physical ranks_per_dp = tp_size // dp_size and then derive CP leader/member relationships. Add divisibility checks so invalid TP/DP/CP combinations fail early instead of misrouting faults.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-07-06"
+      }
+    ]
+  },
+  {
+    "id": "exp-044",
+    "category": "code-pattern",
+    "title": "Use static EP dispatch to isolate RNG-driven replica numerics",
+    "content": "With redundant experts, dynamic dispatch uses torch.randint to choose physical replicas. Fault/rejoin changes process RNG state and execution ordering, so identical MoE inputs, router logits, and logical experts can reach different physical replicas and produce BF16/FP8/DeepGEMM drift large enough to change greedy tokens. Use --ep-dispatch-algorithm static as a repeated strict-output A/B: it removes per-call RNG and stabilized two N4 rejoin runs, but do not claim bitwise equivalence because physical IDs and MoE output hashes may still differ after rejoin.",
+    "score": 3,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-07-20"
+      },
+      {
+        "delta": 1,
+        "reason": "Static redundant-expert dispatch with a fixed seed made the rebased FT and native controls repeatably token-identical; dynamic runs were not a valid strict oracle.",
+        "date": "2026-07-31"
+      }
+    ]
+  },
+  {
+    "id": "exp-045",
+    "category": "code-pattern",
+    "title": "Coordinate DP pause through MLP sync before stopping schedulers",
+    "content": "Asynchronous per-DP pause delivery can split survivors between _engine_paused and MLPSyncBatchInfo.all_gather, leaving peers unable to receive or ACK pause. Store the received pause request as sticky PAUSE_READY, advertise it through the existing MLP-sync collective, and set _engine_paused plus return the original request-id ACK only after every expected live DP is ready.",
+    "score": 3,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-07-21"
+      },
+      {
+        "delta": 1,
+        "reason": "The exact whole-node J.15 reproducer passed twice at SGLang 74cafe366 while pause-ready arrival remained staggered across survivor DPs, directly validating collective pause coordination.",
+        "date": "2026-07-22"
+      }
+    ]
+  },
+  {
+    "id": "exp-046",
+    "category": "test-script",
+    "title": "Separate TBO acceptance prompts from same-prefix cache stress, and match request length to the precision gate",
+    "content": "When validating exception/TBO discard, keep the deterministic pre/post acceptance prompt distinct from interrupted stream prompts; otherwise radix-cache reuse becomes an extra variable and can produce a different conclusion even when TBO, discard, scheduler health, and leak checks pass. If the gate requires N compared tokens, make the request generate at least N tokens and reject shorter equal prefixes; track same-prefix reuse as its own cache regression instead of weakening or redefining the acceptance gate.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-07-22"
+      }
+    ]
+  },
+  {
+    "id": "exp-047",
+    "category": "test-script",
+    "title": "Verify runtime precision controls from artifacts, not wrappers",
+    "content": "Strict FT precision comparisons are invalid unless the actual server artifacts show equivalent ep dispatch, deterministic mode, random seed, model/kernel, prompt, warmup, and request order. Dynamic redundant-expert dispatch can advance per-rank RNG differently across pause and recovery even with deterministic inference enabled; use static dispatch plus fixed seed for the precision gate, and verify server.log and dependency provenance before attributing drift to FT or a rebase.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-07-31"
+      }
+    ]
+  },
+  {
+    "id": "exp-048",
+    "category": "scale-down",
+    "title": "Wait for every survivor to self-pause before scale-down",
+    "content": "In pause FT, process-DOWN or central HTTP 503 only closes admission; a survivor may still be inside the preceding Mooncake operation and therefore has not reached the _forward_raw membership-loss check. Applying scale_down early can let one survivor enter forced EPLB while another remains in the old collective, causing a timing-dependent hang. Start an in-flight forward, wait until every candidate survivor reports unhealthy, and only then apply scale_down.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-08-10"
+      }
+    ]
+  }
+]
