@@ -462,27 +462,26 @@ sg_drive_generate_until_log() {
   local sg_output_prefix="$5"
   local sg_timeout_sec="$6"
   local sg_label="$7"
-  local sg_end=$((SECONDS + sg_timeout_sec))
-  local sg_attempt=0 sg_http_code="" sg_rc=0
-  while (( SECONDS < sg_end )); do
-    if grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
-      st_assert "$sg_label" true observed observed
-      return
-    fi
-    sg_attempt=$((sg_attempt + 1))
-    set +e
-    sg_http_code="$(
-      curl -sS --connect-timeout 5 --max-time 30 \
-        -H "Content-Type: application/json" --data-binary "@$sg_request" \
-        -o "${sg_output_prefix}-${sg_attempt}.json" -w "%{http_code}" \
-        "http://127.0.0.1:${sg_port}/generate"
-    )"
-    sg_rc="$?"
-    set -e
-    st_log "RECOVERY_DRIVE label=$sg_label attempt=$sg_attempt curl_rc=$sg_rc HTTP=${sg_http_code:-none}"
-    sleep 1
-  done
-  st_assert "$sg_label" false observed timeout
+  local sg_http_code="" sg_rc=0
+  # One forward is sufficient to enter native recovery. Do not submit another
+  # request when a slow shared GPU exceeds a short client timeout: the original
+  # request keeps running server-side and retries only build an artificial queue.
+  set +e
+  sg_http_code="$(
+    timeout "$((sg_timeout_sec + 5))s" \
+      curl -sS --connect-timeout 5 --max-time "$sg_timeout_sec" \
+      -H "Content-Type: application/json" --data-binary "@$sg_request" \
+      -o "${sg_output_prefix}-1.json" -w "%{http_code}" \
+      "http://127.0.0.1:${sg_port}/generate"
+  )"
+  sg_rc="$?"
+  set -e
+  st_log "RECOVERY_DRIVE label=$sg_label attempt=1 curl_rc=$sg_rc HTTP=${sg_http_code:-none}"
+  if grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
+    st_assert "$sg_label" true observed observed
+  else
+    st_assert "$sg_label" false observed timeout
+  fi
 }
 
 sg_find_scheduler_pid_by_global_rank() {

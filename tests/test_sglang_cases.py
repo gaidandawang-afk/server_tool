@@ -301,6 +301,17 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("SGLANG_FT_RANDOM_SEED", unit)
         self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
 
+    def test_recovery_drive_uses_one_bounded_request(self):
+        unit = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+        function = unit.split("sg_drive_generate_until_log() {", 1)[1].split(
+            "\n}\n", 1
+        )[0]
+        self.assertIn('--max-time "$sg_timeout_sec"', function)
+        self.assertIn('${sg_output_prefix}-1.json', function)
+        self.assertNotIn("sg_attempt", function)
+
     def test_fault_tolerance_apply_payloads_support_current_and_legacy_schema(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
