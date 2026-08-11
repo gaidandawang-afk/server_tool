@@ -27,6 +27,56 @@ class ServerToolTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertIn(key, server_tool.RUNTIME_PROFILE_KEYS)
 
+    def test_runtime_profile_exposes_npu_kernel_selection_keys(self):
+        self.assertEqual(
+            server_tool.RUNTIME_PROFILE_KEYS.index("SGLANG_KERNEL_NPU_ROOT")
+            < server_tool.RUNTIME_PROFILE_KEYS.index("MOONCAKE_ROOT"),
+            True,
+        )
+        for key in (
+            "SGLANG_KERNEL_NPU_ROOT",
+            "SGLANG_KERNEL_NPU_VERSION",
+            "SGLANG_KERNEL_NPU_REQUIRED_SYMBOL",
+            "SGLANG_KERNEL_NPU_WHEEL_SELECT",
+        ):
+            with self.subTest(key=key):
+                self.assertIn(key, server_tool.RUNTIME_PROFILE_KEYS)
+            self.assertNotIn(key, server_tool.REQUIRED_PROFILE_KEYS)
+
+    def test_profile_validates_npu_kernel_root_child(self):
+        def base_values(root_value=""):
+            return {
+                "PROFILE_NAME": "npu-case",
+                "SSH_KEY": str(MODULE_PATH),
+                "LOCAL_REPO": str(MODULE_PATH.parents[1]),
+                "LOCAL_BRANCH": "b",
+                "REMOTE_BRANCH": "b",
+                "REMOTE_TASK_ROOT": "/data2/iws/tasks/npu-case",
+                "REMOTE_PROJECT_ROOT": "/data2/iws/projects/npu-case",
+                "CONTAINER_MANIFEST": "/data2/iws/container-manifests/c.env",
+                "SGLANG_KERNEL_ROOT": "/data2/iws/deps/sglang-kernel/cu130-cp312/0.0.1",
+                "REMOTE_PORT": "6200",
+                "PORT_BASE": "6100",
+                "PORT_COUNT": "10",
+                "SGLANG_KERNEL_NPU_ROOT": root_value,
+            }
+
+        # A legal NPU root under deps/sgl-kernel-npu passes validation.
+        server_tool.Profile(
+            path=MODULE_PATH,
+            values=base_values("/data2/iws/deps/sgl-kernel-npu/a3-cp311/0.0.1"),
+        ).validate()
+
+        # An absent NPU root is fine (optional key); absent but required keys still fail.
+        server_tool.Profile(path=MODULE_PATH, values=base_values("")).validate()
+
+        # An NPU root that escapes the allowed tree is rejected.
+        with self.assertRaises(server_tool.ToolError):
+            server_tool.Profile(
+                path=MODULE_PATH,
+                values=base_values("/data2/iws/deps/sglang-kernel/cu130-cp312/0.0.1"),
+            ).validate()
+
     def test_remote_child_rejects_equal_and_escape(self):
         with self.assertRaises(server_tool.ToolError):
             server_tool.require_remote_child("/data2/iws/tasks", "/data2/iws/tasks", "task")

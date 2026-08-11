@@ -63,6 +63,10 @@ RUNTIME_PROFILE_KEYS = (
     "SGLANG_KERNEL_ROOT",
     "SGLANG_KERNEL_VERSION",
     "SGLANG_KERNEL_REQUIRED_SYMBOL",
+    "SGLANG_KERNEL_NPU_ROOT",
+    "SGLANG_KERNEL_NPU_VERSION",
+    "SGLANG_KERNEL_NPU_REQUIRED_SYMBOL",
+    "SGLANG_KERNEL_NPU_WHEEL_SELECT",
     "MOONCAKE_ROOT",
     "MOONCAKE_VERSION",
     "MOONCAKE_WHEEL",
@@ -208,6 +212,12 @@ class Profile:
             f"{SAFE_REMOTE_ROOT}/deps/sglang-kernel",
             "SGLANG_KERNEL_ROOT",
         )
+        if self.get("SGLANG_KERNEL_NPU_ROOT"):
+            require_remote_child(
+                self.get("SGLANG_KERNEL_NPU_ROOT"),
+                f"{SAFE_REMOTE_ROOT}/deps/sgl-kernel-npu",
+                "SGLANG_KERNEL_NPU_ROOT",
+            )
         if self.get("MOONCAKE_ROOT"):
             require_remote_child(self.get("MOONCAKE_ROOT"), SAFE_REMOTE_ROOT, "MOONCAKE_ROOT")
         int(self.require("REMOTE_PORT"))
