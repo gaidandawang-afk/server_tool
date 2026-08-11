@@ -7,6 +7,10 @@
 
 - `remote-ops`：安全连接、任务生命周期和 artifact。
 - `manage-image`：SGLang SSH 镜像的构建、部署和验证。
+- `build-sgl-kernel-npu`：编译并安装 Ascend(NPU) 的 SGLang kernel wheel 到可在运行时
+  选择的不可变版本目录。
+- `ascend-sglang-env-replication`：在新服务器上复刻 Ascend(NPU) SGLang 容器环境，
+  参照历史成功流程而非重新摸索。
 - `install-environment`：共享基础运行环境安装。
 - `build-source`：Mooncake、SGLang 等源码的隔离构建。
 - `run-service`：任务内服务启动、观察和清理。
@@ -23,7 +27,7 @@
 AGENTS.md                 始终生效的协作与远程安全规则
 GOD.md                    server_tool 自身的架构优化规则
 profiles/                 平坦的 task profile 示例和本地配置
-skills/                   七个独立能力、提交用例、引用、资产和叶子脚本
+skills/                   九个独立能力、提交用例、引用、资产和叶子脚本
 tools/                    SSH 传输、后台运行、状态、日志、等待和 artifact 工具
 tests/                    工具的本地安全与接口测试
 work/                     Git ignored 的 task-local 工作区和 artifact
