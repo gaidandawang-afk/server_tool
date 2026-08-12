@@ -158,6 +158,7 @@ cmake_args=(
   "-DPython_EXECUTABLE=$python_bin_abs"
   "-DTORCH_CUDA_ARCH_LIST=$cuda_arch"
   -DUSE_CUDA=ON -DUSE_TCP=ON -DUSE_HTTP=ON
+  -DENABLE_MULTI_PROTOCOL=ON -DUSE_INTRA_NVLINK=ON
   -DWITH_EP=ON -DWITH_TE=ON -DWITH_STORE=OFF
   -DWITH_STORE_RUST=OFF -DWITH_STORE_GO=OFF -DWITH_P2P_STORE=OFF
   -DBUILD_UNIT_TESTS=OFF -DBUILD_BENCHMARK=OFF -DBUILD_EXAMPLES=ON
@@ -181,6 +182,10 @@ printf '%q ' cmake "${cmake_args[@]}" >"$output_root/cmake-command.txt"
 printf '\n' >>"$output_root/cmake-command.txt"
 
 cmake "${cmake_args[@]}"
+{
+  grep -E '^ENABLE_MULTI_PROTOCOL:BOOL=ON$' "$build_root/CMakeCache.txt"
+  grep -E '^USE_INTRA_NVLINK:BOOL=ON$' "$build_root/CMakeCache.txt"
+} | tee "$output_root/transport-build-config.txt"
 cmake --build "$build_root" --parallel "$jobs"
 
 cp -a "$source_root/mooncake-wheel/." "$package_root/"

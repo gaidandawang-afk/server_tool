@@ -48,6 +48,8 @@ Require all of the following before binding the wheel into another profile:
 
 - script exit code is zero;
 - `output/build-acceptance.env` records `status=pass` and `exit_code=0`;
+- `output/transport-build-config.txt` records both
+  `ENABLE_MULTI_PROTOCOL:BOOL=ON` and `USE_INTRA_NVLINK:BOOL=ON`;
 - `output/wheel.sha256` matches the selected wheel;
 - `output/verify-target/mooncake` is the imported package root;
 - `mooncake.ep.Buffer` and PG join/recover/state APIs exist;
