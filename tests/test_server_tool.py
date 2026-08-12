@@ -134,12 +134,13 @@ class ServerToolTests(unittest.TestCase):
                     "name": "NVIDIA H20",
                     "memory_total_mib": "97871",
                     "memory_used_mib": "10",
+                    "memory_available_mib": "97861",
                     "utilization_gpu_percent": "0",
                 }
             ],
         )
 
-    def test_gpu_preflight_rejects_existing_compute_process(self):
+    def test_gpu_preflight_ignores_existing_compute_process_when_memory_is_available(self):
         class FakeRemote:
             def run(self, command):
                 if "--query-gpu=" in command:
@@ -152,15 +153,26 @@ class ServerToolTests(unittest.TestCase):
                 self.assertEqual(key, "GPU_IDS")
                 return "4"
 
-        with self.assertRaisesRegex(server_tool.ToolError, "gpu=4 pid=2151955"):
-            server_tool.require_idle_profile_gpus(FakeRemote(), FakeProfile())
+        state = server_tool.require_idle_profile_gpus(FakeRemote(), FakeProfile())
+        self.assertEqual(state[0]["memory_available_mib"], "41338")
+        self.assertEqual(
+            state[0]["existing_compute_processes"],
+            [
+                {
+                    "index": "4",
+                    "pid": "2151955",
+                    "process_name": "[Not Found]",
+                    "used_memory_mib": "56510",
+                }
+            ],
+        )
 
-    def test_gpu_preflight_can_record_explicitly_allowed_compute_process(self):
+    def test_gpu_preflight_rejects_when_free_memory_is_not_above_30_gib(self):
         class FakeRemote:
             def run(self, command):
                 if "--query-gpu=" in command:
-                    return 0, "4, GPU-4, NVIDIA H20, 97871, 56533, 100\n", ""
-                return 0, "GPU-4, 2151955, python, 56510\n", ""
+                    return 0, "4, GPU-4, NVIDIA H20, 97871, 67151, 0\n", ""
+                return 0, "", ""
 
         class FakeProfile:
             @staticmethod
@@ -168,21 +180,11 @@ class ServerToolTests(unittest.TestCase):
                 self.assertEqual(key, "GPU_IDS")
                 return "4"
 
-        state = server_tool.require_idle_profile_gpus(
-            FakeRemote(), FakeProfile(), allow_occupied=True
-        )
-        self.assertEqual(state[0]["index"], "4")
-        self.assertEqual(
-            state[0]["existing_compute_processes"],
-            [
-                {
-                    "index": "4",
-                    "pid": "2151955",
-                    "process_name": "python",
-                    "used_memory_mib": "56510",
-                }
-            ],
-        )
+        with self.assertRaisesRegex(
+            server_tool.ToolError,
+            "gpu=4 available=30720MiB required>30720MiB",
+        ):
+            server_tool.require_idle_profile_gpus(FakeRemote(), FakeProfile())
 
 
 if __name__ == "__main__":

@@ -34,6 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 REMOTE_RUNNER = Path(__file__).with_name("remote_runner.sh")
 RUN_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 SAFE_REMOTE_ROOT = "/data2/iws"
+MIN_FREE_GPU_MEMORY_MIB = 30 * 1024
 REQUIRED_PROFILE_KEYS = {
     "PROFILE_NAME",
     "REMOTE_HOST",
@@ -350,6 +351,13 @@ def verify_task_owner(remote: Remote, profile: Profile, create: bool = False) ->
 def require_idle_profile_gpus(
     remote: Remote, profile: Profile, *, allow_occupied: bool = False
 ) -> list[dict[str, object]]:
+    """Require selected GPUs to have more than 30 GiB free memory.
+
+    Existing compute processes are retained as provenance but do not block a run.
+    ``allow_occupied`` remains accepted for CLI compatibility and does not change
+    the memory-based admission rule.
+    """
+    del allow_occupied
     _, gpu_output, _ = remote.run(
         "nvidia-smi --query-gpu=index,uuid,name,memory.total,memory.used,utilization.gpu "
         "--format=csv,noheader,nounits"
@@ -366,6 +374,10 @@ def require_idle_profile_gpus(
         index, uuid, name, memory_total, memory_used, utilization = (
             value.strip() for value in row
         )
+        try:
+            memory_available = int(memory_total) - int(memory_used)
+        except ValueError as exc:
+            raise ToolError(f"unexpected GPU memory values: {row}") from exc
         gpu_index_by_uuid[uuid] = index
         gpus.append(
             {
@@ -374,6 +386,7 @@ def require_idle_profile_gpus(
                 "name": name,
                 "memory_total_mib": memory_total,
                 "memory_used_mib": memory_used,
+                "memory_available_mib": str(memory_available),
                 "utilization_gpu_percent": utilization,
             }
         )
@@ -405,19 +418,23 @@ def require_idle_profile_gpus(
                     "used_memory_mib": used_memory,
                 }
             )
-    if conflicts and not allow_occupied:
-        details = "; ".join(
-            f"gpu={item['index']} pid={item['pid']} "
-            f"memory={item['used_memory_mib']}MiB process={item['process_name']}"
-            for item in conflicts
-        )
-        raise ToolError(f"selected GPUs are occupied: {details}")
     selected_gpus = [gpu for gpu in gpus if gpu["index"] in selected]
-    if allow_occupied:
-        for gpu in selected_gpus:
-            gpu["existing_compute_processes"] = [
-                process for process in conflicts if process["index"] == gpu["index"]
-            ]
+    insufficient = [
+        gpu
+        for gpu in selected_gpus
+        if int(gpu["memory_available_mib"]) <= MIN_FREE_GPU_MEMORY_MIB
+    ]
+    if insufficient:
+        details = "; ".join(
+            f"gpu={item['index']} available={item['memory_available_mib']}MiB "
+            f"required>{MIN_FREE_GPU_MEMORY_MIB}MiB"
+            for item in insufficient
+        )
+        raise ToolError(f"selected GPUs do not have enough free memory: {details}")
+    for gpu in selected_gpus:
+        existing = [process for process in conflicts if process["index"] == gpu["index"]]
+        if existing:
+            gpu["existing_compute_processes"] = existing
     return selected_gpus
 
 
@@ -682,7 +699,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--allow-busy-gpus",
         action="store_true",
-        help="run on occupied selected GPUs after explicit user authorization",
+        help="record explicit authorization to share selected GPUs (legacy acknowledgement)",
     )
     run.set_defaults(func=cmd_run)
 
