@@ -6,6 +6,8 @@ description: Build an exact source branch or debug branch in an isolated task wo
 # Build Source
 
 Use this skill for Mooncake, SGLang or other source builds that belong to a specific task.
+For an isolated CUDA 13 Mooncake EP/PG development wheel, use `build-mooncake-wheel`
+for the domain build and acceptance step while retaining this skill's source lifecycle rules.
 
 ## Rules
 

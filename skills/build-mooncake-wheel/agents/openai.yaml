@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Mooncake Wheel"
+  short_description: "Build isolated Mooncake EP/PG task wheels"
+  default_prompt: "Use $build-mooncake-wheel to build and verify an isolated Mooncake EP/PG task wheel."
