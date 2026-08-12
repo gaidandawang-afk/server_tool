@@ -8,7 +8,7 @@
 - `remote-ops`：安全连接、任务生命周期和 artifact。
 - `manage-image`：SGLang SSH 镜像的构建、部署和验证。
 - `install-environment`：共享基础运行环境安装。
-- `build-source`：Mooncake、SGLang 等源码的隔离构建。
+- `build-mooncake-wheel`：Mooncake CUDA EP/PG 开发 wheel 的隔离构建与验证。
 - `run-service`：任务内服务启动、观察和清理。
 - `test-service`：按源码分支的 `TEST.md + run.sh` 执行用例。
 - `debug-service`：在具体用例失败后定位根因，并维护仓库内的可复用调试经验池。

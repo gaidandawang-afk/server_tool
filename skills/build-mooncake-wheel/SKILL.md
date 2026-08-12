@@ -10,7 +10,7 @@ version pointers. Treat the result as valid for the selected container and ABI o
 
 ## Preconditions
 
-1. Use `build-source` and `remote-ops` for the surrounding source/task lifecycle.
+1. Use `remote-ops` for the surrounding task lifecycle.
 2. Require a clean local Mooncake branch and an isolated profile/worktree.
 3. Read the exact branch's build documentation and confirm the r2-style CUDA 13 EP/PG
    build still matches its CMake layout.

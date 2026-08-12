@@ -28,4 +28,5 @@ Use `scripts/install-python-package-version.sh` for a new version root. After in
 validate the distribution version, imported module path and branch-required symbols.
 
 Mooncake is part of the shared environment only when it is an installed stable dependency.
-A Mooncake branch being developed or tested belongs to `build-source`.
+A Mooncake branch being developed or tested belongs to a task. Use
+`build-mooncake-wheel` when that task needs an isolated CUDA EP/PG development wheel.
