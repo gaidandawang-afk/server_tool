@@ -58,6 +58,13 @@ sg_wait_ft_status "$port" "$run_dir/status-incident.json" \
   "0=healthy,1=dead,2=healthy,3=healthy" 120 status_incident
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 schedulers_after_kill
 
+sg_issue_generate_fault_trigger \
+  "$port" "${requests[0]}" "$run_dir/fault-trigger-response.json" \
+  mooncake_fault_trigger
+sg_wait_ft_status "$port" "$run_dir/status-survivors-unhealthy.json" \
+  "0=unhealthy,1=dead,2=unhealthy,3=unhealthy" 120 \
+  survivors_self_paused
+
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "${requests[0]}" "$run_dir/admission-closed.json" 503 admission_blocks_generate 180
 sg_assert_log_count "$log_path" "FT command dispatch:.*command=pause" 0 \

@@ -388,6 +388,19 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertIn("legacy-paused", case)
         self.assertIn("0=paused,1=dead,2=paused,3=paused", case)
 
+    def test_single_scale_down_waits_for_every_survivor_to_self_pause(self):
+        case = (
+            CASE_ROOT / "fault-kill-pause-scale-down" / "run.sh"
+        ).read_text(encoding="utf-8")
+
+        fault_trigger_index = case.index("sg_issue_generate_fault_trigger")
+        unhealthy_index = case.index("survivors_self_paused")
+        scale_down_index = case.index("sg_apply_scale_down")
+
+        self.assertIn("0=unhealthy,1=dead,2=unhealthy,3=unhealthy", case)
+        self.assertLess(fault_trigger_index, unhealthy_index)
+        self.assertLess(unhealthy_index, scale_down_index)
+
     def test_pause_rejoin_automatically_reopens_after_native_recovery(self):
         case = (
             REPO_ROOT
