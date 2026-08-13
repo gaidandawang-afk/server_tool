@@ -465,6 +465,7 @@ sg_drive_generate_until_log() {
   local sg_timeout_sec="$6"
   local sg_label="$7"
   local sg_http_code="" sg_rc=0
+  local sg_end=$((SECONDS + sg_timeout_sec))
   # One forward is sufficient to enter native recovery. Do not submit another
   # request when a slow shared GPU exceeds a short client timeout: the original
   # request keeps running server-side and retries only build an artificial queue.
@@ -479,11 +480,14 @@ sg_drive_generate_until_log() {
   sg_rc="$?"
   set -e
   st_log "RECOVERY_DRIVE label=$sg_label attempt=1 curl_rc=$sg_rc HTTP=${sg_http_code:-none}"
-  if grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
-    st_assert "$sg_label" true observed observed
-  else
-    st_assert "$sg_label" false observed timeout
-  fi
+  while (( SECONDS < sg_end )); do
+    if grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
+      st_assert "$sg_label" true observed observed
+      return 0
+    fi
+    sleep 1
+  done
+  st_assert "$sg_label" false observed timeout
 }
 
 sg_find_scheduler_pid_by_global_rank() {

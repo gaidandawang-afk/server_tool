@@ -312,6 +312,34 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn('${sg_output_prefix}-1.json', function)
         self.assertNotIn("sg_attempt", function)
 
+    def test_recovery_drive_waits_for_log_after_request_returns(self):
+        unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            log_path = (root / "node.log").as_posix()
+            request_path = (root / "request.json").as_posix()
+            output_prefix = (root / "response").as_posix()
+            command = rf"""
+set -Eeuo pipefail
+source {unit.as_posix()!r}
+timeout() {{ shift; "$@"; }}
+curl() {{ printf '200'; }}
+st_log() {{ :; }}
+st_assert() {{ test "$2" = true; }}
+printf '{{}}' >{request_path!r}
+: >{log_path!r}
+(sleep 1; printf '%s\n' 'recover ranks [3] done' >>{log_path!r}) &
+sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
+  'recover ranks \[3\] done' {output_prefix!r} 3 recovery_done_observed
+"""
+            completed = subprocess.run(
+                ["bash", "-c", command],
+                text=True,
+                capture_output=True,
+                timeout=5,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_fault_tolerance_apply_payloads_support_current_and_legacy_schema(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
