@@ -16,7 +16,7 @@ python skills\test-service\scripts\run-case.py `
 
 - Model: compatible profile-selected MoE model
 - TP=4, DP=4, EP=4 on the four profile-selected GPUs
-- Mooncake TCP with CPU staging fallback
+- Mooncake TCP host transport with intra-node NVLink for GPU payloads
 - Deterministic inference; overlap and CUDA graph disabled
 - FT strategy: `continue`
 
