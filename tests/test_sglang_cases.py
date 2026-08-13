@@ -401,6 +401,8 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
 
         self.assertIn("rejoin_waits_for_native_recovery", case)
         self.assertIn("rejoin_waiting_keeps_dp3_closed", case)
+        self.assertIn("rejoin_ready_for_recovery_forward", case)
+        self.assertIn("Elastic EP recovery join process groups begin", case)
         self.assertIn("recovery_done_observed", case)
         self.assertIn("recovery_eplb_second_forward", case)
         self.assertIn("status-recovered.json", case)
@@ -414,13 +416,15 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         rejoin_index = case.index(
             'node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"'
         )
+        rejoin_ready_index = case.index("rejoin_ready_for_recovery_forward")
         recovery_done_index = case.index("recovery_done_observed")
         healthy_index = case.index("status-recovered.json")
         self.assertNotIn("st_kill_owned_process", case)
         self.assertLess(owner_group_kill_index, owner_group_gone_index)
         self.assertLess(owner_group_gone_index, scale_down_index)
         self.assertLess(scale_down_index, rejoin_index)
-        self.assertLess(rejoin_index, recovery_done_index)
+        self.assertLess(rejoin_index, rejoin_ready_index)
+        self.assertLess(rejoin_ready_index, recovery_done_index)
         self.assertLess(recovery_done_index, healthy_index)
 
     def test_exception_scale_down_kills_target_without_direct_recover(self):
