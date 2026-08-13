@@ -18,7 +18,7 @@ python skills\test-service\scripts\run-case.py `
 - Four profile-selected GPUs with TP=4, DP=4 and EP=4
 - Fault-tolerance strategy: `continue`
 - One task-local, one-shot recoverable ModelRunner forward exception on DP0
-- Mooncake TCP with CPU staging fallback
+- Mooncake TCP host transport with intra-node NVLink for GPU payloads
 - Deterministic inference, overlap and CUDA graph disabled
 
 ## Ordered phases and barriers
