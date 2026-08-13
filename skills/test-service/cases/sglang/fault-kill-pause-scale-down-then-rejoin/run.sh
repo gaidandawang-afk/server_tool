@@ -94,6 +94,14 @@ for node in 0 1 2 3; do
   node_pgids[$node]="$ST_LAST_PGID"
 done
 
+for node in 0 1 2 3; do
+  sg_wait_log_contains "${node_logs[$node]}" \
+    "Using TCP host transport with intra-node NVLink" 180 \
+    "node${node}_tcp_host_transport"
+  sg_wait_log_contains "${node_logs[$node]}" \
+    "Using Intra-Node NVLink transport" 30 \
+    "node${node}_intra_node_nvlink_transport"
+done
 st_wait_http_ready "$base_port" 600
 for node in 1 2 3; do
   sg_wait_health_generate "$((base_port + node))" "${node_pgids[$node]}" 600 \

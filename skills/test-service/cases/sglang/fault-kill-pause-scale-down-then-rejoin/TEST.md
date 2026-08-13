@@ -16,6 +16,8 @@ python skills\test-service\scripts\run-case.py `
 - Four independent one-GPU SGLang node process groups, one DP block per node
 - TP=4, DP=4, EP=4, NNODES=4 with API ports `PORT_BASE..PORT_BASE+3`
 - Distributed initialization port `PORT_BASE+4`
+- Mooncake no-HCA transport composed from TCP host fallback and intra-node NVLink;
+  every initial rank must log both installed transports before readiness is checked
 - Pause strategy, static expert placement, deterministic inference
 - Native `--elastic-ep-rejoin`; no DP-scoped respawn or joiner
 
@@ -50,7 +52,7 @@ and unroutable. There is no public `disabled` state and no explicit FT recover o
 
 ## Required artifacts
 
-Keep source/container/GPU provenance, effective case inputs, four initial node logs and the
-node-3 rejoin log, all owned PGIDs, process-group kill evidence, every request/response/status
-JSON, recovery-drive responses, native recovery log evidence, precision JSON,
-`assertions.jsonl`, and `result.json`.
+Keep source/container/GPU provenance, effective case inputs, four initial node logs with
+mixed-transport assertions and the node-3 rejoin log, all owned PGIDs, process-group kill
+evidence, every request/response/status JSON, recovery-drive responses, native recovery log
+evidence, precision JSON, `assertions.jsonl`, and `result.json`.

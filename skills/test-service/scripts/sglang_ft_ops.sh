@@ -16,9 +16,11 @@ sg_prepare_ft_runtime() {
   export PYTHONNOUSERSITE=1
   export PYTHONPATH="$SERVER_TOOL_PROJECT_ROOT/python:$SGLANG_KERNEL_ROOT:$MOONCAKE_ROOT"
   export CUDA_VISIBLE_DEVICES="$GPU_IDS"
+  # no-HCA EP uses TCP for host fallback and intra-node NVLink for GPU payloads.
   export MC_FORCE_TCP=1
-  export MOONCAKE_PROTOCOL=tcp
-  export MOONCAKE_EP_FORCE_FALLBACK=1
+  export MC_INTRANODE_NVLINK=1
+  unset MOONCAKE_PROTOCOL
+  unset MOONCAKE_EP_FORCE_FALLBACK
   export NCCL_IB_DISABLE=1
   export SGLANG_HOST_IP=127.0.0.1
   export HOST_IP=127.0.0.1
