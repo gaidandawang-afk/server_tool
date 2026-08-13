@@ -214,7 +214,7 @@
     "category": "code-pattern",
     "title": "Log FT control at tokenizer, DPC, and scheduler boundaries",
     "content": "When an FT command times out, add command-level logs at tokenizer dispatch, DPC forward, scheduler receive, and command completion. This separates send-queue blockage from scheduler execution blockage and avoids guessing from endpoint symptoms.",
-    "score": 4,
+    "score": 5,
     "votes": [
       {
         "delta": 2,
@@ -230,6 +230,11 @@
         "delta": 1,
         "reason": "This session confirmed boundary logs across tokenizer, DPC, and scheduler were decisive for locating scale_down collective skew.",
         "date": "2026-06-23"
+      },
+      {
+        "delta": 1,
+        "reason": "Mooncake FT rejoin failure was localized by tracing stale env vars, joiner readiness, and the one-forward recovery boundary before rerunning",
+        "date": "2026-08-13"
       }
     ]
   },
