@@ -427,6 +427,15 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertLess(rejoin_ready_index, recovery_done_index)
         self.assertLess(recovery_done_index, healthy_index)
 
+    def test_continue_rejoin_drives_recovery_after_joiner_is_ready(self):
+        case = (
+            CASE_ROOT / "fault-kill-continue-whole-node-rejoin" / "run.sh"
+        ).read_text(encoding="utf-8")
+        ready_index = case.index("rejoin_ready_for_recovery_forward")
+        drive_index = case.index("sg_drive_generate_until_log")
+        self.assertIn("Elastic EP recovery join process groups begin", case)
+        self.assertLess(ready_index, drive_index)
+
     def test_exception_scale_down_kills_target_without_direct_recover(self):
         case = (CASE_ROOT / "fault-exception-pause-scale-down" / "run.sh").read_text(
             encoding="utf-8"

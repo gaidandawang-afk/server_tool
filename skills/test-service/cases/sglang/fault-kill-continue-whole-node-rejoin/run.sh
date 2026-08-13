@@ -92,6 +92,9 @@ sg_wait_ft_status "$base_port" "$run_dir/status-before-recovery.json" \
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[3]}" "$run_dir/before-recovery-dp3.json" 400 \
   before_recovery_dp3_closed 60
+sg_wait_log_contains "${node_logs[3]}" \
+  "Elastic EP recovery join process groups begin" 180 \
+  rejoin_ready_for_recovery_forward
 
 sg_drive_generate_until_log \
   "$base_port" "${requests[0]}" "${node_logs[0]}" \
