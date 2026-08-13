@@ -436,6 +436,14 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertIn("Elastic EP recovery join process groups begin", case)
         self.assertLess(ready_index, drive_index)
 
+    def test_noft_native_inflight_uses_current_mooncake_failure_log(self):
+        case = (CASE_ROOT / "fault-kill-noft-native-inflight" / "run.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("health check rank [023] -> 1 FAILED", case)
+        self.assertNotIn("marking peer 1 as broken", case)
+        self.assertNotIn("learned peer 1 is broken", case)
+
     def test_exception_scale_down_kills_target_without_direct_recover(self):
         case = (CASE_ROOT / "fault-exception-pause-scale-down" / "run.sh").read_text(
             encoding="utf-8"

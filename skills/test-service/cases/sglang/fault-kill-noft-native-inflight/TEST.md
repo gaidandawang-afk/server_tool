@@ -8,7 +8,7 @@ without an FT apply operation, and the already-running DP0 stream must return a 
 
 - Model: compatible profile-selected MoE model with a registered precision oracle
 - Four profile-selected GPUs; TP=4, DP=4, EP=4
-- Mooncake TCP with CPU staging fallback
+- Mooncake TCP host transport with intra-node NVLink GPU payload transport
 - Fault tolerance disabled
 - Stream routed to DP0; scheduler DP1 is the fault target
 
@@ -19,7 +19,7 @@ without an FT apply operation, and the already-running DP0 stream must return a 
    baseline inference.
 3. Start a 64-token stream on DP0 and observe positive DP0 decode progress.
 4. Kill scheduler DP1 and retain exactly three schedulers.
-5. Observe native Mooncake broken-peer detection for rank 1.
+5. Observe a survivor LinkManager health check report rank 1 as failed.
 6. Require the original DP0 stream to finish with curl rc 0, HTTP 200, a final
    `finish_reason`, 64 completion tokens and 64 output IDs.
 7. Generate ten deterministic tokens on DP0 and match the registered oracle.

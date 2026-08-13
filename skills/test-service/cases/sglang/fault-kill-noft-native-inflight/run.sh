@@ -65,7 +65,7 @@ sg_capture_completed_stream_contract \
 stream_pid=""
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 schedulers_after_kill
 sg_assert_log_contains \
-  "$log_path" "marking peer 1 as broken|learned peer 1 is broken" \
+  "$log_path" "health check rank [023] -> 1 FAILED" \
   native_mooncake_isolated_rank1
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
