@@ -160,7 +160,7 @@ class SGLangCaseContractTests(unittest.TestCase):
             (case_root / name).read_text(encoding="utf-8")
             for name in ("TEST.md", "run.sh")
         )
-        self.assertIn("unsupported instruction: recover", content)
+        self.assertIn("invalid params: unsupported instruction: recover", content)
         self.assertNotIn("recover_requires_disabled_ranks", content)
 
     def test_kill_retry_contracts_are_not_executable(self):
