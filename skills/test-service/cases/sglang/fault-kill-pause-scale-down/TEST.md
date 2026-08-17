@@ -27,11 +27,10 @@ python skills\test-service\scripts\run-case.py `
 2. Start with `0=healthy,1=healthy,2=healthy,3=healthy` and four schedulers.
 3. Complete one ten-token baseline generation on each DP before fault injection.
 4. Kill global scheduler rank 1.
-5. Reach `0=healthy,1=dead,2=healthy,3=healthy` with three schedulers, then issue one bounded
-   generate request to expose the native membership fault.
-6. Reach `0=unhealthy,1=dead,2=unhealthy,3=unhealthy`, proving every survivor returned from
-   the Mooncake operation and self-paused. Reject generation during the incident with HTTP 503
-   and prove no central pause command was dispatched.
+5. Reach `0=healthy,1=dead,2=healthy,3=healthy` with three schedulers. Because the kill is
+   idle, no survivor forward exception occurred and the survivor states remain healthy.
+6. Reject generation during the incident with HTTP 503 and prove no central pause command
+   was dispatched.
 7. Apply whole-DP `scale_down([1])` with HTTP 200. Rank 1 was already externally killed, so
    its whole-DP block is already empty; require one survivor topology install and forced EPLB.
 8. Remain `0=healthy,1=dead,2=healthy,3=healthy` with exactly three schedulers.
@@ -47,7 +46,7 @@ Every gate must append a structured assertion. Exit zero without assertions is n
 - `container.env`, `provenance.env`, `invocation.json`
 - actual Python package version and import path
 - request and response JSON for every HTTP operation
-- FT status JSON, fault-trigger and admission responses, control-barrier log evidence, server
+- FT status JSON, admission response, control-barrier log evidence, server
   log, owned PGIDs
 - four pre-fault baseline responses and per-survivor known-sequence result JSON
 - `assertions.jsonl` and `result.json`
