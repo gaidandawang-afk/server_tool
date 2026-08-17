@@ -412,6 +412,15 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertLess(incident_index, admission_index)
         self.assertLess(admission_index, scale_down_index)
 
+    def test_idle_double_kill_keeps_survivors_healthy(self):
+        case = (
+            CASE_ROOT / "fault-kill-pause-double-scale-down" / "run.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("0=healthy,1=dead,2=healthy,3=healthy", case)
+        self.assertIn("0=healthy,1=dead,2=dead,3=healthy", case)
+        self.assertNotIn("unhealthy,1=dead", case)
+
     def test_pause_rejoin_automatically_reopens_after_native_recovery(self):
         case = (
             REPO_ROOT
