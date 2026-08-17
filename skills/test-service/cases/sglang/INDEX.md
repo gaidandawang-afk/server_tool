@@ -22,8 +22,12 @@ rows retain their exact `b7c6f9229` evidence until separately revalidated on the
 **Current target validation:** on 2026-08-17, fourteen of the fifteen contracts passed a
 bounded cold run with SGLang `codex/ft-self-pause-minimal-simplify`, Mooncake
 `codex/mooncake-nohca-ft`, DeepSeek-V2-Lite, r64 and GPU 0,1,2,3. The fourteen runs total
-435/435 passing assertions. The continuous 4-to-1 contract was not run because its explicit
-DeepSeek precondition is r192; no matching profile or pre-registered precision oracle exists.
+435/435 passing assertions. A separate DeepSeek r192 profile and independently attributed
+rank-0 precision oracle were then established for the continuous 4-to-1 contract. Its first
+cold acceptance run passed 38/38, but the second failed 26/28 after the second scale-down:
+apply returned HTTP 200 and status reported DP0/DP3 healthy, then the immediate DP0 generation
+returned HTTP 503 with `Elastic EP membership loss detected before EPLB`. The continuous
+contract is therefore not stable on the current target and has not met its three-cold-run gate.
 
 The continuous case has two mandatory preconditions. First, shrinking Qwen's 128 logical
 experts at EP4 to one survivor requires at least `128 * (4 - 1) = 384` redundant experts.
@@ -89,7 +93,7 @@ configuration.
 | Kill one member when A*C>1 and shut down its complete DP | `fault_tpgt1_whole_dp_shutdown.sh` | `fault-tpgt1-whole-dp-shutdown` | current formal branches: rank2 killed with sibling rank3 alive; scale-down removed both and retained DP0 precision, 27/27 (`formal-index-tpgt1-shutdown-r1`) | VALIDATED ON CURRENT TARGET |
 | Kill an in-flight stream with continue | `fault_kill_continue_inflight.sh` | `fault-kill-continue-inflight` | current formal branches: rank1 stream interrupted, DP1 dead, DP0 continued with matching precision, 19/19 (`formal-index-continue-inflight-r1`) | VALIDATED ON CURRENT TARGET |
 | Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | current formal branches: two idle kills preserved healthy survivors, one multi-rank scale-down removed DP1/DP2, DP0/DP3 precision passed, 26/26 (`formal-index-idle-double-scale-down-r1`) | VALIDATED ON CURRENT TARGET |
-| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | current DeepSeek contract requires r192 plus a matching pre-registered oracle; neither exists. Historical r384 evidence remains available, but is not current-target validation | NOT RUN: R192 PROFILE/ORACLE REQUIRED |
+| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | current formal branches, DeepSeek r192: independent baseline established the registered rank-0 oracle; acceptance-01 passed 38/38 through 4→3→2→1, but acceptance-02 failed 26/28 when a post-4→2 DP0 generation received a late membership-loss 503 after apply 200 and healthy status (`formal-continuous-r192-acceptance-01`, `formal-continuous-r192-acceptance-02`) | UNSTABLE ON CURRENT TARGET: 1 PASS, 1 FAIL |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | current formal branches: current error messages, four-unhealthy barrier, empty-rank rejection, scale-down, unsupported recover and post-scale-down precision passed, 35/35 (`formal-index-rejection-r2`) | VALIDATED ON CURRENT TARGET |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | current formal branches: replacement remained dead/400 while native join waited, then automatic recovery restored four healthy routes and four-rank precision, 48/48 (`formal-index-continue-rejoin-r1`) | VALIDATED ON CURRENT TARGET |
 | Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | current target: kill and scale-down retained DP3 `dead`; replacement remained unroutable until native recovery; process/native/pending facts converged automatically to four-DP `healthy`; DP3 matched the independently registered #42 rejoin sequence; cleanup and source-clean gates passed, 58/58 (`formal-ft-rejoin-r1`) | VALIDATED ON CURRENT TARGET |
