@@ -228,6 +228,10 @@ class SGLangCaseContractTests(unittest.TestCase):
             "qwen-fp8-d4t4e4-count10-no-overlap-rank0-r384",
             oracle_ids,
         )
+        self.assertIn(
+            "deepseek-v2-lite-chat-bf16-d4t4e4-count10-no-overlap-rank0-r192",
+            oracle_ids,
+        )
         for run_sh in CASE_ROOT.glob("*/run.sh"):
             text = run_sh.read_text(encoding="utf-8")
             self.assertNotRegex(
