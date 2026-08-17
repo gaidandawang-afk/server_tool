@@ -14,7 +14,7 @@ applicable to this single-survivor case.
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-self-pause-minimal-simplify`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on four profile-selected GPUs
 - Repetition for branch-usability validation: three independent cold runs; all three must pass
 

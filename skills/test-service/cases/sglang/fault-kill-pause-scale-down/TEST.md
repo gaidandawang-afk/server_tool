@@ -1,6 +1,6 @@
 # Kill, self-pause, and whole-DP scale-down
 
-Validate `codex/ft-self-pause-minimal` with the kernel and Mooncake roots selected by the
+Validate `codex/ft-self-pause-minimal-simplify` with the kernel and Mooncake roots selected by the
 task profile. Run cold twice for stability
 campaigns; one cold run is sufficient for a branch-usability validation round.
 

@@ -150,9 +150,18 @@ class SGLangCaseContractTests(unittest.TestCase):
                 self.assertTrue((case_root / "run.sh").is_file())
                 test_text = (case_root / "TEST.md").read_text(encoding="utf-8")
                 run_text = (case_root / "run.sh").read_text(encoding="utf-8")
-                self.assertIn("codex/ft-self-pause-minimal", test_text)
+                self.assertIn("codex/ft-self-pause-minimal-simplify", test_text)
                 self.assertIn("assertions", test_text)
                 self.assertNotRegex(run_text, r"REMOTE_AGENT|remote-agent")
+
+    def test_rejection_contract_treats_legacy_recover_as_unsupported(self):
+        case_root = CASE_ROOT / "fault-rejection-contracts"
+        content = "\n".join(
+            (case_root / name).read_text(encoding="utf-8")
+            for name in ("TEST.md", "run.sh")
+        )
+        self.assertIn("unsupported instruction: recover", content)
+        self.assertNotIn("recover_requires_disabled_ranks", content)
 
     def test_kill_retry_contracts_are_not_executable(self):
         index = (CASE_ROOT / "INDEX.md").read_text(encoding="utf-8")

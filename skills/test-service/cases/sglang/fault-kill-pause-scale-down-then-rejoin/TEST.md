@@ -1,6 +1,6 @@
 # Whole-DP scale-down and complete node-group rejoin
 
-Validate `codex/ft-self-pause-minimal` with the kernel and Mooncake roots selected by the
+Validate `codex/ft-self-pause-minimal-simplify` with the kernel and Mooncake roots selected by the
 task profile. One bounded cold pass is sufficient for a branch-usability round; every new
 source HEAD requires fresh validation.
 

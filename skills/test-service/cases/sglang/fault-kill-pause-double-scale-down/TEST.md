@@ -5,7 +5,7 @@ with one `scale_down([1,2])` operation.
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-self-pause-minimal-simplify`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on four profile-selected GPUs
 - Repetition for branch-usability validation: one cold run
 

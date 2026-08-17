@@ -1,6 +1,6 @@
 # Fail-stop after an unattended exception pause
 
-Validate `codex/ft-self-pause-minimal` with the kernel and Mooncake roots selected by the
+Validate `codex/ft-self-pause-minimal-simplify` with the kernel and Mooncake roots selected by the
 task profile. Use one bounded cold run for a
 branch-usability round; use two independent cold runs for a stability campaign.
 
@@ -20,7 +20,7 @@ python skills\test-service\scripts\run-case.py `
 - Fault-tolerance strategy: `pause`
 - One task-local, one-shot recoverable ModelRunner forward exception on DP0
 - Unattended-pause fail-stop timeout: 30 seconds
-- Mooncake TCP with CPU staging fallback
+- Mooncake TCP host transport with intra-node NVLink for GPU payloads
 - Deterministic inference, overlap and CUDA graph disabled
 
 ## Ordered phases and barriers

@@ -2,7 +2,7 @@
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-minimal`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-self-pause-minimal-simplify`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on the four profile-selected GPUs
 - Fault tolerance strategy: `pause`
 - Repetition: one bounded cold run for branch usability
