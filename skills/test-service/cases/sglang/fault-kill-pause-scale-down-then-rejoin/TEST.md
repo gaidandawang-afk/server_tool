@@ -16,8 +16,8 @@ python skills\test-service\scripts\run-case.py `
 - Four independent one-GPU SGLang node process groups, one DP block per node
 - TP=4, DP=4, EP=4, NNODES=4 with API ports `PORT_BASE..PORT_BASE+3`
 - Distributed initialization port `PORT_BASE+4`
-- Mooncake no-HCA transport composed from TCP host fallback and intra-node NVLink;
-  every initial rank must log both installed transports before readiness is checked
+- Mooncake transport selected by `SGLANG_FT_MOONCAKE_TRANSPORT_MODE`; the
+  `tcp-fallback` mode must log TCP-only startup and no intra-node NVLink transport
 - Pause strategy, static expert placement, deterministic inference
 - Native `--elastic-ep-rejoin`; no DP-scoped respawn or joiner
 

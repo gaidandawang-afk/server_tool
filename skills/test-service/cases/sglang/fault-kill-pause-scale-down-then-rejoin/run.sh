@@ -95,12 +95,21 @@ for node in 0 1 2 3; do
 done
 
 for node in 0 1 2 3; do
-  sg_wait_log_contains "${node_logs[$node]}" \
-    "Using TCP host transport with intra-node NVLink" 180 \
-    "node${node}_tcp_host_transport"
-  sg_wait_log_contains "${node_logs[$node]}" \
-    "Using Intra-Node NVLink transport" 30 \
-    "node${node}_intra_node_nvlink_transport"
+  if [[ "${SGLANG_FT_MOONCAKE_TRANSPORT_MODE:-mixed-nvlink}" == tcp-fallback ]]; then
+    sg_wait_log_contains "${node_logs[$node]}" \
+      "MC_FORCE_TCP is set, using TCP transport only" 180 \
+      "node${node}_tcp_only_transport"
+    sg_assert_log_count "${node_logs[$node]}" \
+      "Using Intra-Node NVLink transport" 0 \
+      "node${node}_no_intra_node_nvlink_transport"
+  else
+    sg_wait_log_contains "${node_logs[$node]}" \
+      "Using TCP host transport with intra-node NVLink" 180 \
+      "node${node}_tcp_host_transport"
+    sg_wait_log_contains "${node_logs[$node]}" \
+      "Using Intra-Node NVLink transport" 30 \
+      "node${node}_intra_node_nvlink_transport"
+  fi
 done
 st_wait_http_ready "$base_port" 600
 for node in 1 2 3; do

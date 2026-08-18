@@ -46,6 +46,8 @@ Committed SGLang cases take the model from `MODEL_PATH`. A profile may also sele
 - `SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS` (default `128`);
 - `SGLANG_FT_MEM_FRACTION_STATIC` (default `0.75`);
 - `SGLANG_FT_MOE_RUNNER_BACKEND` (default `deep_gemm`);
+- `SGLANG_FT_MOONCAKE_TRANSPORT_MODE` (`mixed-nvlink` by default, or
+  `tcp-fallback` to force TCP and the Mooncake EP Python fallback);
 - `SGLANG_FT_EP_DISPATCH_ALGORITHM` (`dynamic` for ordinary launchers unless
   explicitly selected; rejoin launchers default to `static`);
 - `SGLANG_FT_DETERMINISTIC_INFERENCE` (`1` for ordinary FT launchers and `0`

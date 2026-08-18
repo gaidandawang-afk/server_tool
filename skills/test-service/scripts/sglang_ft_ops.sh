@@ -16,11 +16,35 @@ sg_prepare_ft_runtime() {
   export PYTHONNOUSERSITE=1
   export PYTHONPATH="$SERVER_TOOL_PROJECT_ROOT/python:$SGLANG_KERNEL_ROOT:$MOONCAKE_ROOT"
   export CUDA_VISIBLE_DEVICES="$GPU_IDS"
-  # no-HCA EP uses TCP for host fallback and intra-node NVLink for GPU payloads.
-  export MC_FORCE_TCP=1
-  export MC_INTRANODE_NVLINK=1
-  unset MOONCAKE_PROTOCOL
-  unset MOONCAKE_EP_FORCE_FALLBACK
+  local sg_mooncake_transport_mode="${SGLANG_FT_MOONCAKE_TRANSPORT_MODE:-mixed-nvlink}"
+  case "$sg_mooncake_transport_mode" in
+    mixed-nvlink)
+      export MC_FORCE_TCP=1
+      export MC_INTRANODE_NVLINK=1
+      unset MOONCAKE_PROTOCOL
+      unset MOONCAKE_EP_FORCE_FALLBACK
+      ;;
+    tcp-fallback)
+      export MC_FORCE_TCP=1
+      unset MC_INTRANODE_NVLINK
+      unset MOONCAKE_PROTOCOL
+      export MOONCAKE_EP_FORCE_FALLBACK=1
+      ;;
+    *)
+      st_assert mooncake_transport_mode false "mixed-nvlink|tcp-fallback" \
+        "$sg_mooncake_transport_mode"
+      return 1
+      ;;
+  esac
+  st_assert mooncake_transport_mode true "mixed-nvlink|tcp-fallback" \
+    "$sg_mooncake_transport_mode"
+  {
+    printf 'mode=%s\n' "$sg_mooncake_transport_mode"
+    printf 'MC_FORCE_TCP=%s\n' "${MC_FORCE_TCP:-<unset>}"
+    printf 'MC_INTRANODE_NVLINK=%s\n' "${MC_INTRANODE_NVLINK:-<unset>}"
+    printf 'MOONCAKE_EP_FORCE_FALLBACK=%s\n' \
+      "${MOONCAKE_EP_FORCE_FALLBACK:-<unset>}"
+  } >"$SERVER_TOOL_OUTPUT_ROOT/mooncake-transport.env"
   export NCCL_IB_DISABLE=1
   export SGLANG_HOST_IP=127.0.0.1
   export HOST_IP=127.0.0.1

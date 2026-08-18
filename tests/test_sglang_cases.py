@@ -28,6 +28,18 @@ RECOVERABLE_INJECT_ROOT = (
 
 
 class SGLangCaseContractTests(unittest.TestCase):
+    def test_ft_runtime_supports_explicit_tcp_fallback_mode(self):
+        unit = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("SGLANG_FT_MOONCAKE_TRANSPORT_MODE", unit)
+        self.assertIn("tcp-fallback)", unit)
+        self.assertIn("export MC_FORCE_TCP=1", unit)
+        self.assertIn("unset MC_INTRANODE_NVLINK", unit)
+        self.assertIn("export MOONCAKE_EP_FORCE_FALLBACK=1", unit)
+        self.assertIn("mooncake-transport.env", unit)
+
     def test_recoverable_fault_rank_supports_legacy_and_parallel_state_layouts(self):
         import sys
 
