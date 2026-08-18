@@ -1,6 +1,6 @@
 # Whole-DP scale-down and complete node-group rejoin
 
-Validate `codex/ft-self-pause-minimal-simplify` with the kernel and Mooncake roots selected by the
+Validate the Mooncake Elastic EP FT source branch, kernel and Mooncake roots selected by the
 task profile. One bounded cold pass is sufficient for a branch-usability round; every new
 source HEAD requires fresh validation.
 
@@ -30,9 +30,10 @@ but each variant requires its own run name and artifact directory.
 1. Verify provenance, start four healthy node process groups, and complete one baseline
    inference.
 2. Start a DP0 streaming request and prove it entered decode, then kill and confirm exit of
-   node 3's complete owned process group. Reach
-   `0=unhealthy,1=unhealthy,2=unhealthy,3=dead` after the survivors self-pause, and prove
-   admission returns HTTP 503.
+   node 3's complete owned process group. Reach `3=dead` with at least one survivor marked
+   `unhealthy` after observing the failed in-flight collective, and prove admission returns
+   HTTP 503. Survivors execute different collective phases, so the test does not require all
+   three to report the same failure before scale-down.
 3. Apply `scale_down([3])`, remain `0=healthy,1=healthy,2=healthy,3=dead`, keep exactly the
    three survivor groups, reject DP3 routing with HTTP 400, and generate correctly on DP0.
 4. Only after the loss is committed by scale-down, start a complete NNODES=4 node-3 rejoin

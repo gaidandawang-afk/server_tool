@@ -149,8 +149,17 @@ st_stop_owned_pgid "$node3_owner_pgid" node3_owner_process_group_killed
 st_wait_process_group_exit "$node3_owner_pgid" 30 \
   node3_owner_process_group_confirmed_gone
 node_pgids[3]=""
+declare -a incident_states=(
+  "0=unhealthy,1=unhealthy,2=unhealthy,3=dead"
+  "0=unhealthy,1=unhealthy,2=healthy,3=dead"
+  "0=unhealthy,1=healthy,2=unhealthy,3=dead"
+  "0=healthy,1=unhealthy,2=unhealthy,3=dead"
+  "0=unhealthy,1=healthy,2=healthy,3=dead"
+  "0=healthy,1=unhealthy,2=healthy,3=dead"
+  "0=healthy,1=healthy,2=unhealthy,3=dead"
+)
 sg_wait_ft_status "$base_port" "$run_dir/status-incident.json" \
-  "0=unhealthy,1=unhealthy,2=unhealthy,3=dead" 120 status_incident
+  "$(IFS='|'; echo "${incident_states[*]}")" 120 status_incident
 if kill -0 "$stream_pid" 2>/dev/null; then
   st_stop_owned_pid "$stream_pid" inflight_dp3_request_cleanup
 fi
