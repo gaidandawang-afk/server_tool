@@ -29,9 +29,10 @@ but each variant requires its own run name and artifact directory.
 
 1. Verify provenance, start four healthy node process groups, and complete one baseline
    inference.
-2. Kill and confirm exit of node 3's complete owned process group, trigger Mooncake failure
-   detection, reach `0=unhealthy,1=unhealthy,2=unhealthy,3=dead` after the survivors
-   self-pause, and prove admission returns HTTP 503.
+2. Start a DP0 streaming request and prove it entered decode, then kill and confirm exit of
+   node 3's complete owned process group. Reach
+   `0=unhealthy,1=unhealthy,2=unhealthy,3=dead` after the survivors self-pause, and prove
+   admission returns HTTP 503.
 3. Apply `scale_down([3])`, remain `0=healthy,1=healthy,2=healthy,3=dead`, keep exactly the
    three survivor groups, reject DP3 routing with HTTP 400, and generate correctly on DP0.
 4. Only after the loss is committed by scale-down, start a complete NNODES=4 node-3 rejoin

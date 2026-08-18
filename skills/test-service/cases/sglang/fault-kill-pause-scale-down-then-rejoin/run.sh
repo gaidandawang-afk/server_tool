@@ -12,18 +12,23 @@ readonly deterministic_inference="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
 readonly request_style="${SGLANG_FT_REJOIN_REQUEST_STYLE:-current-count10}"
 readonly request_tokens_override="${SGLANG_FT_REJOIN_MAX_TOKENS:-}"
 readonly random_seed="${SGLANG_FT_RANDOM_SEED:-auto}"
+readonly stream_request_dp0="$run_dir/stream-request-dp0.json"
 declare -a node_pgids=()
 declare -a node_logs=()
 declare -a requests=()
 request_tokens=""
 request_text=""
 oracle_id=""
+stream_pid=""
 
 cleanup() {
   local original_code="$?"
   local node pgid
   trap - EXIT
   set +e
+  if [[ -n "$stream_pid" ]]; then
+    st_stop_owned_pid "$stream_pid" stream_request_cleanup
+  fi
   st_preserve_run_dir_files "$run_dir"
   for node in 0 1 2 3; do
     pgid="${node_pgids[$node]:-}"
@@ -85,8 +90,7 @@ for rank in 0 1 2 3; do
     "${requests[$rank]}" "$rank" "$request_tokens" "$request_text"
   node_logs[$rank]="$SERVER_TOOL_OUTPUT_ROOT/node${rank}.log"
 done
-sg_write_rank_request \
-  "$run_dir/fault-trigger-request.json" 0 2 "$request_text"
+sg_write_stream_rank_request "$stream_request_dp0" 0 64 "$request_text"
 
 for node in 0 1 2 3; do
   sg_launch_dp4_ft_rejoin_node pause "$((base_port + node))" \
@@ -136,16 +140,24 @@ st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/baseline-inference.json" 200 \
   baseline_inference 600
 
+sg_start_stream_request "$base_port" "$stream_request_dp0" \
+  "$run_dir/inflight-dp3.jsonl" "$run_dir/inflight-dp3.stderr" 60
+stream_pid="$ST_LAST_STREAM_PID"
+sg_wait_stream_decode_rank "$run_dir/inflight-dp3.jsonl" 0 60
 node3_owner_pgid="${node_pgids[3]}"
 st_stop_owned_pgid "$node3_owner_pgid" node3_owner_process_group_killed
 st_wait_process_group_exit "$node3_owner_pgid" 30 \
   node3_owner_process_group_confirmed_gone
 node_pgids[3]=""
-sg_issue_generate_fault_trigger \
-  "$base_port" "$run_dir/fault-trigger-request.json" \
-  "$run_dir/fault-trigger-response.json" mooncake_fault_trigger
 sg_wait_ft_status "$base_port" "$run_dir/status-incident.json" \
   "0=unhealthy,1=unhealthy,2=unhealthy,3=dead" 120 status_incident
+if kill -0 "$stream_pid" 2>/dev/null; then
+  st_stop_owned_pid "$stream_pid" inflight_dp3_request_cleanup
+fi
+set +e
+wait "$stream_pid" 2>/dev/null
+set -e
+stream_pid=""
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/admission-closed.json" 503 \
   admission_blocks_generate 180
