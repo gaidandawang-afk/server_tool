@@ -228,6 +228,8 @@ sg_launch_dp4_ft_rejoin_node() {
   local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
   local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
   local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
+  local sg_cuda_graph_mode="${SGLANG_FT_CUDA_GRAPH_MODE:-disabled}"
+  local -a sg_cuda_graph_args=()
   local -a sg_deterministic_args=()
   local -a sg_process_env=()
   local -a sg_random_seed_args=()
@@ -278,6 +280,22 @@ sg_launch_dp4_ft_rejoin_node() {
     fi
     sg_random_seed_args+=(--random-seed "$sg_random_seed")
   fi
+  case "$sg_cuda_graph_mode" in
+    disabled)
+      sg_cuda_graph_args+=(--disable-cuda-graph --disable-piecewise-cuda-graph)
+      ;;
+    decode-only)
+      sg_cuda_graph_args+=(
+        --cuda-graph-backend-decode full
+        --cuda-graph-backend-prefill disabled
+        --cuda-graph-bs-decode 1 2 4 8
+      )
+      ;;
+    *)
+      st_assert launch_cuda_graph_mode false "disabled|decode-only" "$sg_cuda_graph_mode"
+      return 1
+      ;;
+  esac
 
   cd "$SERVER_TOOL_PROJECT_ROOT"
   st_launch_process_group "$sg_log_path" \
@@ -313,8 +331,7 @@ sg_launch_dp4_ft_rejoin_node() {
     "${sg_random_seed_args[@]}" \
     "${sg_deterministic_args[@]}" \
     --disable-overlap-schedule \
-    --disable-cuda-graph \
-    --disable-piecewise-cuda-graph \
+    "${sg_cuda_graph_args[@]}" \
     "${sg_warmup_args[@]}" \
     --enable-fault-tolerance \
     --fault-tolerance-on-error-strategy "$sg_strategy" \

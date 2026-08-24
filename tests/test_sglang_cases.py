@@ -111,11 +111,11 @@ class SGLangCaseContractTests(unittest.TestCase):
         self.assertLess(local_forward, injected)
         self.assertLess(injected, injected_raise)
 
-    def test_index_contains_fifteen_active_new_architecture_contracts(self):
+    def test_index_contains_sixteen_active_new_architecture_contracts(self):
         index = (CASE_ROOT / "INDEX.md").read_text(encoding="utf-8")
         identifiers = re.findall(r"`(fault_[a-z0-9_]+\.sh)`", index)
-        self.assertEqual(len(identifiers), 15)
-        self.assertEqual(len(set(identifiers)), 15)
+        self.assertEqual(len(identifiers), 16)
+        self.assertEqual(len(set(identifiers)), 16)
         self.assertNotIn("fault_kill_pause_retry.sh", identifiers)
         self.assertNotIn("fault_kill_pause_inflight_retry.sh", identifiers)
         self.assertIn("fault_exception_pause_retry.sh", identifiers)
@@ -123,7 +123,7 @@ class SGLangCaseContractTests(unittest.TestCase):
         self.assertIn("fault_tpgt1_whole_dp_shutdown.sh", identifiers)
         self.assertIn("**Validation state:**", index)
         self.assertIn("exact source", index)
-        self.assertNotIn("All sixteen indexed contracts are recorded as PASS", index)
+        self.assertNotIn("All seventeen indexed contracts are recorded as PASS", index)
 
     def test_active_cases_complete_inference_before_fault(self):
         fault_markers = (
@@ -154,7 +154,7 @@ class SGLangCaseContractTests(unittest.TestCase):
             for case_root in CASE_ROOT.iterdir()
             if case_root.is_dir() and (case_root / "run.sh").is_file()
         )
-        self.assertEqual(len(implemented), 15)
+        self.assertEqual(len(implemented), 16)
         for case in implemented:
             with self.subTest(case=case):
                 case_root = CASE_ROOT / case
@@ -326,6 +326,16 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("SGLANG_FT_RANDOM_SEED", unit)
         self.assertIn('sg_random_seed_args+=(--random-seed "$sg_random_seed")', unit)
 
+    def test_rejoin_launcher_supports_decode_only_cuda_graph(self):
+        unit = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("SGLANG_FT_CUDA_GRAPH_MODE", unit)
+        self.assertIn("decode-only)", unit)
+        self.assertIn("--cuda-graph-backend-decode full", unit)
+        self.assertIn("--cuda-graph-backend-prefill disabled", unit)
+        self.assertIn("--cuda-graph-bs-decode 1 2 4 8", unit)
+
     def test_recovery_drive_uses_one_bounded_request(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
@@ -480,6 +490,29 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertLess(rejoin_index, rejoin_ready_index)
         self.assertLess(rejoin_ready_index, recovery_done_index)
         self.assertLess(recovery_done_index, healthy_index)
+
+    def test_cudagraph_rejoin_keeps_fault_scale_down_rejoin_order(self):
+        case = (
+            CASE_ROOT
+            / "fault-kill-pause-scale-down-then-rejoin-cudagraph"
+            / "run.sh"
+        ).read_text(encoding="utf-8")
+        decode_index = case.index("sg_wait_stream_decode_rank")
+        kill_index = case.index("node3_owner_process_group_killed")
+        scale_down_index = case.index("sg_apply_scale_down")
+        rejoin_index = case.index('node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"')
+        capture_index = case.index("replacement_decode_graph_captured")
+        join_index = case.index("rejoin_ready_for_recovery_forward")
+        self.assertIn("SGLANG_FT_CUDA_GRAPH_MODE=decode-only", case)
+        self.assertIn("survivor_node${graph_node}_capture_count", case)
+        self.assertIn("replacement_capture_count", case)
+        self.assertIn("replacement_capture_before_join", case)
+        self.assertIn("CUDA_ERROR_ILLEGAL_ADDRESS", case)
+        self.assertLess(decode_index, kill_index)
+        self.assertLess(kill_index, scale_down_index)
+        self.assertLess(scale_down_index, rejoin_index)
+        self.assertLess(rejoin_index, capture_index)
+        self.assertLess(capture_index, join_index)
 
     def test_continue_rejoin_drives_recovery_after_joiner_is_ready(self):
         case = (

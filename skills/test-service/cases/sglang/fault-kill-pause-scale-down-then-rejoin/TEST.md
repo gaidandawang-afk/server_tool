@@ -1,5 +1,8 @@
 # Whole-DP scale-down and complete node-group rejoin
 
+Applicable source branch: SGLang `codex/ft-self-pause-minimal-simplify` at
+clean local HEAD with the Mooncake branch and wheel selected by the profile.
+
 Validate the Mooncake Elastic EP FT source branch, kernel and Mooncake roots selected by the
 task profile. One bounded cold pass is sufficient for a branch-usability round; every new
 source HEAD requires fresh validation.

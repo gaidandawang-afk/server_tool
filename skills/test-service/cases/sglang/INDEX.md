@@ -4,7 +4,7 @@ This is the server_tool-owned index for the four-GPU DP-only FT regression set. 
 contracts target `codex/ft-self-pause-minimal-simplify` and the architecture defined by
 `SELF_PAUSE_WHOLE_DP_FT.md`. They must be validated against the exact selected source HEAD.
 
-**Validation state:** historical exact source `b7c6f9229`, 2026-08-10. All fifteen active contracts
+**Validation state:** historical exact source `b7c6f9229`, 2026-08-10. All fifteen then-active contracts
 have at least one bounded cold PASS on GPU 4,5,6,7. The corrected
 `fault-kill-pause-continuous-scale-down` contract passed 38/38 structured assertions in
 `continuous-unhealthy-barrier-b7c6f9229-gpu4567-20260810-r2`; together with the other fourteen
@@ -19,7 +19,7 @@ its replacement process waited for native backend readiness, then automatically 
 converged. No FT recover API was called. This is targeted delta evidence; the other fourteen
 rows retain their exact `b7c6f9229` evidence until separately revalidated on the new HEAD.
 
-**Current target validation:** on 2026-08-17, fourteen of the fifteen contracts passed a
+**Current target validation:** on 2026-08-17, fourteen of the fifteen then-active contracts passed a
 bounded cold run with SGLang `codex/ft-self-pause-minimal-simplify`, Mooncake
 `codex/mooncake-nohca-ft`, DeepSeek-V2-Lite, r64 and GPU 0,1,2,3. The fourteen runs total
 435/435 passing assertions. A separate DeepSeek r192 profile and independently attributed
@@ -97,6 +97,7 @@ configuration.
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | current formal branches: current error messages, four-unhealthy barrier, empty-rank rejection, scale-down, unsupported recover and post-scale-down precision passed, 35/35 (`formal-index-rejection-r2`) | VALIDATED ON CURRENT TARGET |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | current formal branches: replacement remained dead/400 while native join waited, then automatic recovery restored four healthy routes and four-rank precision, 48/48 (`formal-index-continue-rejoin-r1`) | VALIDATED ON CURRENT TARGET |
 | Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | current target: kill and scale-down retained DP3 `dead`; replacement remained unroutable until native recovery; process/native/pending facts converged automatically to four-DP `healthy`; DP3 matched the independently registered #42 rejoin sequence; cleanup and source-clean gates passed, 58/58 (`formal-ft-rejoin-r1`) | VALIDATED ON CURRENT TARGET |
+| In-flight kill, explicit scale-down, and rejoin with decode-only CUDA Graph | `fault_kill_pause_scale_down_then_rejoin_cudagraph.sh` | `fault-kill-pause-scale-down-then-rejoin-cudagraph` | contract requires decode `full`, prefill `disabled`, one survivor startup capture each, one replacement capture before native join, restored four-rank service, and clean graph replay | NOT YET VALIDATED |
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | current formal branches: current request discarded, healthy/no-pause state retained, next forward and precision passed, 22/22 (`formal-index-exception-continue-r1`) | VALIDATED ON CURRENT TARGET |
 | Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | current formal branches: exception → all unhealthy, schedulers initially retained, unattended local deadline exited the owned group, 21/21 (`formal-index-pause-timeout-r1`) | VALIDATED ON CURRENT TARGET |
 
