@@ -22,8 +22,9 @@ API commits and likewise do not validate the current request/status contract.
 `ft-vllm-rejoin-8283227d51-gpu4567-20260825-r2`: dead DP3 routing returned the expected HTTP
 200 inactive-rank abort before and during native recovery, all survivors completed rank-3
 recovery, the topology automatically returned to four healthy engines, and recovered DP3/DP0
-precision plus owned-process cleanup passed. This is targeted rejoin evidence; the remaining
-rows retain their earlier exact-HEAD evidence.
+precision plus owned-process cleanup passed. This behavior is historical: source `7375c482ba`
+now rejects inactive routes at admission with HTTP 503, and requires fresh validation. The
+remaining rows retain their earlier exact-HEAD evidence.
 
 **Validation state:** historical exact source `b7c6f9229`, 2026-08-10. All fifteen then-active contracts
 have at least one bounded cold PASS on GPU 4,5,6,7. The corrected

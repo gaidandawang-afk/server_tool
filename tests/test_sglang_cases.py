@@ -467,7 +467,7 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
 
         self.assertIn("rejoin_waits_for_native_recovery", case)
         self.assertIn("rejoin_waiting_keeps_dp3_closed", case)
-        self.assertEqual(case.count("sg_assert_inactive_route_abort"), 2)
+        self.assertEqual(case.count("sg_assert_inactive_route_error"), 2)
         self.assertIn("rejoin_ready_for_recovery_forward", case)
         self.assertIn("Elastic EP recovery join process groups begin", case)
         self.assertIn("recovery_done_observed", case)
@@ -515,7 +515,7 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertIn("survivor_node${graph_node}_capture_count", case)
         self.assertIn("replacement_capture_count", case)
         self.assertIn("replacement_capture_before_join", case)
-        self.assertIn("sg_assert_inactive_route_abort", case)
+        self.assertIn("sg_assert_inactive_route_error", case)
         self.assertIn("CUDA_ERROR_ILLEGAL_ADDRESS", case)
         self.assertLess(decode_index, kill_index)
         self.assertLess(kill_index, scale_down_index)

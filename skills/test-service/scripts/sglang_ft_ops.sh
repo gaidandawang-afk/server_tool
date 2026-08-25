@@ -946,7 +946,7 @@ PY
   fi
 }
 
-sg_assert_inactive_route_abort() {
+sg_assert_inactive_route_error() {
   local sg_response="$1"
   local sg_rank="$2"
   local sg_label="$3"
@@ -957,13 +957,12 @@ import json
 import sys
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
-reason = data.get("meta_info", {}).get("finish_reason", {})
-print(f"type={reason.get('type')},message={reason.get('message')}")
+print(data.get("detail"))
 PY
 )"
   sg_code="$?"
   set -e
-  local sg_expected="type=abort,message=routed_dp_rank=${sg_rank} is inactive"
+  local sg_expected="routed_dp_rank=${sg_rank} is not active"
   if [[ "$sg_code" -eq 0 && "$sg_actual" == "$sg_expected" ]]; then
     st_assert "$sg_label" true "$sg_expected" "$sg_actual"
   else

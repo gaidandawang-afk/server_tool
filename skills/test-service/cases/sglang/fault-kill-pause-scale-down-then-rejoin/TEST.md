@@ -39,7 +39,7 @@ but each variant requires its own run name and artifact directory.
    three to report the same failure before scale-down.
 3. Submit `scale_down([3])`, require HTTP 202 with the matching request ID, and poll until
    `0=healthy,1=healthy,2=healthy,3=dead`. Keep exactly the three survivor groups, require DP3
-   routing to return HTTP 200 with an inactive-rank abort result, and generate correctly on DP0.
+   routing to return HTTP 503 with an inactive-rank error, and generate correctly on DP0.
 4. Only after the loss is committed by scale-down, start a complete NNODES=4 node-3 rejoin
    process group. Require its Scheduler process to exist while DP3 remains `dead` and
    unroutable, then wait for the joiner to log that it has entered process-group recovery
