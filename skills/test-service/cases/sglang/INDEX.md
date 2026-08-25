@@ -17,6 +17,14 @@ SGLang branch was amended to `41f28a8031`. That run is retained as historical ev
 does not validate the current source HEAD. Historical results below predate both asynchronous
 API commits and likewise do not validate the current request/status contract.
 
+**Rejoin delta validation:** exact source `8283227d51`, 2026-08-25, using GPU 4,5,6,7.
+`fault-kill-pause-scale-down-then-rejoin` passed 62/62 in
+`ft-vllm-rejoin-8283227d51-gpu4567-20260825-r2`: dead DP3 routing returned the expected HTTP
+200 inactive-rank abort before and during native recovery, all survivors completed rank-3
+recovery, the topology automatically returned to four healthy engines, and recovered DP3/DP0
+precision plus owned-process cleanup passed. This is targeted rejoin evidence; the remaining
+rows retain their earlier exact-HEAD evidence.
+
 **Validation state:** historical exact source `b7c6f9229`, 2026-08-10. All fifteen then-active contracts
 have at least one bounded cold PASS on GPU 4,5,6,7. The corrected
 `fault-kill-pause-continuous-scale-down` contract passed 38/38 structured assertions in
