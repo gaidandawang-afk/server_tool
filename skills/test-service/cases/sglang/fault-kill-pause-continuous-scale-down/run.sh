@@ -42,6 +42,13 @@ trap cleanup EXIT
 
 mkdir -p "$run_dir"
 sg_prepare_dp4_runtime
+if (( SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS >= 384 )); then
+  st_assert redundant_experts_capacity true ">=384" \
+    "$SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS"
+else
+  st_assert redundant_experts_capacity false ">=384" \
+    "$SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS"
+fi
 sg_write_rank_request "$request_dp0" 0 10
 sg_write_stream_rank_request "$stream_request_dp0" 0 64
 

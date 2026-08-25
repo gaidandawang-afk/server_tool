@@ -424,6 +424,8 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertNotIn("SGLANG_FT_INCIDENT_STATE_SCHEMA", case)
         self.assertNotIn("=paused", case)
         self.assertIn("0=unhealthy,1=dead,2=unhealthy,3=unhealthy", case)
+        self.assertIn("redundant_experts_capacity", case)
+        self.assertIn(">= 384", case)
 
     def test_idle_scale_down_uses_process_loss_without_survivor_forward(self):
         case = (
