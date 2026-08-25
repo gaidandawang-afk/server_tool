@@ -957,7 +957,7 @@ import json
 import sys
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
-print(data.get("detail"))
+print(data.get("message", data.get("detail")))
 PY
 )"
   sg_code="$?"
