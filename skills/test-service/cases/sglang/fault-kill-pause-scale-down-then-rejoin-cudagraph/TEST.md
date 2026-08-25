@@ -27,7 +27,8 @@ begun, kill the complete rank-3 process group, explicitly apply
 1. Verify provenance, launch four ranks, require health, and complete baseline
    inference before fault injection.
 2. Start the DP0 stream and observe a decode token before killing only the owned
-   rank-3 process group. Require an incident state and HTTP 503 admission closure.
+   rank-3 process group. Require DP3 to become dead (survivors may remain healthy)
+   and HTTP 503 admission closure.
 3. Submit `scale_down([3])`, require HTTP 202 with the matching request ID, and poll until
    three survivors are healthy and DP3 is dead; require route closure through an HTTP 503
    inactive-rank error and a correct

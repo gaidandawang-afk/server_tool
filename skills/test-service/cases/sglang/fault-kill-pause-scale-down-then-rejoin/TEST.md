@@ -33,10 +33,9 @@ but each variant requires its own run name and artifact directory.
 1. Verify provenance, start four healthy node process groups, and complete one baseline
    inference.
 2. Start a DP0 streaming request and prove it entered decode, then kill and confirm exit of
-   node 3's complete owned process group. Reach `3=dead` with at least one survivor marked
-   `unhealthy` after observing the failed in-flight collective, and prove admission returns
-   HTTP 503. Survivors execute different collective phases, so the test does not require all
-   three to report the same failure before scale-down.
+   node 3's complete owned process group. Reach `3=dead`; survivors may remain `healthy` or
+   report `unhealthy` depending on whether they observe the failed in-flight collective.
+   Prove admission returns HTTP 503 before scale-down.
 3. Submit `scale_down([3])`, require HTTP 202 with the matching request ID, and poll until
    `0=healthy,1=healthy,2=healthy,3=dead`. Keep exactly the three survivor groups, require DP3
    routing to return HTTP 503 with an inactive-rank error, and generate correctly on DP0.

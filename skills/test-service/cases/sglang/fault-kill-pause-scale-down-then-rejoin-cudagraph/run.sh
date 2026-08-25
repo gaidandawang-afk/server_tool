@@ -147,6 +147,7 @@ declare -a incident_states=(
   "0=unhealthy,1=healthy,2=healthy,3=dead"
   "0=healthy,1=unhealthy,2=healthy,3=dead"
   "0=healthy,1=healthy,2=unhealthy,3=dead"
+  "0=healthy,1=healthy,2=healthy,3=dead"
 )
 sg_wait_ft_status "$base_port" "$run_dir/status-incident.json" \
   "$(IFS='|'; echo "${incident_states[*]}")" 120 status_incident
