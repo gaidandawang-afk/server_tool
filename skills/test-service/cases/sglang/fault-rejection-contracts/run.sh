@@ -137,8 +137,10 @@ sg_wait_ft_status "$port" "$run_dir/status-after-recover-rejection.json" \
   "0=healthy,1=dead,2=healthy,3=healthy" 30 \
   status_unchanged_after_recover_rejection
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "$run_dir/request-dp1.json" "$run_dir/dead-dp1-response.json" 400 \
+  "$run_dir/request-dp1.json" "$run_dir/dead-dp1-response.json" 200 \
   dead_dp1_rejected 60
+sg_assert_inactive_route_abort \
+  "$run_dir/dead-dp1-response.json" 1 dead_dp1_inactive_abort
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$run_dir/request-dp0.json" "$run_dir/post-scale-down-dp0.json" 200 \
   post_scale_down_dp0 180

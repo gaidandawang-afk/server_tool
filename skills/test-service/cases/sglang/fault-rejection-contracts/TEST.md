@@ -27,8 +27,9 @@ Every selected source HEAD requires fresh validation.
    Poll the first request to `healthy,dead,healthy,healthy`, and require whole-DP1 shutdown to
    leave three schedulers.
 6. Before any node-group rejoin, require the removed legacy `recover([1])` instruction to
-   remain rejected with HTTP 400 and `Invalid instruction: 'recover'.`; status and the DP1
-   HTTP 400 route must remain unchanged. Recovery is automatic only after complete process and
+   remain rejected with HTTP 400 and `Invalid instruction: 'recover'.`; status must remain
+   unchanged, and DP1 routing must return HTTP 200 with an inactive-rank abort result. Recovery
+   is automatic only after complete process and
    native data-plane readiness are observed.
 7. Generate correctly on DP0, stop the owned process group, and leave source clean.
 

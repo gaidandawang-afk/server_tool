@@ -946,6 +946,31 @@ PY
   fi
 }
 
+sg_assert_inactive_route_abort() {
+  local sg_response="$1"
+  local sg_rank="$2"
+  local sg_label="$3"
+  local sg_actual sg_code
+  set +e
+  sg_actual="$(python3 - "$sg_response" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+reason = data.get("meta_info", {}).get("finish_reason", {})
+print(f"type={reason.get('type')},message={reason.get('message')}")
+PY
+)"
+  sg_code="$?"
+  set -e
+  local sg_expected="type=abort,message=routed_dp_rank=${sg_rank} is inactive"
+  if [[ "$sg_code" -eq 0 && "$sg_actual" == "$sg_expected" ]]; then
+    st_assert "$sg_label" true "$sg_expected" "$sg_actual"
+  else
+    st_assert "$sg_label" false "$sg_expected" "${sg_actual:-invalid_json}"
+  fi
+}
+
 sg_wait_ft_error() {
   local sg_port="$1"
   local sg_output="$2"

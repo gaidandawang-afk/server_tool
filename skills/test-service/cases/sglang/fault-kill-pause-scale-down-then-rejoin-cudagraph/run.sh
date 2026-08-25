@@ -170,8 +170,10 @@ for node in 0 1 2; do
     "node${node}_scheduler_after_scale_down"
 done
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
-  "${requests[3]}" "$run_dir/scaled-down-dp3.json" 400 \
+  "${requests[3]}" "$run_dir/scaled-down-dp3.json" 200 \
   scaled_down_dp3_closed 60
+sg_assert_inactive_route_abort \
+  "$run_dir/scaled-down-dp3.json" 3 scaled_down_dp3_inactive_abort
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/after-scale-down-dp0.json" 200 \
   after_scale_down_dp0 180

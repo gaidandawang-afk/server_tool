@@ -180,8 +180,10 @@ for node in 0 1 2; do
     "node${node}_scheduler_after_scale_down"
 done
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
-  "${requests[3]}" "$run_dir/scaled-down-dp3.json" 400 \
+  "${requests[3]}" "$run_dir/scaled-down-dp3.json" 200 \
   scaled_down_dp3_closed 60
+sg_assert_inactive_route_abort \
+  "$run_dir/scaled-down-dp3.json" 3 scaled_down_dp3_inactive_abort
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/after-scale-down-dp0.json" 200 \
   after_scale_down_dp0 180
@@ -206,8 +208,10 @@ sg_wait_scheduler_count "${node_pgids[3]}" 1 180 rejoin_scheduler
 sg_wait_ft_status "$base_port" "$run_dir/status-rejoin-waiting.json" \
   "0=healthy,1=healthy,2=healthy,3=dead" 30 rejoin_waits_for_native_recovery
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
-  "${requests[3]}" "$run_dir/rejoin-waiting-dp3.json" 400 \
+  "${requests[3]}" "$run_dir/rejoin-waiting-dp3.json" 200 \
   rejoin_waiting_keeps_dp3_closed 60
+sg_assert_inactive_route_abort \
+  "$run_dir/rejoin-waiting-dp3.json" 3 rejoin_waiting_dp3_inactive_abort
 sg_wait_log_contains "${node_logs[3]}" \
   "Elastic EP recovery join process groups begin" 180 \
   rejoin_ready_for_recovery_forward
