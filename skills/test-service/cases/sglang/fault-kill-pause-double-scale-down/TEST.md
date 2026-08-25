@@ -18,7 +18,8 @@ with one `scale_down([1,2])` operation.
 4. Reach `healthy,dead,dead,healthy` with two schedulers and prove admission returns HTTP 503.
 5. Submit one multi-rank scale-down for DP1 and DP2, require HTTP 202 with the matching
    request ID, then poll the full engine topology.
-6. Remain `healthy,dead,dead,healthy` after survivor prepare/route/resume completion.
+6. Require a new forced-EPLB log as the asynchronous completion barrier, then remain
+   `healthy,dead,dead,healthy` after survivor prepare/route/resume completion.
 7. Reject explicit routing to both dead DPs with HTTP 400.
 8. Generate on DP0 and DP3 and match their registered ten-token oracles.
 9. Clean the owned process group and source worktree.

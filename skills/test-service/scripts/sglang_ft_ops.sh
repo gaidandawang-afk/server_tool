@@ -1100,14 +1100,22 @@ sg_log_count() {
 }
 
 sg_assert_log_count_increased() {
-  local sg_actual
+  local sg_log_path="$1"
+  local sg_pattern="$2"
   local sg_before="$3"
-  sg_actual="$(sg_log_count "$1" "$2")"
-  if (( sg_actual > sg_before )); then
-    st_assert "$4" true ">$sg_before" "$sg_actual"
-  else
-    st_assert "$4" false ">$sg_before" "$sg_actual"
-  fi
+  local sg_label="$4"
+  local sg_timeout_sec="${5:-120}"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_actual="$sg_before"
+  while (( SECONDS < sg_end )); do
+    sg_actual="$(sg_log_count "$sg_log_path" "$sg_pattern")"
+    if (( sg_actual > sg_before )); then
+      st_assert "$sg_label" true ">$sg_before" "$sg_actual"
+      return 0
+    fi
+    sleep 1
+  done
+  st_assert "$sg_label" false ">$sg_before" "$sg_actual"
 }
 
 sg_assert_log_contains() {

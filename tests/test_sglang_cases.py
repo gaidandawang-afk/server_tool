@@ -407,6 +407,7 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertNotIn('"instruction": "recover"', unit)
         self.assertIn('data["engines"]', unit)
         self.assertIn('local sg_request_id="${6:-}"', unit)
+        self.assertIn('local sg_timeout_sec="${5:-120}"', unit)
         self.assertIn("sg_apply_retry", exception_retry_case)
         self.assertIn('"instruction":"retry"', rejection_case)
 
