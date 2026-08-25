@@ -93,7 +93,8 @@ else
 fi
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "$request_dp1" "$run_dir/dead-route-dp1.json" 400 dp1_unroutable 90
+  "$request_dp1" "$run_dir/dead-route-dp1.json" 503 dp1_unroutable 90
+sg_assert_inactive_route_error "$run_dir/dead-route-dp1.json" 1 dp1_inactive_error
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "$request_dp0" "$run_dir/post-scale-down-dp0.json" 200 post_scale_down_dp0 90
 sg_assert_output_ids_equal \

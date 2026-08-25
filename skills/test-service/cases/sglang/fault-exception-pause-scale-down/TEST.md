@@ -21,7 +21,7 @@
    DP2's complete Scheduler block.
 7. Reach `0=healthy,1=healthy,2=dead,3=healthy` with exactly three schedulers and no
    remaining global rank 2 process.
-8. Require DP2 routing to return HTTP 400.
+8. Require DP2 routing to return HTTP 503 with the inactive-rank error.
 9. Generate on DP0/1/3 and compare each output with that DP's own baseline.
 10. Stop the owned process group and leave source clean. This contract does not call recover;
     recovery requires a complete owner-node process-group rejoin first.

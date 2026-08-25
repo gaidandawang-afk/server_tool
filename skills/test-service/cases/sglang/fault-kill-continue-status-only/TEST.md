@@ -29,7 +29,8 @@ python skills\test-service\scripts\run-case.py `
 4. Kill global scheduler rank 1.
 5. Reach `0=healthy,1=dead,2=healthy,3=healthy` with exactly three schedulers.
 6. Prove the continue path dispatched no pause command.
-7. Converge to HTTP 400 for explicit routing to dead DP1 within 180 seconds.
+7. Converge to HTTP 503 with an inactive-rank error for explicit routing to dead DP1 within
+   180 seconds.
 8. Return HTTP 200 on DP0, DP2 and DP3, with each survivor output belonging to the
    registered known-sequence set for the selected model and topology.
 9. Stop the owned service process group and leave the source checkout clean.

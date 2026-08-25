@@ -20,7 +20,7 @@ with one `scale_down([1,2])` operation.
    request ID, then poll the full engine topology.
 6. Require a new forced-EPLB log as the asynchronous completion barrier, then remain
    `healthy,dead,dead,healthy` after survivor prepare/route/resume completion.
-7. Reject explicit routing to both dead DPs with HTTP 400.
+7. Reject explicit routing to both dead DPs with HTTP 503 and inactive-rank errors.
 8. Generate on DP0 and DP3 and match their registered ten-token oracles.
 9. Clean the owned process group and source worktree.
 

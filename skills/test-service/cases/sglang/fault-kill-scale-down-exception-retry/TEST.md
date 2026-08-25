@@ -23,14 +23,14 @@ the injector must not strand DP2/3 inside a collective.
 2. Kill DP1, reach `healthy,dead,healthy,healthy`, prove admission returns HTTP 503, then
    submit `scale_down([1])`, require HTTP 202 with the matching request ID, and poll until the
    full engine topology commits.
-3. Remain `healthy,dead,healthy,healthy` with exactly three schedulers; require DP1 HTTP 400
+3. Remain `healthy,dead,healthy,healthy` with exactly three schedulers; require DP1 HTTP 503
    and DP0 HTTP 200 before arming the next fault.
 4. Inject one local recoverable exception on survivor DP0. Require the triggering request to
    return HTTP 503, observe one completion record, and reach
    `unhealthy,dead,healthy,healthy` while the scheduler count remains three.
 5. Submit maskless retry, require HTTP 202 with the matching request ID, and poll until final
    `healthy,dead,healthy,healthy` status. Require no EPLB during retry.
-6. Prove the route did not expand: DP1 remains HTTP 400, DP0/2/3 return HTTP 200 with
+6. Prove the route did not expand: DP1 remains HTTP 503, DP0/2/3 return HTTP 200 with
    registered outputs, and the scheduler count remains three.
 7. Stop the owned process group and leave the source checkout clean.
 

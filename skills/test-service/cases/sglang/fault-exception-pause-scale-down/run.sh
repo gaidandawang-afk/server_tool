@@ -82,7 +82,8 @@ else
   st_assert global_rank2_shutdown false absent "$dp2_pid"
 fi
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[2]}" "$run_dir/dead-dp2.json" 400 dead_dp2_closed 180
+  "${requests[2]}" "$run_dir/dead-dp2.json" 503 dead_dp2_closed 180
+sg_assert_inactive_route_error "$run_dir/dead-dp2.json" 2 dead_dp2_inactive_error
 
 for rank in 0 1 3; do
   response="$run_dir/after-scale-down-dp${rank}.json"

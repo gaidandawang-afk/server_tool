@@ -35,7 +35,7 @@ python skills\test-service\scripts\run-case.py `
    the full engine topology. Rank 1 was already externally killed, so its whole-DP block is
    already empty; require one survivor topology install and forced EPLB.
 8. Remain `0=healthy,1=dead,2=healthy,3=healthy` with exactly three schedulers.
-9. Reject explicit DP1 routing with HTTP 400.
+9. Reject explicit DP1 routing with HTTP 503 and the inactive-rank error.
 10. Return HTTP 200 on DP0, DP2 and DP3; require each survivor output to belong
     to the registered known-sequence set for the selected model and topology.
 11. Stop the owned server process group and leave the source checkout clean.

@@ -66,7 +66,8 @@ st_assert_process_count "$server_pgid" "sglang::scheduler" 3 schedulers_after_ki
 sg_assert_log_count "$log_path" "FT command dispatch:.*command=pause" 0 continue_has_no_pause
 
 st_wait_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[1]}" "$run_dir/dead-dp1.json" 400 dead_dp1_closed 180
+  "${requests[1]}" "$run_dir/dead-dp1.json" 503 dead_dp1_closed 180
+sg_assert_inactive_route_error "$run_dir/dead-dp1.json" 1 dead_dp1_inactive_error
 for rank in 0 2 3; do
   response="$run_dir/after-fault-dp${rank}.json"
   st_http_json POST "http://127.0.0.1:${port}/generate" \

@@ -73,7 +73,9 @@ st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
   whole_dp1_shutdown_complete
 
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[1]}" "$run_dir/scaled-down-dp1.json" 400 scaled_down_dp1_closed 180
+  "${requests[1]}" "$run_dir/scaled-down-dp1.json" 503 scaled_down_dp1_closed 180
+sg_assert_inactive_route_error "$run_dir/scaled-down-dp1.json" 1 \
+  scaled_down_dp1_inactive_error
 for rank in 0 2 3; do
   response="$run_dir/after-scale-down-dp${rank}.json"
   st_http_json POST "http://127.0.0.1:${port}/generate" \

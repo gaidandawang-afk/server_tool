@@ -72,8 +72,10 @@ sg_assert_log_count_increased "$log_path" '\[EPLBManager\] rebalance end' \
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
   schedulers_after_scale_down
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[1]}" "$run_dir/removed-dp1-before-retry.json" 400 \
+  "${requests[1]}" "$run_dir/removed-dp1-before-retry.json" 503 \
   removed_dp1_closed_before_retry 60
+sg_assert_inactive_route_error "$run_dir/removed-dp1-before-retry.json" 1 \
+  removed_dp1_before_retry_error
 st_http_json POST "http://127.0.0.1:${port}/generate" \
   "${requests[0]}" "$run_dir/three-rank-dp0.json" 200 three_rank_dp0 180
 
@@ -103,8 +105,10 @@ fi
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
   retry_keeps_three_schedulers
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "${requests[1]}" "$run_dir/removed-dp1-after-retry.json" 400 \
+  "${requests[1]}" "$run_dir/removed-dp1-after-retry.json" 503 \
   removed_dp1_stays_closed_after_retry 60
+sg_assert_inactive_route_error "$run_dir/removed-dp1-after-retry.json" 1 \
+  removed_dp1_after_retry_error
 
 for rank in 0 2 3; do
   response="$run_dir/after-retry-dp${rank}.json"

@@ -73,7 +73,9 @@ st_assert_process_count "$server_pgid" "sglang::scheduler" 2 schedulers_after_sc
 
 for rank in 1 2; do
   st_http_json POST "http://127.0.0.1:${port}/generate" \
-    "${requests[$rank]}" "$run_dir/dead-dp${rank}.json" 400 "dead_dp${rank}_closed" 90
+    "${requests[$rank]}" "$run_dir/dead-dp${rank}.json" 503 "dead_dp${rank}_closed" 90
+  sg_assert_inactive_route_error "$run_dir/dead-dp${rank}.json" "$rank" \
+    "dead_dp${rank}_inactive_error"
 done
 for rank in 0 3; do
   st_http_json POST "http://127.0.0.1:${port}/generate" \

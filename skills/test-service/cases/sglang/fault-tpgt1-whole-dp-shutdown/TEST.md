@@ -20,7 +20,7 @@
    engine topology.
 6. Require the whole-DP shutdown barrier to remove both global ranks 2 and 3, leaving exactly
    two DP0 schedulers. Rank 3 must not be retained.
-7. Remain `0=healthy,1=dead`, reject DP1 routing with HTTP 400, and generate successfully on
+7. Remain `0=healthy,1=dead`, reject DP1 routing with HTTP 503, and generate successfully on
    DP0 with output equal to its pre-fault baseline.
 8. Stop only the owned process group and leave the selected source checkout clean.
 

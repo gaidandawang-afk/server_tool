@@ -24,7 +24,7 @@ mode, and require native Mooncake recovery to restore its route and registered o
 4. Reach `0=healthy,1=healthy,2=healthy,3=dead`; keep one scheduler in each survivor group.
 5. Generate successfully on DP0, DP1 and DP2 to prove degraded survivor service.
 6. Restart the complete node3 process group with `--elastic-ep-rejoin`; require its Scheduler
-   process to exist while DP3 remains `dead` and its route remains closed with HTTP 400, then
+   process to exist while DP3 remains `dead` and its route remains closed with HTTP 503, then
    wait for the joiner to enter process-group recovery after model initialization.
 7. Route exactly one survivor forward to DP0 after that boundary, require rank 3 recovery on
    every survivor, then execute another forward for forced EPLB and the native second-forward
