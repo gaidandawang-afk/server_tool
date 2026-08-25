@@ -4,8 +4,17 @@ This is the server_tool-owned index for the four-GPU DP-only FT regression set. 
 contracts target `codex/ft-vllm-api-refactor` and the architecture defined by
 `SELF_PAUSE_WHOLE_DP_FT.md`. They must be validated against the exact selected source HEAD.
 
-**New API validation state:** pending on exact source `3126477656`. Historical results below
-belong to predecessor API commits and do not validate the asynchronous request/status contract.
+**New API validation state:** partial validation on exact source `41f28a8031`, 2026-08-25, using
+GPU 4,5,6,7. Retry passed 32/32, single scale-down passed 32/32, double scale-down passed
+29/29, A*C>1 whole-DP shutdown passed 29/29, and Qwen r384 continuous 4->3->2->1 scale-down
+passed 43/43. The rejection contract failed 15/17 because a DP0 scale-down now returns
+`scale_down_requires_incident` instead of the intended `scale_down_dp_rank_0_not_supported`;
+the case result assertion consequently also failed. The branch is therefore not fully green.
+
+The originally handed-off source `3126477656` passed the rejection contract 43/43 before the
+SGLang branch was amended to `41f28a8031`. That run is retained as historical evidence only and
+does not validate the current source HEAD. Historical results below predate both asynchronous
+API commits and likewise do not validate the current request/status contract.
 
 **Validation state:** historical exact source `b7c6f9229`, 2026-08-10. All fifteen then-active contracts
 have at least one bounded cold PASS on GPU 4,5,6,7. The corrected
