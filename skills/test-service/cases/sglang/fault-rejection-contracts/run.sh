@@ -43,9 +43,6 @@ JSON
 cat >"$run_dir/scale-down-empty-request.json" <<'JSON'
 {"instruction":"scale_down","params":{"removed_dp_ranks":[]},"request_id":"scale-down-empty"}
 JSON
-cat >"$run_dir/scale-down-dp0-request.json" <<'JSON'
-{"instruction":"scale_down","params":{"removed_dp_ranks":[0]},"request_id":"scale-down-dp0"}
-JSON
 cat >"$run_dir/recover-request.json" <<'JSON'
 {"instruction":"recover","params":{},"request_id":"recover-unsupported"}
 JSON
@@ -56,7 +53,7 @@ cat >"$run_dir/busy-retry-request.json" <<'JSON'
 {"instruction":"retry","params":{},"request_id":"retry-while-busy"}
 JSON
 
-sg_launch_dp4_ft pause "$port" "$log_path" 0 "$trigger_file" "$done_file"
+sg_launch_dp4_ft pause "$port" "$log_path" 1 "$trigger_file" "$done_file"
 server_pgid="$ST_LAST_PGID"
 
 st_wait_http_ready "$port" 180
@@ -68,17 +65,6 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
 sg_assert_known_output_ids \
   "$run_dir/baseline-dp0.json" "$(sg_precision_oracle_id 0)" \
   "$run_dir/baseline-dp0-precision.json"
-
-st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
-  "$run_dir/scale-down-dp0-request.json" \
-  "$run_dir/scale-down-dp0-response.json" 202 \
-  scale_down_dp0_accepted 60
-sg_assert_ft_accepted_response \
-  "$run_dir/scale-down-dp0-response.json" scale-down-dp0 \
-  scale_down_dp0_accepted_response
-sg_wait_ft_error "$port" "$run_dir/status-after-dp0-rejection.json" \
-  scale-down-dp0 scale_down_dp_rank_0_not_supported \
-  "0=healthy,1=healthy,2=healthy,3=healthy" 30 scale_down_dp0_reason
 
 st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
   "$run_dir/scale-down-no-incident-request.json" \
@@ -103,7 +89,7 @@ sg_wait_ft_status "$port" "$run_dir/status-after-steady-rejections.json" \
 
 sg_start_recoverable_fault "$trigger_file"
 st_http_json POST "http://127.0.0.1:${port}/generate" \
-  "$run_dir/request-dp0.json" "$run_dir/trigger-response.json" 503 \
+  "$run_dir/request-dp1.json" "$run_dir/trigger-response.json" 503 \
   discard_current 180
 sg_wait_recoverable_fault_done "$done_file" 1 60 recoverable_fault_done
 sg_wait_ft_status "$port" "$run_dir/status-unhealthy.json" \

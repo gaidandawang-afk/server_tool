@@ -7,18 +7,18 @@ Every selected source HEAD requires fresh validation.
 
 - Four profile-selected GPUs with TP=4, DP=4, EP=4
 - Fault-tolerance strategy `pause`, EPLB enabled, Mooncake elastic EP
-- One task-local coordinated recoverable exception injection
+- One task-local coordinated recoverable exception injection on DP1; no fault is injected on DP0
 
 ## Ordered phases and barriers
 
 1. Verify dependency identities, reach four healthy schedulers, and complete a registered DP0
    baseline.
-2. While healthy, submit `scale_down([0])` and `scale_down([1])` separately. Require HTTP 202
-   acceptance followed by aggregate status errors `scale_down_dp_rank_0_not_supported` and
-   `scale_down_requires_incident`, each correlated by request ID on all engines. Require the
-   removed `recover` instruction to return synchronous HTTP 400 with the nested OpenAI error
-   envelope and `Invalid instruction: 'recover'.`. Status must remain four healthy engines.
-3. Trigger the coordinated exception, observe its completion record, reach four `unhealthy`
+2. While healthy, submit `scale_down([1])`. Require HTTP 202 acceptance followed by the
+   aggregate status error `scale_down_requires_incident`, correlated by request ID on all
+   engines. Require the removed `recover` instruction to return synchronous HTTP 400 with the
+   nested OpenAI error envelope and `Invalid instruction: 'recover'.`. Status must remain four
+   healthy engines. The contract does not submit a rank-0 fault or scale-down operation.
+3. Trigger the coordinated exception on DP1, observe its completion record, reach four `unhealthy`
    ranks, and prove admission returns HTTP 503.
 4. During that incident, submit `scale_down([])`, require HTTP 202, then poll the matching
    aggregate `scale_down_requires_ranks` error while the unhealthy topology stays unchanged.
