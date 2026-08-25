@@ -702,5 +702,19 @@
         "date": "2026-08-10"
       }
     ]
+  },
+  {
+    "id": "exp-049",
+    "category": "scale-down",
+    "title": "Do not remove rank0 while Mooncake Coordinator is in-process",
+    "content": "In Mooncake PG commit 1569df4d, global rank 0 hosts the authoritative Coordinator in-process. Scaling down the DP block containing rank 0 makes survivor syncAfterFailure RPCs lose their coordinator and abort, while equivalent rank2/rank3 DP1 removals pass; a robust fix must externalize, migrate, or preserve the control-plane owner rather than only reordering shutdown.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-08-25"
+      }
+    ]
   }
 ]
