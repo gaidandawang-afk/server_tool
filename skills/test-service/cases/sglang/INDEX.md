@@ -4,7 +4,28 @@ This is the server_tool-owned index for the four-GPU DP-only FT regression set. 
 contracts target `codex/ft-vllm-api-refactor` and the architecture defined by
 `SELF_PAUSE_WHOLE_DP_FT.md`. They must be validated against the exact selected source HEAD.
 
-**New API validation state:** partial validation on exact source `41f28a8031`, 2026-08-25, using
+**Exact target validation:** SGLang `7375c482ba`, 2026-08-25, GPU 4,5,6,7. Fifteen of the
+sixteen active contracts passed their latest bounded cold run, totaling 517/517 passing
+assertions. Inactive explicit routes now close at admission with HTTP 503 and exact error
+`routed_dp_rank=N is not active`; the error envelope may expose that text as either `message`
+or `detail`. A killed rank may be `dead` while every survivor remains `healthy`, so pause/rejoin
+contracts do not require an unrelated survivor to transiently report `unhealthy`.
+
+The remaining CUDA Graph rejoin contract is a product-code failure, not an API-contract
+mismatch. After scale-down completed, inactive DP3 routing returned the expected HTTP 503,
+DP0 inference and precision passed, and the replacement scheduler started. Replacement decode
+graph capture then failed with `cudaErrorStreamCaptureUnjoined` (`capturing stream has unjoined
+work`), preventing the deferred native fast path and rejoin. Evidence is
+`suite-7375c482ba-fault-kill-pause-scale-down-then-rejoin-cudagraph-r3` (53 passing assertions,
+failed gates `replacement_native_fast_path` and `case_result`).
+
+The asynchronous apply API also has an observability ambiguity requiring a design decision:
+the accepted response tells clients to poll `/fault_tolerance/status`, but a pre-existing
+`healthy,healthy,healthy,dead` state can satisfy that poll before the new scale-down request has
+actually completed, and the status response does not expose the accepted request ID on success.
+The rejoin contracts therefore use inactive-route admission as an additional completion barrier.
+
+**Historical new API validation state:** partial validation on exact source `41f28a8031`, 2026-08-25, using
 GPU 4,5,6,7. Retry passed 32/32, single scale-down passed 32/32, double scale-down passed
 29/29, A*C>1 whole-DP shutdown passed 29/29, and Qwen r384 continuous 4->3->2->1 scale-down
 passed 43/43. After excluding rank 0 from fault injection and scale-down targets, the rejection
@@ -23,8 +44,8 @@ API commits and likewise do not validate the current request/status contract.
 200 inactive-rank abort before and during native recovery, all survivors completed rank-3
 recovery, the topology automatically returned to four healthy engines, and recovered DP3/DP0
 precision plus owned-process cleanup passed. This behavior is historical: source `7375c482ba`
-now rejects inactive routes at admission with HTTP 503, and requires fresh validation. The
-remaining rows retain their earlier exact-HEAD evidence.
+now rejects inactive routes at admission with HTTP 503; its replacement validation is recorded
+above. The remaining historical text is retained only as predecessor evidence.
 
 **Validation state:** historical exact source `b7c6f9229`, 2026-08-10. All fifteen then-active contracts
 have at least one bounded cold PASS on GPU 4,5,6,7. The corrected
@@ -106,22 +127,22 @@ configuration.
 
 | Scenario | Suite identifier | server_tool contract | New-architecture evidence | Status |
 | --- | --- | --- | --- | --- |
-| Native Mooncake isolates a killed idle DP while an unaffected stream completes | `fault_kill_noft_status_apply_generate.sh` | `fault-kill-noft-native-inflight` | current formal branches: FT status 503, killed DP1, DP0 64-token stream completed, native isolation and post-fault precision passed, 18/18 (`formal-index-noft-native-inflight-r1`) | VALIDATED ON CURRENT TARGET |
-| Kill one scheduler and continue on survivors | `fault_kill_continue_status_only.sh` | `fault-kill-continue-status-only` | current formal branches: DP1 dead/400, no pause, three survivor generations and precision passed, 28/28 (`formal-index-continue-status-r1`) | VALIDATED ON CURRENT TARGET |
-| Kill one idle scheduler and commit whole-DP scale-down | `fault_kill_pause_scale_down.sh` | `fault-kill-pause-scale-down` | current formal branches: `healthy,dead,healthy,healthy`, admission 503, no central pause, forced EPLB, dead target and three DeepSeek survivor precisions passed, 30/30 (`formal-index-idle-pause-scale-down-r2`) | VALIDATED ON CURRENT TARGET |
-| Recoverable exception and retry | `fault_exception_pause_retry.sh` | `fault-exception-pause-retry` | current formal branches: exception → four unhealthy → maskless retry → four healthy, scheduler count retained, no EPLB, four DP precisions passed, 30/30 (`formal-index-exception-retry-r1`) | VALIDATED ON CURRENT TARGET |
-| Retry after a committed 4-to-3 scale-down | `fault_kill_scale_down_exception_retry.sh` | `fault-kill-scale-down-exception-retry` | current formal branches: idle kill 4→3, then local survivor exception/retry retained the sparse topology and three precisions, 40/40 (`formal-index-scale-down-retry-r1`) | VALIDATED ON CURRENT TARGET |
-| Recoverable exception and whole-DP scale-down | `fault_exception_pause_scale_down.sh` | `fault-exception-pause-scale-down` | current formal branches: four unhealthy → scale_down DP2, forced EPLB and three survivor precisions passed, 33/33 (`formal-index-exception-scale-down-r1`) | VALIDATED ON CURRENT TARGET |
-| Kill one member when A*C>1 and shut down its complete DP | `fault_tpgt1_whole_dp_shutdown.sh` | `fault-tpgt1-whole-dp-shutdown` | current formal branches: rank2 killed with sibling rank3 alive; scale-down removed both and retained DP0 precision, 27/27 (`formal-index-tpgt1-shutdown-r1`) | VALIDATED ON CURRENT TARGET |
-| Kill an in-flight stream with continue | `fault_kill_continue_inflight.sh` | `fault-kill-continue-inflight` | current formal branches: rank1 stream interrupted, DP1 dead, DP0 continued with matching precision, 19/19 (`formal-index-continue-inflight-r1`) | VALIDATED ON CURRENT TARGET |
-| Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | current formal branches: two idle kills preserved healthy survivors, one multi-rank scale-down removed DP1/DP2, DP0/DP3 precision passed, 26/26 (`formal-index-idle-double-scale-down-r1`) | VALIDATED ON CURRENT TARGET |
-| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | predecessor API, DeepSeek r192: independent baseline established the registered rank-0 oracle; acceptance-01 passed 38/38 through 4→3→2→1, but acceptance-02 failed 26/28 when a post-4→2 DP0 generation received a late membership-loss 503 after the legacy synchronous apply and healthy status (`formal-continuous-r192-acceptance-01`, `formal-continuous-r192-acceptance-02`) | HISTORICAL UNSTABLE: 1 PASS, 1 FAIL |
-| Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | current formal branches: current error messages, four-unhealthy barrier, empty-rank rejection, scale-down, unsupported recover and post-scale-down precision passed, 35/35 (`formal-index-rejection-r2`) | VALIDATED ON CURRENT TARGET |
-| Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | current formal branches: replacement remained dead/400 while native join waited, then automatic recovery restored four healthy routes and four-rank precision, 48/48 (`formal-index-continue-rejoin-r1`) | VALIDATED ON CURRENT TARGET |
-| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | current target: kill and scale-down retained DP3 `dead`; replacement remained unroutable until native recovery; process/native/pending facts converged automatically to four-DP `healthy`; DP3 matched the independently registered #42 rejoin sequence; cleanup and source-clean gates passed, 58/58 (`formal-ft-rejoin-r1`) | VALIDATED ON CURRENT TARGET |
-| In-flight kill, explicit scale-down, and rejoin with decode-only CUDA Graph | `fault_kill_pause_scale_down_then_rejoin_cudagraph.sh` | `fault-kill-pause-scale-down-then-rejoin-cudagraph` | contract requires decode `full`, prefill `disabled`, one survivor startup capture each, one replacement capture before native join, restored four-rank service, and clean graph replay | NOT YET VALIDATED |
-| Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | current formal branches: current request discarded, healthy/no-pause state retained, next forward and precision passed, 22/22 (`formal-index-exception-continue-r1`) | VALIDATED ON CURRENT TARGET |
-| Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | current formal branches: exception → all unhealthy, schedulers initially retained, unattended local deadline exited the owned group, 21/21 (`formal-index-pause-timeout-r1`) | VALIDATED ON CURRENT TARGET |
+| Native Mooncake isolates a killed idle DP while an unaffected stream completes | `fault_kill_noft_status_apply_generate.sh` | `fault-kill-noft-native-inflight` | 19/19 (`suite-7375c482ba-fault-kill-noft-native-inflight-r1`) | PASS ON `7375c482ba` |
+| Kill one scheduler and continue on survivors | `fault_kill_continue_status_only.sh` | `fault-kill-continue-status-only` | 30/30 (`suite-7375c482ba-fault-kill-continue-status-only-r2`) | PASS ON `7375c482ba` |
+| Kill one idle scheduler and commit whole-DP scale-down | `fault_kill_pause_scale_down.sh` | `fault-kill-pause-scale-down` | 33/33 (`suite-7375c482ba-fault-kill-pause-scale-down-r2`) | PASS ON `7375c482ba` |
+| Recoverable exception and retry | `fault_exception_pause_retry.sh` | `fault-exception-pause-retry` | 32/32 (`suite-7375c482ba-fault-exception-pause-retry-r1`) | PASS ON `7375c482ba` |
+| Retry after a committed 4-to-3 scale-down | `fault_kill_scale_down_exception_retry.sh` | `fault-kill-scale-down-exception-retry` | 45/45 (`suite-7375c482ba-fault-kill-scale-down-exception-retry-r2`) | PASS ON `7375c482ba` |
+| Recoverable exception and whole-DP scale-down | `fault_exception_pause_scale_down.sh` | `fault-exception-pause-scale-down` | 36/36 (`suite-7375c482ba-fault-exception-pause-scale-down-r1`) | PASS ON `7375c482ba` |
+| Kill one member when A*C>1 and shut down its complete DP | `fault_tpgt1_whole_dp_shutdown.sh` | `fault-tpgt1-whole-dp-shutdown` | 30/30 (`suite-7375c482ba-fault-tpgt1-whole-dp-shutdown-r2`) | PASS ON `7375c482ba` |
+| Kill an in-flight stream with continue | `fault_kill_continue_inflight.sh` | `fault-kill-continue-inflight` | 20/20 (`suite-7375c482ba-fault-kill-continue-inflight-r1`) | PASS ON `7375c482ba` |
+| Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | 31/31 (`suite-7375c482ba-fault-kill-pause-double-scale-down-r1`) | PASS ON `7375c482ba` |
+| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | Qwen r384 4→3→2→1, 43/43 (`suite-7375c482ba-fault-kill-pause-continuous-scale-down-r1`) | PASS ON `7375c482ba` |
+| Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | DP1 fault/scale-down with DP0 retained, 41/41 (`suite-7375c482ba-fault-rejection-contracts-r1`) | PASS ON `7375c482ba` |
+| Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | inactive admission, automatic recovery and precision, 50/50 (`suite-7375c482ba-fault-kill-continue-whole-node-rejoin-r1`) | PASS ON `7375c482ba` |
+| Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | inactive admission, automatic recovery and precision, 62/62 (`suite-7375c482ba-fault-kill-pause-scale-down-then-rejoin-r2`) | PASS ON `7375c482ba` |
+| In-flight kill, explicit scale-down, and rejoin with decode-only CUDA Graph | `fault_kill_pause_scale_down_then_rejoin_cudagraph.sh` | `fault-kill-pause-scale-down-then-rejoin-cudagraph` | replacement decode graph capture failed with `cudaErrorStreamCaptureUnjoined`, 53 pass / 1 functional failure (`suite-7375c482ba-fault-kill-pause-scale-down-then-rejoin-cudagraph-r3`) | PRODUCT BUG / DECISION REQUIRED |
+| Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | 23/23 (`suite-7375c482ba-fault-exception-continue-discard-resume-r1`) | PASS ON `7375c482ba` |
+| Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | 22/22 (`suite-7375c482ba-fault-exception-pause-retry-timeout-r1`) | PASS ON `7375c482ba` |
 
 The legacy kill-to-retry executable contracts are intentionally removed. Killing a process is
 outside retry's supported preconditions, so those scenarios must not be run as substitutes
