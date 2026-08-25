@@ -64,3 +64,36 @@ its canonical `output_ids`. A test run must never register its own output as pas
 Strict token equality is reserved for dedicated precision-attribution runs with matched
 native no-FT controls. Use a distinct flat profile, task root and artifact root for each
 model and configuration.
+
+## Ascend (NPU) runtime kernel selection and smoke verification
+
+The committed FT cases above are CUDA-flow oriented. On an Ascend/NPU host the same
+sglang service should be verified against the **selected** NPU kernel build, using the
+`build-sgl-kernel-npu` and `ascend-sglang-env-replication` skills. Follow this general
+path (values are profile/config-driven, not literal constants):
+
+1. In the Ascend container, `source <ascend-toolkit>/set_env.sh` (e.g.
+   `/usr/local/Ascend/ascend-toolkit/set_env.sh`) so `libhccl.so` and the CANN solver
+   resolve.
+2. Select the kernel version root via
+   `skills/build-sgl-kernel-npu/scripts/npu-runtime-prep.sh` (or the equivalent:
+   `PYTHONNOUSERSITE=1`, the immutable version root **first** on `PYTHONPATH`, then
+   verify `sgl_kernel_npu` / `deep_ep` / `deep_ep_cpp` `. __file__` all resolve inside
+   that root and that `importlib.metadata.version` matches the root's `dist-info`).
+   See that skill for the `deep_ep_cpp` top-level shadowing pitfall and its top-level
+   `.so` fix.
+3. Restrict to the dies/GPUs the task owns with the Ascend device selector
+   (`ASCEND_RT_VISIBLE_DEVICES`), pick a free port, and launch
+   `python3 -m sglang.launch_server` with a **non-FT** flag set when the installed
+   sglang build lacks the FT/elastic-EP/`mooncake`-a2a machinery (drop
+   `--enable-fault-tolerance`, `--elastic-ep-backend`, use `--moe-a2a-backend deepep`
+   instead of `mooncake` when the compiled mooncake bindings are absent).
+4. Prove the service is actually on the selected nodes: `npu-smi` shows elevated HBM
+   only on the owned dies; `sglangschedul` workers map to exactly them.
+5. Pass gates: `/health_generate` returns 200 and `/generate` returns real text
+   without a forward-pass crash; then tear down only the launched process group and
+   confirm port + dies return to baseline.
+
+Do not assume the image's bundled kernel is the one you are testing — ALWAYS confirm
+the import path resolves to the selected version root (the image commonly carries an
+older `sgl_kernel_npu`/`deep_ep` under `site-packages`).

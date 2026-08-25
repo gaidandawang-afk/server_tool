@@ -56,3 +56,36 @@ import. To switch to a freshly compiled build, export the immutable version root
   as a torch_npu custom op (`torch_npu.npu_moe_distribute_dispatch_v2`) by the `deep_ep`
   wheel rather than being a top-level module attribute, so module import + version +
   path are the authoritative validation surface.
+
+## Runtime pitfall: `deep_ep_cpp` top-level module shadowing
+
+The `deep_ep` wheel ships its compiled `deep_ep_cpp*.so` only **inside** the
+`deep_ep/` package (`top_level.txt = deep_ep`), but the wheel's own code does a
+**top-level `import deep_ep_cpp`** (`deep_ep/buffer.py`,
+`deep_ep/strategies/low_latency_strategy.py`). So even with our immutable version
+root first on `PYTHONPATH`:
+
+- `import deep_ep` / `import sgl_kernel_npu` resolve inside our root, BUT
+- `import deep_ep_cpp` falls through to whichever top-level `deep_ep_cpp*.so`
+  exists **earlier on `PYTHONPATH`/`sys.path`** — on an image that already carries
+  an older NPU kernel build under `site-packages`, that stale `.so` wins.
+
+A stale `.so` built from different source is NOT ABI/API-compatible: the container's
+old `low_latency_dispatch` may accept 10 positional args while the freshly built
+Python strategy passes 12, crashing on the first forward pass with
+`low_latency_dispatch(): incompatible function arguments`. `build.sh` will not fix
+this on its own — the fresh wheel is already internally consistent (12-arg `.so`
+matching 12-arg Python); it is purely a module-layout/packaging gap.
+
+**Fix:** after installing the version root, make the correct `.so` importable at the
+version-root **top level**, so `import deep_ep_cpp` finds it before any
+`site-packages` copy:
+
+```bash
+cp "$SGLANG_KERNEL_NPU_ROOT/deep_ep/deep_ep_cpp"*.so \
+   "$SGLANG_KERNEL_NPU_ROOT/deep_ep_cpp"*.so
+```
+
+Then verify at runtime that `deep_ep_cpp.__file__` / `deep_ep.__file__` /
+`sgl_kernel_npu.__file__` all resolve **inside** the selected version root (not
+`site-packages`). Consider feeding this packaging gap back upstream.

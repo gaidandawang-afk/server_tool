@@ -64,6 +64,16 @@ skills/build-sgl-kernel-npu/scripts/install-wheels.sh \
 `/latest`, makes the root immutable (`chmod -R a-w`) and writes a multi-wheel SHA256
 `server-tool-install.txt`.
 
+**Prefix constraint / data-root adapter.** `install-wheels.sh` hard-checks the target
+version-root against the literal prefix `/data2/iws/deps/sgl-kernel-npu/*`. When a
+host's authoritative data root is not `/data2` (e.g. an Ascend node whose tooling
+uses `/new_data/iws`, with the container mounting `/new_data` at `/data2`), run the
+installer **inside the container** so `/data2/iws/deps/...` resolves to the host's
+real root; the resulting root still lives under the host data root. Do not
+silently bypass the overwrite-refusal or immutability checks. Also check the shipped
+script for CRLF line endings on a Windows git checkout (bash rejects
+`set -Eeuo pipefail\r`); convert CRLF→LF before running if needed.
+
 ## Runtime selection
 
 There is no environment variable for kernel selection and no sglang source change.
