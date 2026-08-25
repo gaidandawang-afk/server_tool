@@ -63,9 +63,9 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
   admission_blocks_generate 90
 
 sg_apply_scale_down_ranks "$port" "1,2" \
-  "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
-sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
-  "0=healthy,1=dead,2=dead,3=healthy" 120 status_scaled_down
+  "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json" \
+  "$run_dir/status-scaled-down.json" "0=healthy,1=dead,2=dead,3=healthy" \
+  120 status_scaled_down
 st_assert_process_count "$server_pgid" "sglang::scheduler" 2 schedulers_after_scale_down
 
 for rank in 1 2; do

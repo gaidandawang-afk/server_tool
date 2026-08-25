@@ -1,6 +1,6 @@
 # Whole-DP scale-down and complete node-group rejoin
 
-Applicable source branch: SGLang `codex/ft-self-pause-minimal-simplify` at
+Applicable source branch: SGLang `codex/ft-vllm-api-refactor` at
 clean local HEAD with the Mooncake branch and wheel selected by the profile.
 
 Validate the Mooncake Elastic EP FT source branch, kernel and Mooncake roots selected by the
@@ -37,8 +37,9 @@ but each variant requires its own run name and artifact directory.
    `unhealthy` after observing the failed in-flight collective, and prove admission returns
    HTTP 503. Survivors execute different collective phases, so the test does not require all
    three to report the same failure before scale-down.
-3. Apply `scale_down([3])`, remain `0=healthy,1=healthy,2=healthy,3=dead`, keep exactly the
-   three survivor groups, reject DP3 routing with HTTP 400, and generate correctly on DP0.
+3. Submit `scale_down([3])`, require HTTP 202 with the matching request ID, and poll until
+   `0=healthy,1=healthy,2=healthy,3=dead`. Keep exactly the three survivor groups, reject DP3
+   routing with HTTP 400, and generate correctly on DP0.
 4. Only after the loss is committed by scale-down, start a complete NNODES=4 node-3 rejoin
    process group. Require its Scheduler process to exist while DP3 remains `dead` and
    unroutable, then wait for the joiner to log that it has entered process-group recovery

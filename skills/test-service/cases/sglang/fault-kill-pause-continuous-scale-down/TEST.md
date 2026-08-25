@@ -14,14 +14,9 @@ applicable to this single-survivor case.
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-minimal-simplify`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-vllm-api-refactor`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on four profile-selected GPUs
 - Repetition for branch-usability validation: three independent cold runs; all three must pass
-
-For an explicit historical-code A/B only, a profile may set
-`SGLANG_FT_INCIDENT_STATE_SCHEMA=legacy-paused` together with the legacy apply-request
-schema. This changes only the pre-apply status oracle needed by the old public `paused`
-state; it does not make that source branch an applicable current-architecture validation.
 
 ## Ordered gates
 
@@ -34,8 +29,9 @@ state; it does not make that source branch an applicable current-architecture va
      a central HTTP 503 or process-DOWN observation is not a substitute for this Scheduler
      self-pause barrier;
    - prove the incident admission gate returns HTTP 503;
-   - apply whole-DP scale-down only for the newly dead rank;
-   - reach the cumulative dead set with every survivor healthy;
+   - submit whole-DP scale-down only for the newly dead rank and require HTTP 202 with the
+     matching request ID;
+   - poll the full engine topology to the cumulative dead set with every survivor healthy;
    - confirm the scheduler count decreased by exactly one;
    - route a request to DP0 and match its registered ten-token oracle.
 3. Finish at `0=healthy,1=dead,2=dead,3=dead` with one scheduler.

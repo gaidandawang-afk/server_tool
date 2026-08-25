@@ -2,7 +2,7 @@
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-minimal-simplify`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-vllm-api-refactor`; revalidate its exact selected HEAD
 - TP=4, DP=4, EP=4 on the four profile-selected GPUs
 - Fault tolerance strategy: `pause`
 - Repetition for this validation round: one cold run
@@ -16,8 +16,9 @@
 4. Require the triggering request to return HTTP 503 and observe the completion record.
 5. Reach `0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy` and prove admission remains
    closed with HTTP 503.
-6. Apply `scale_down([2])`. The operation must prepare the survivor topology and actively
-   shut down DP2's complete Scheduler block.
+6. Submit `scale_down([2])`, require HTTP 202 with the matching request ID, then poll the
+   full engine topology. The operation must prepare the survivors and actively shut down
+   DP2's complete Scheduler block.
 7. Reach `0=healthy,1=healthy,2=dead,3=healthy` with exactly three schedulers and no
    remaining global rank 2 process.
 8. Require DP2 routing to return HTTP 400.

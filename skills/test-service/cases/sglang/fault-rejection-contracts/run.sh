@@ -38,13 +38,22 @@ sg_prepare_dp4_runtime
 sg_write_rank_request "$run_dir/request-dp0.json" 0 10
 sg_write_rank_request "$run_dir/request-dp1.json" 1 10
 cat >"$run_dir/scale-down-no-incident-request.json" <<'JSON'
-{"instruction":"scale_down","params":{"timeout":180,"ranks":[1]}}
+{"instruction":"scale_down","params":{"removed_dp_ranks":[1]},"request_id":"scale-down-no-incident"}
 JSON
 cat >"$run_dir/scale-down-empty-request.json" <<'JSON'
-{"instruction":"scale_down","params":{"timeout":180,"ranks":[]}}
+{"instruction":"scale_down","params":{"removed_dp_ranks":[]},"request_id":"scale-down-empty"}
+JSON
+cat >"$run_dir/scale-down-dp0-request.json" <<'JSON'
+{"instruction":"scale_down","params":{"removed_dp_ranks":[0]},"request_id":"scale-down-dp0"}
 JSON
 cat >"$run_dir/recover-request.json" <<'JSON'
-{"instruction":"recover","params":{"timeout":180,"ranks":[1]}}
+{"instruction":"recover","params":{},"request_id":"recover-unsupported"}
+JSON
+cat >"$run_dir/scale-down-request.json" <<'JSON'
+{"instruction":"scale_down","params":{"removed_dp_ranks":[1]},"request_id":"scale-down-valid"}
+JSON
+cat >"$run_dir/busy-retry-request.json" <<'JSON'
+{"instruction":"retry","params":{},"request_id":"retry-while-busy"}
 JSON
 
 sg_launch_dp4_ft pause "$port" "$log_path" 0 "$trigger_file" "$done_file"
@@ -61,18 +70,33 @@ sg_assert_known_output_ids \
   "$run_dir/baseline-dp0-precision.json"
 
 st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
+  "$run_dir/scale-down-dp0-request.json" \
+  "$run_dir/scale-down-dp0-response.json" 202 \
+  scale_down_dp0_accepted 60
+sg_assert_ft_accepted_response \
+  "$run_dir/scale-down-dp0-response.json" scale-down-dp0 \
+  scale_down_dp0_accepted_response
+sg_wait_ft_error "$port" "$run_dir/status-after-dp0-rejection.json" \
+  scale-down-dp0 scale_down_dp_rank_0_not_supported \
+  "0=healthy,1=healthy,2=healthy,3=healthy" 30 scale_down_dp0_reason
+
+st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
   "$run_dir/scale-down-no-incident-request.json" \
-  "$run_dir/scale-down-no-incident-response.json" 400 \
-  scale_down_requires_incident 60
-sg_assert_ft_failure_message \
-  "$run_dir/scale-down-no-incident-response.json" scale_down_requires_incident \
+  "$run_dir/scale-down-no-incident-response.json" 202 \
+  scale_down_no_incident_accepted 60
+sg_assert_ft_accepted_response \
+  "$run_dir/scale-down-no-incident-response.json" scale-down-no-incident \
+  scale_down_no_incident_accepted_response
+sg_wait_ft_error "$port" "$run_dir/status-after-no-incident-rejection.json" \
+  scale-down-no-incident scale_down_requires_incident \
+  "0=healthy,1=healthy,2=healthy,3=healthy" 30 \
   scale_down_requires_incident_reason
 st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
   "$run_dir/recover-request.json" "$run_dir/recover-before-disabled-response.json" \
   400 recover_before_disabled 60
 sg_assert_ft_failure_message \
   "$run_dir/recover-before-disabled-response.json" \
-  "invalid params: unsupported instruction: recover" recover_before_disabled_reason
+  "Invalid instruction: 'recover'." recover_before_disabled_reason
 sg_wait_ft_status "$port" "$run_dir/status-after-steady-rejections.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 30 \
   status_unchanged_after_steady_rejections
@@ -90,18 +114,30 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
 
 st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
   "$run_dir/scale-down-empty-request.json" "$run_dir/scale-down-empty-response.json" \
-  400 scale_down_empty 60
-sg_assert_ft_failure_message \
-  "$run_dir/scale-down-empty-response.json" scale_down_requires_ranks \
-  scale_down_empty_reason
-sg_wait_ft_status "$port" "$run_dir/status-after-empty-rejection.json" \
+  202 scale_down_empty_accepted 60
+sg_assert_ft_accepted_response \
+  "$run_dir/scale-down-empty-response.json" scale-down-empty \
+  scale_down_empty_accepted_response
+sg_wait_ft_error "$port" "$run_dir/status-after-empty-rejection.json" \
+  scale-down-empty scale_down_requires_ranks \
   "0=unhealthy,1=unhealthy,2=unhealthy,3=unhealthy" 30 \
-  status_unchanged_after_empty_rejection
+  scale_down_empty_reason
 
-sg_apply_scale_down "$port" 1 \
-  "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json"
+st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
+  "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json" \
+  202 scale_down_accepted 60
+sg_assert_ft_accepted_response \
+  "$run_dir/scale-down-response.json" scale-down-valid \
+  scale_down_accepted_response
+st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
+  "$run_dir/busy-retry-request.json" "$run_dir/busy-retry-response.json" \
+  409 concurrent_operation_rejected 60
+sg_assert_ft_failure_message \
+  "$run_dir/busy-retry-response.json" ft_operation_in_progress \
+  concurrent_operation_reason 409 Conflict
 sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
-  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_scaled_down
+  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_scaled_down \
+  scale-down-valid
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
   whole_dp1_shutdown_process_count
 
@@ -110,7 +146,7 @@ st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
   400 recover_before_rejoin 60
 sg_assert_ft_failure_message \
   "$run_dir/recover-before-rejoin-response.json" \
-  "invalid params: unsupported instruction: recover" recover_before_rejoin_reason
+  "Invalid instruction: 'recover'." recover_before_rejoin_reason
 sg_wait_ft_status "$port" "$run_dir/status-after-recover-rejection.json" \
   "0=healthy,1=dead,2=healthy,3=healthy" 30 \
   status_unchanged_after_recover_rejection

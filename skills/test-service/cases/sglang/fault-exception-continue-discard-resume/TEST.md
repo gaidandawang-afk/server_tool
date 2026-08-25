@@ -1,6 +1,6 @@
 # Recoverable exception with continue and discard
 
-Validate `codex/ft-self-pause-minimal-simplify` with
+Validate `codex/ft-vllm-api-refactor` with
 the kernel and Mooncake roots selected by the task profile. Use one bounded cold run for a
 branch-usability round; use two independent cold runs for a stability campaign.
 

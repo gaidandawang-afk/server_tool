@@ -1,6 +1,6 @@
 # Decode-only CUDA Graph in-flight kill, scale-down, and rejoin
 
-Applicable source branch: SGLang `codex/ft-self-pause-minimal-simplify` at clean
+Applicable source branch: SGLang `codex/ft-vllm-api-refactor` at clean
 local HEAD with the Mooncake branch and wheel selected by the profile. The
 Mooncake source must include the deferred-recovery CUDA Graph compatibility
 changes under validation.
@@ -28,8 +28,9 @@ begun, kill the complete rank-3 process group, explicitly apply
    inference before fault injection.
 2. Start the DP0 stream and observe a decode token before killing only the owned
    rank-3 process group. Require an incident state and HTTP 503 admission closure.
-3. Apply `scale_down([3])`; require three healthy survivors, DP3 route closure,
-   and a correct post-shrink DP0 generation.
+3. Submit `scale_down([3])`, require HTTP 202 with the matching request ID, and poll until
+   three survivors are healthy and DP3 is dead; require route closure and a correct
+   post-shrink DP0 generation.
 4. Start replacement rank 3. Require its deferred local native fast path and its
    one decode graph capture to finish before process-group recovery join begins.
 5. Drive survivor recovery, require all four routes healthy, and validate DP3 and

@@ -162,7 +162,7 @@ class SGLangCaseContractTests(unittest.TestCase):
                 self.assertTrue((case_root / "run.sh").is_file())
                 test_text = (case_root / "TEST.md").read_text(encoding="utf-8")
                 run_text = (case_root / "run.sh").read_text(encoding="utf-8")
-                self.assertIn("codex/ft-self-pause-minimal-simplify", test_text)
+                self.assertIn("codex/ft-vllm-api-refactor", test_text)
                 self.assertIn("assertions", test_text)
                 self.assertNotRegex(run_text, r"REMOTE_AGENT|remote-agent")
 
@@ -172,7 +172,10 @@ class SGLangCaseContractTests(unittest.TestCase):
             (case_root / name).read_text(encoding="utf-8")
             for name in ("TEST.md", "run.sh")
         )
-        self.assertIn("invalid params: unsupported instruction: recover", content)
+        self.assertIn("Invalid instruction: 'recover'.", content)
+        self.assertIn("scale_down_dp_rank_0_not_supported", content)
+        self.assertIn("ft_operation_in_progress", content)
+        self.assertIn("409", content)
         self.assertNotIn("recover_requires_disabled_ranks", content)
 
     def test_kill_retry_contracts_are_not_executable(self):
@@ -215,13 +218,6 @@ class SGLangCaseContractTests(unittest.TestCase):
                     path.read_text(encoding="utf-8")
                     for path in (case_root / "TEST.md", case_root / "run.sh")
                 )
-                if case_root.name == "fault-kill-pause-continuous-scale-down":
-                    self.assertIn(
-                        'incident_state_schema="${SGLANG_FT_INCIDENT_STATE_SCHEMA:-self-pause}"',
-                        content,
-                    )
-                    self.assertIn("0=unhealthy,1=dead,2=unhealthy,3=unhealthy", content)
-                    continue
                 self.assertNotIn("=paused", content)
 
     def test_default_precision_oracles_exist_and_cases_use_resolver(self):
@@ -375,7 +371,7 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
 
-    def test_fault_tolerance_apply_payloads_support_current_and_legacy_schema(self):
+    def test_fault_tolerance_apply_payloads_use_async_vllm_schema(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         ).read_text(encoding="utf-8")
@@ -401,15 +397,20 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertNotIn("fault_tolerance_instruction", rejection_case)
         self.assertNotIn("fault_tolerance_params", rejection_case)
         self.assertNotIn("fault_tolerance_timeout", rejection_case)
+        self.assertNotIn('"params": {"timeout"', unit)
+        self.assertNotIn("SGLANG_FT_APPLY_REQUEST_SCHEMA", unit)
         self.assertIn('"instruction": "scale_down"', unit)
-        self.assertIn('"fault_tolerance_instruction": "scale_down"', unit)
-        self.assertIn('SGLANG_FT_APPLY_REQUEST_SCHEMA', unit)
+        self.assertIn('"removed_dp_ranks"', unit)
+        self.assertIn('"request_id": request_id', unit)
         self.assertIn('"instruction": "retry"', unit)
-        self.assertIn('"instruction": "recover"', unit)
+        self.assertIn('"params": {}', unit)
+        self.assertNotIn('"instruction": "recover"', unit)
+        self.assertIn('data["engines"]', unit)
+        self.assertIn('local sg_request_id="${6:-}"', unit)
         self.assertIn("sg_apply_retry", exception_retry_case)
-        self.assertNotIn('"instruction":"retry"', rejection_case)
+        self.assertIn('"instruction":"retry"', rejection_case)
 
-    def test_continuous_scale_down_supports_legacy_status_control(self):
+    def test_continuous_scale_down_uses_vllm_unhealthy_status(self):
         case = (
             REPO_ROOT
             / "skills"
@@ -419,9 +420,9 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
             / "fault-kill-pause-continuous-scale-down"
             / "run.sh"
         ).read_text(encoding="utf-8")
-        self.assertIn("SGLANG_FT_INCIDENT_STATE_SCHEMA", case)
-        self.assertIn("legacy-paused", case)
-        self.assertIn("0=paused,1=dead,2=paused,3=paused", case)
+        self.assertNotIn("SGLANG_FT_INCIDENT_STATE_SCHEMA", case)
+        self.assertNotIn("=paused", case)
+        self.assertIn("0=unhealthy,1=dead,2=unhealthy,3=unhealthy", case)
 
     def test_idle_scale_down_uses_process_loss_without_survivor_forward(self):
         case = (

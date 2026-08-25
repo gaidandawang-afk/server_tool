@@ -878,18 +878,40 @@ sg_wait_ft_status() {
   local sg_expected="$3"
   local sg_timeout_sec="$4"
   local sg_label="$5"
+  local sg_request_id="${6:-}"
   local sg_end=$((SECONDS + sg_timeout_sec))
   local sg_actual=""
   while (( SECONDS < sg_end )); do
     if curl -fsS --connect-timeout 2 --max-time 5 \
       "http://127.0.0.1:${sg_port}/fault_tolerance/status" -o "$sg_output"; then
-      sg_actual="$(python3 - "$sg_output" <<'PY'
+      sg_actual="$(python3 - "$sg_output" "$sg_request_id" <<'PY'
 import json
 import sys
 data = json.load(open(sys.argv[1], encoding="utf-8"))
-print(",".join(f"{item['rank']}={item['state']}" for item in data["ranks"]))
+request_id = sys.argv[2]
+engines = data["engines"]
+if data.get("schema_version") != 1 or data.get("total_engines") != len(engines):
+    raise SystemExit("invalid fault-tolerance status schema")
+states = ",".join(f"{item['id']}={item['status']}" for item in engines)
+errors = sorted(
+    {
+        item["ft_error"]
+        for item in engines
+        if request_id
+        and item.get("last_ft_request_id") == request_id
+        and item.get("ft_error")
+    }
+)
+if errors:
+    print(f"error\t{','.join(errors)};states={states}")
+else:
+    print(states)
 PY
 )"
+      if [[ "$sg_actual" == error$'\t'* ]]; then
+        st_assert "$sg_label" false "$sg_expected" \
+          "request_id=${sg_request_id},ft_error=${sg_actual#*$'\t'}"
+      fi
       if [[ "|$sg_expected|" == *"|$sg_actual|"* ]]; then
         st_assert "$sg_label" true "$sg_expected" "$sg_actual"
         return 0
@@ -900,12 +922,89 @@ PY
   st_assert "$sg_label" false "$sg_expected" "${sg_actual:-unavailable}"
 }
 
+sg_assert_ft_accepted_response() {
+  local sg_response="$1"
+  local sg_request_id="$2"
+  local sg_label="$3"
+  local sg_actual sg_code
+  set +e
+  sg_actual="$(python3 - "$sg_response" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+print(f"message={data.get('message')},request_id={data.get('request_id')}")
+PY
+)"
+  sg_code="$?"
+  set -e
+  local sg_expected="message=Request accepted; poll /fault_tolerance/status for updates.,request_id=${sg_request_id}"
+  if [[ "$sg_code" -eq 0 && "$sg_actual" == "$sg_expected" ]]; then
+    st_assert "$sg_label" true "$sg_expected" "$sg_actual"
+  else
+    st_assert "$sg_label" false "$sg_expected" "${sg_actual:-invalid_json}"
+  fi
+}
+
+sg_wait_ft_error() {
+  local sg_port="$1"
+  local sg_output="$2"
+  local sg_request_id="$3"
+  local sg_expected_error="$4"
+  local sg_expected_status="$5"
+  local sg_timeout_sec="$6"
+  local sg_label="$7"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_actual=""
+  while (( SECONDS < sg_end )); do
+    if curl -fsS --connect-timeout 2 --max-time 5 \
+      "http://127.0.0.1:${sg_port}/fault_tolerance/status" -o "$sg_output"; then
+      set +e
+      sg_actual="$(python3 - "$sg_output" "$sg_request_id" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+request_id = sys.argv[2]
+engines = data["engines"]
+if data.get("schema_version") != 1 or data.get("total_engines") != len(engines):
+    raise SystemExit("invalid fault-tolerance status schema")
+states = ",".join(f"{item['id']}={item['status']}" for item in engines)
+reports = {
+    (item.get("last_ft_request_id"), item.get("ft_error")) for item in engines
+}
+if len(reports) != 1:
+    raise SystemExit("fault-tolerance error is not aggregated across all engines")
+reported_request_id, error = reports.pop()
+print(f"request_id={reported_request_id},ft_error={error},states={states}")
+PY
+)"
+      local sg_parse_code="$?"
+      set -e
+      local sg_expected="request_id=${sg_request_id},ft_error=${sg_expected_error},states=${sg_expected_status}"
+      if [[ "$sg_parse_code" -eq 0 && "$sg_actual" == "$sg_expected" ]]; then
+        st_assert "$sg_label" true "$sg_expected" "$sg_actual"
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+  st_assert "$sg_label" false \
+    "request_id=${sg_request_id},ft_error=${sg_expected_error},states=${sg_expected_status}" \
+    "${sg_actual:-unavailable}"
+}
+
 sg_apply_scale_down() {
   local sg_port="$1"
   local sg_rank="$2"
   local sg_request="$3"
   local sg_response="$4"
-  sg_apply_scale_down_ranks "$sg_port" "$sg_rank" "$sg_request" "$sg_response"
+  local sg_status="$5"
+  local sg_expected="$6"
+  local sg_timeout_sec="${7:-180}"
+  local sg_label="${8:-scale_down}"
+  sg_apply_scale_down_ranks "$sg_port" "$sg_rank" "$sg_request" "$sg_response" \
+    "$sg_status" "$sg_expected" "$sg_timeout_sec" "$sg_label"
 }
 
 sg_apply_scale_down_ranks() {
@@ -913,80 +1012,73 @@ sg_apply_scale_down_ranks() {
   local sg_ranks="$2"
   local sg_request="$3"
   local sg_response="$4"
-  local sg_apply_schema="${SGLANG_FT_APPLY_REQUEST_SCHEMA:-current}"
-  python3 - "$sg_request" "$sg_ranks" "$sg_apply_schema" <<'PY'
+  local sg_status="$5"
+  local sg_expected="$6"
+  local sg_timeout_sec="${7:-180}"
+  local sg_label="${8:-scale_down}"
+  local sg_request_id
+  sg_request_id="$(python3 - "$sg_request" "$sg_ranks" <<'PY'
 import json
 import sys
-schema = sys.argv[3]
-if schema == "legacy":
-    payload = {
-        "fault_tolerance_instruction": "scale_down",
-        "fault_tolerance_timeout": 180,
-        "fault_tolerance_params": {
-            "ranks": [int(value) for value in sys.argv[2].split(",")],
-        },
-    }
-elif schema == "current":
-    payload = {
-        "instruction": "scale_down",
-        "params": {
-            "timeout": 180,
-            "ranks": [int(value) for value in sys.argv[2].split(",")],
-        },
-    }
-else:
-    raise SystemExit(f"unsupported SGLANG_FT_APPLY_REQUEST_SCHEMA={schema!r}")
+import uuid
+
+request_id = f"scale-down-{uuid.uuid4().hex}"
+payload = {
+    "instruction": "scale_down",
+    "params": {
+        "removed_dp_ranks": [int(value) for value in sys.argv[2].split(",")],
+    },
+    "request_id": request_id,
+}
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
     json.dump(payload, handle, separators=(",", ":"))
     handle.write("\n")
+print(request_id)
 PY
+)"
   st_http_json POST "http://127.0.0.1:${sg_port}/fault_tolerance/apply" \
-    "$sg_request" "$sg_response" 200 scale_down_apply 180
+    "$sg_request" "$sg_response" 202 "${sg_label}_accepted" 60
+  sg_assert_ft_accepted_response "$sg_response" "$sg_request_id" \
+    "${sg_label}_accepted_response"
+  sg_wait_ft_status "$sg_port" "$sg_status" "$sg_expected" "$sg_timeout_sec" \
+    "${sg_label}_complete" "$sg_request_id"
 }
 
 sg_apply_retry() {
   local sg_port="$1"
   local sg_request="$2"
   local sg_response="$3"
-  python3 - "$sg_request" <<'PY'
+  local sg_status="$4"
+  local sg_expected="$5"
+  local sg_timeout_sec="${6:-180}"
+  local sg_label="${7:-retry}"
+  local sg_request_id
+  sg_request_id="$(python3 - "$sg_request" <<'PY'
 import json
 import sys
+import uuid
+
+request_id = f"retry-{uuid.uuid4().hex}"
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
     json.dump(
         {
             "instruction": "retry",
-            "params": {"timeout": 180},
+            "params": {},
+            "request_id": request_id,
         },
         handle,
         separators=(",", ":"),
     )
     handle.write("\n")
+print(request_id)
 PY
+)"
   st_http_json POST "http://127.0.0.1:${sg_port}/fault_tolerance/apply" \
-    "$sg_request" "$sg_response" 200 retry_apply 180
-}
-
-sg_apply_recover() {
-  local sg_port="$1"
-  local sg_rank="$2"
-  local sg_request="$3"
-  local sg_response="$4"
-  python3 - "$sg_request" "$sg_rank" <<'PY'
-import json
-import sys
-with open(sys.argv[1], "w", encoding="utf-8") as handle:
-    json.dump(
-        {
-            "instruction": "recover",
-            "params": {"timeout": 180, "ranks": [int(sys.argv[2])]},
-        },
-        handle,
-        separators=(",", ":"),
-    )
-    handle.write("\n")
-PY
-  st_http_json POST "http://127.0.0.1:${sg_port}/fault_tolerance/apply" \
-    "$sg_request" "$sg_response" 200 recover_apply 180
+    "$sg_request" "$sg_response" 202 "${sg_label}_accepted" 60
+  sg_assert_ft_accepted_response "$sg_response" "$sg_request_id" \
+    "${sg_label}_accepted_response"
+  sg_wait_ft_status "$sg_port" "$sg_status" "$sg_expected" "$sg_timeout_sec" \
+    "${sg_label}_complete" "$sg_request_id"
 }
 
 sg_assert_log_count() {
@@ -1033,6 +1125,8 @@ sg_assert_ft_failure_message() {
   local sg_response="$1"
   local sg_expected="$2"
   local sg_label="$3"
+  local sg_expected_code="${4:-400}"
+  local sg_expected_type="${5:-Bad Request}"
   local sg_actual sg_code
   set +e
   sg_actual="$(python3 - "$sg_response" <<'PY'
@@ -1040,16 +1134,17 @@ import json
 import sys
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
-print(f"success={str(data.get('success')).lower()},message={data.get('message')}")
+error = data.get("error", {})
+print(f"message={error.get('message')},type={error.get('type')},param={error.get('param')},code={error.get('code')}")
 PY
 )"
   sg_code="$?"
   set -e
-  if [[ "$sg_code" -eq 0 &&
-        "$sg_actual" == "success=false,message=${sg_expected}" ]]; then
-    st_assert "$sg_label" true "success=false,message=${sg_expected}" "$sg_actual"
+  local sg_expected_envelope="message=${sg_expected},type=${sg_expected_type},param=None,code=${sg_expected_code}"
+  if [[ "$sg_code" -eq 0 && "$sg_actual" == "$sg_expected_envelope" ]]; then
+    st_assert "$sg_label" true "$sg_expected_envelope" "$sg_actual"
   else
-    st_assert "$sg_label" false "success=false,message=${sg_expected}" \
+    st_assert "$sg_label" false "$sg_expected_envelope" \
       "${sg_actual:-invalid_json}"
   fi
 }

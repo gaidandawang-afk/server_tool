@@ -2,7 +2,7 @@
 
 ## Applicability
 
-- Source branch: `codex/ft-self-pause-minimal-simplify`; revalidate its exact selected HEAD
+- Source branch: `codex/ft-vllm-api-refactor`; revalidate its exact selected HEAD
 - TP=4, DP=2, EP=4 on the four profile-selected GPUs
 - Attention TP=2, so each routed DP owns two global Scheduler siblings
 - Fault tolerance strategy: `pause`
@@ -16,7 +16,8 @@
 3. Record global rank 3, then externally kill global rank 2 in the same DP1 block.
 4. Reach `0=healthy,1=dead`, retain rank 3 only as a pre-apply sibling, and prove admission
    is closed with HTTP 503.
-5. Apply `scale_down([1])` with HTTP 200.
+5. Submit `scale_down([1])`, require HTTP 202 with the matching request ID, then poll the full
+   engine topology.
 6. Require the whole-DP shutdown barrier to remove both global ranks 2 and 3, leaving exactly
    two DP0 schedulers. Rank 3 must not be retained.
 7. Remain `0=healthy,1=dead`, reject DP1 routing with HTTP 400, and generate successfully on

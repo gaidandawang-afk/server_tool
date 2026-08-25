@@ -1,8 +1,11 @@
 # SGLang self-pause and whole-DP FT case index
 
 This is the server_tool-owned index for the four-GPU DP-only FT regression set. The active
-contracts target `codex/ft-self-pause-minimal-simplify` and the architecture defined by
+contracts target `codex/ft-vllm-api-refactor` and the architecture defined by
 `SELF_PAUSE_WHOLE_DP_FT.md`. They must be validated against the exact selected source HEAD.
+
+**New API validation state:** pending on exact source `3126477656`. Historical results below
+belong to predecessor API commits and do not validate the asynchronous request/status contract.
 
 **Validation state:** historical exact source `b7c6f9229`, 2026-08-10. All fifteen then-active contracts
 have at least one bounded cold PASS on GPU 4,5,6,7. The corrected
@@ -25,7 +28,7 @@ bounded cold run with SGLang `codex/ft-self-pause-minimal-simplify`, Mooncake
 435/435 passing assertions. A separate DeepSeek r192 profile and independently attributed
 rank-0 precision oracle were then established for the continuous 4-to-1 contract. Its first
 cold acceptance run passed 38/38, but the second failed 26/28 after the second scale-down:
-apply returned HTTP 200 and status reported DP0/DP3 healthy, then the immediate DP0 generation
+the legacy synchronous apply completed and status reported DP0/DP3 healthy, then the immediate DP0 generation
 returned HTTP 503 with `Elastic EP membership loss detected before EPLB`. The continuous
 contract is therefore not stable on the current target and has not met its three-cold-run gate.
 
@@ -42,7 +45,7 @@ DPC sent to both DP0 and DP3, DP0 consumed the command and entered forced EPLB, 
 still draining Mooncake `op 5` and had not self-paused. Under the corrected ordering, each round
 used an in-flight DP0 stream to expose the membership fault, then observed respectively
 `0/2/3=unhealthy`, `0/3=unhealthy`, and `0=unhealthy` before apply. All survivor EPLB begin/end
-pairs completed, all three scale-down calls returned HTTP 200, and every post-round DP0
+pairs completed, all three legacy scale-down calls completed, and every post-round DP0
 precision check matched. Two further independent cold runs,
 `continuous-unhealthy-barrier-b7c6f9229-gpu4567-20260810-acceptance-01` and `-02`, each passed
 the same 38/38 assertions. The corrected contract therefore satisfies its three-cold-run
@@ -93,7 +96,7 @@ configuration.
 | Kill one member when A*C>1 and shut down its complete DP | `fault_tpgt1_whole_dp_shutdown.sh` | `fault-tpgt1-whole-dp-shutdown` | current formal branches: rank2 killed with sibling rank3 alive; scale-down removed both and retained DP0 precision, 27/27 (`formal-index-tpgt1-shutdown-r1`) | VALIDATED ON CURRENT TARGET |
 | Kill an in-flight stream with continue | `fault_kill_continue_inflight.sh` | `fault-kill-continue-inflight` | current formal branches: rank1 stream interrupted, DP1 dead, DP0 continued with matching precision, 19/19 (`formal-index-continue-inflight-r1`) | VALIDATED ON CURRENT TARGET |
 | Kill two schedulers and scale down both | `fault_kill_pause_double_scale_down.sh` | `fault-kill-pause-double-scale-down` | current formal branches: two idle kills preserved healthy survivors, one multi-rank scale-down removed DP1/DP2, DP0/DP3 precision passed, 26/26 (`formal-index-idle-double-scale-down-r1`) | VALIDATED ON CURRENT TARGET |
-| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | current formal branches, DeepSeek r192: independent baseline established the registered rank-0 oracle; acceptance-01 passed 38/38 through 4→3→2→1, but acceptance-02 failed 26/28 when a post-4→2 DP0 generation received a late membership-loss 503 after apply 200 and healthy status (`formal-continuous-r192-acceptance-01`, `formal-continuous-r192-acceptance-02`) | UNSTABLE ON CURRENT TARGET: 1 PASS, 1 FAIL |
+| Scale down three schedulers sequentially | `fault_kill_pause_continuous_scale_down.sh` | `fault-kill-pause-continuous-scale-down` | predecessor API, DeepSeek r192: independent baseline established the registered rank-0 oracle; acceptance-01 passed 38/38 through 4→3→2→1, but acceptance-02 failed 26/28 when a post-4→2 DP0 generation received a late membership-loss 503 after the legacy synchronous apply and healthy status (`formal-continuous-r192-acceptance-01`, `formal-continuous-r192-acceptance-02`) | HISTORICAL UNSTABLE: 1 PASS, 1 FAIL |
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | current formal branches: current error messages, four-unhealthy barrier, empty-rank rejection, scale-down, unsupported recover and post-scale-down precision passed, 35/35 (`formal-index-rejection-r2`) | VALIDATED ON CURRENT TARGET |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | current formal branches: replacement remained dead/400 while native join waited, then automatic recovery restored four healthy routes and four-rank precision, 48/48 (`formal-index-continue-rejoin-r1`) | VALIDATED ON CURRENT TARGET |
 | Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | current target: kill and scale-down retained DP3 `dead`; replacement remained unroutable until native recovery; process/native/pending facts converged automatically to four-DP `healthy`; DP3 matched the independently registered #42 rejoin sequence; cleanup and source-clean gates passed, 58/58 (`formal-ft-rejoin-r1`) | VALIDATED ON CURRENT TARGET |

@@ -1,6 +1,6 @@
 # Fail-stop after an unattended exception pause
 
-Validate `codex/ft-self-pause-minimal-simplify` with the kernel and Mooncake roots selected by the
+Validate `codex/ft-vllm-api-refactor` with the kernel and Mooncake roots selected by the
 task profile. Use one bounded cold run for a
 branch-usability round; use two independent cold runs for a stability campaign.
 

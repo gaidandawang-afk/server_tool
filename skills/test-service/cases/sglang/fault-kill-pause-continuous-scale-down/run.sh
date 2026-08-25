@@ -9,7 +9,6 @@ readonly run_dir="$SERVER_TOOL_WORK_ROOT/case"
 readonly log_path="$SERVER_TOOL_OUTPUT_ROOT/server.log"
 readonly request_dp0="$run_dir/request-dp0.json"
 readonly stream_request_dp0="$run_dir/stream-request-dp0.json"
-readonly incident_state_schema="${SGLANG_FT_INCIDENT_STATE_SCHEMA:-self-pause}"
 server_pgid=""
 stream_pid=""
 
@@ -59,29 +58,11 @@ sg_assert_known_output_ids \
   "$(sg_precision_oracle_id 0)" \
   "$run_dir/baseline-dp0-precision.json"
 
-case "$incident_state_schema" in
-  self-pause)
-    declare -a incident_states=(
-      "0=unhealthy,1=dead,2=unhealthy,3=unhealthy"
-      "0=unhealthy,1=dead,2=dead,3=unhealthy"
-      "0=unhealthy,1=dead,2=dead,3=dead"
-    )
-    ;;
-  legacy-paused)
-    declare -a incident_states=(
-      "0=paused,1=dead,2=paused,3=paused"
-      "0=paused,1=dead,2=dead,3=paused"
-      "0=paused,1=dead,2=dead,3=dead"
-    )
-    ;;
-  *)
-    st_assert incident_state_schema false "self-pause|legacy-paused" \
-      "$incident_state_schema"
-    exit 1
-    ;;
-esac
-printf 'incident_state_schema=%s\n' "$incident_state_schema" \
-  >"$SERVER_TOOL_OUTPUT_ROOT/case-inputs.env"
+declare -a incident_states=(
+  "0=unhealthy,1=dead,2=unhealthy,3=unhealthy"
+  "0=unhealthy,1=dead,2=dead,3=unhealthy"
+  "0=unhealthy,1=dead,2=dead,3=dead"
+)
 declare -a healthy_states=(
   "0=healthy,1=dead,2=healthy,3=healthy"
   "0=healthy,1=dead,2=dead,3=healthy"
@@ -113,8 +94,8 @@ for target in 1 2 3; do
     "admission_closed_dp${target}" 90
   sg_apply_scale_down "$port" "$target" \
     "$run_dir/scale-down-dp${target}-request.json" \
-    "$run_dir/scale-down-dp${target}-response.json"
-  sg_wait_ft_status "$port" "$run_dir/status-dp${target}-scaled-down.json" \
+    "$run_dir/scale-down-dp${target}-response.json" \
+    "$run_dir/status-dp${target}-scaled-down.json" \
     "${healthy_states[$index]}" 120 "status_dp${target}_scaled_down"
   st_http_json POST "http://127.0.0.1:${port}/generate" \
     "$request_dp0" "$run_dir/after-dp${target}-dp0.json" 200 \
