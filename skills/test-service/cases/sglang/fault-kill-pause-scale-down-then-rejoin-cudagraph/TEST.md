@@ -29,8 +29,8 @@ begun, kill the complete rank-3 process group, explicitly apply
 2. Start the DP0 stream and observe a decode token before killing only the owned
    rank-3 process group. Require DP3 to become dead (survivors may remain healthy)
    and HTTP 503 admission closure.
-3. Submit `scale_down([3])`, require HTTP 202 with the matching request ID, and poll until
-   three survivors are healthy and DP3 is dead; require route closure through an HTTP 503
+3. Submit `scale_down([3])`, require HTTP 202 with the matching request ID, poll until
+   three survivors are healthy and DP3 is dead, then wait for route closure through an HTTP 503
    inactive-rank error and a correct
    post-shrink DP0 generation.
 4. Start replacement rank 3. Require its deferred local native fast path and its

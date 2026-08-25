@@ -467,7 +467,8 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
 
         self.assertIn("rejoin_waits_for_native_recovery", case)
         self.assertIn("rejoin_waiting_keeps_dp3_closed", case)
-        self.assertEqual(case.count("sg_assert_inactive_route_error"), 2)
+        self.assertEqual(case.count("sg_wait_inactive_route_error"), 1)
+        self.assertEqual(case.count("sg_assert_inactive_route_error"), 1)
         self.assertIn("rejoin_ready_for_recovery_forward", case)
         self.assertIn("Elastic EP recovery join process groups begin", case)
         self.assertIn("recovery_done_observed", case)

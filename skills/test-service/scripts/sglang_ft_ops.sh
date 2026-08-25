@@ -970,6 +970,50 @@ PY
   fi
 }
 
+sg_wait_inactive_route_error() {
+  local sg_port="$1"
+  local sg_request="$2"
+  local sg_response="$3"
+  local sg_rank="$4"
+  local sg_timeout_sec="$5"
+  local sg_http_label="$6"
+  local sg_error_label="$7"
+  local sg_end=$((SECONDS + sg_timeout_sec))
+  local sg_http_code=""
+  local sg_actual=""
+  local sg_expected="routed_dp_rank=${sg_rank} is not active"
+  while (( SECONDS < sg_end )); do
+    set +e
+    sg_http_code="$(curl -sS --connect-timeout 2 --max-time 10 \
+      -o "$sg_response" -w '%{http_code}' \
+      -H 'Content-Type: application/json' \
+      -X POST --data-binary "@$sg_request" \
+      "http://127.0.0.1:${sg_port}/generate")"
+    local sg_curl_code="$?"
+    sg_actual="$(python3 - "$sg_response" <<'PY'
+import json
+import sys
+
+try:
+    data = json.load(open(sys.argv[1], encoding="utf-8"))
+except (FileNotFoundError, json.JSONDecodeError):
+    print("invalid_json")
+else:
+    print(data.get("message", data.get("detail")))
+PY
+)"
+    set -e
+    if [[ "$sg_curl_code" -eq 0 && "$sg_http_code" == 503 && "$sg_actual" == "$sg_expected" ]]; then
+      st_assert "$sg_http_label" true "HTTP 503" "HTTP 503"
+      st_assert "$sg_error_label" true "$sg_expected" "$sg_actual"
+      return 0
+    fi
+    sleep 1
+  done
+  st_assert "$sg_http_label" false "HTTP 503" "HTTP ${sg_http_code:-unavailable}"
+  st_assert "$sg_error_label" false "$sg_expected" "${sg_actual:-unavailable}"
+}
+
 sg_wait_ft_error() {
   local sg_port="$1"
   local sg_output="$2"

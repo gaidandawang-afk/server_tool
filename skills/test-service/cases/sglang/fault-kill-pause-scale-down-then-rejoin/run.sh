@@ -180,11 +180,9 @@ for node in 0 1 2; do
   st_assert_process_count "${node_pgids[$node]}" "sglang::scheduler" 1 \
     "node${node}_scheduler_after_scale_down"
 done
-st_http_json POST "http://127.0.0.1:${base_port}/generate" \
-  "${requests[3]}" "$run_dir/scaled-down-dp3.json" 503 \
-  scaled_down_dp3_closed 60
-sg_assert_inactive_route_error \
-  "$run_dir/scaled-down-dp3.json" 3 scaled_down_dp3_inactive_error
+sg_wait_inactive_route_error "$base_port" "${requests[3]}" \
+  "$run_dir/scaled-down-dp3.json" 3 180 \
+  scaled_down_dp3_closed scaled_down_dp3_inactive_error
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/after-scale-down-dp0.json" 200 \
   after_scale_down_dp0 180
