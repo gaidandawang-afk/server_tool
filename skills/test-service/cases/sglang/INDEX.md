@@ -7,9 +7,10 @@ contracts target `codex/ft-vllm-api-refactor` and the architecture defined by
 **New API validation state:** partial validation on exact source `41f28a8031`, 2026-08-25, using
 GPU 4,5,6,7. Retry passed 32/32, single scale-down passed 32/32, double scale-down passed
 29/29, A*C>1 whole-DP shutdown passed 29/29, and Qwen r384 continuous 4->3->2->1 scale-down
-passed 43/43. The rejection contract's earlier 15/17 run included a rank-0 scale-down assertion;
-the current contract excludes rank 0 from fault injection and scale-down targets and requires
-fresh validation.
+passed 43/43. After excluding rank 0 from fault injection and scale-down targets, the rejection
+contract passed 40/40 in
+`ft-vllm-rejection-no-rank0-41f28a8031-gpu4567-20260825-r2`; its injected exception and valid
+scale-down both targeted DP1, while DP0 remained the surviving precision path.
 
 The originally handed-off source `3126477656` passed the rejection contract 43/43 before the
 SGLang branch was amended to `41f28a8031`. That run is retained as historical evidence only and
