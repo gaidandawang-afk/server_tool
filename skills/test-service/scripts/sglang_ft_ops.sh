@@ -893,6 +893,10 @@ engines = data["engines"]
 if data.get("schema_version") != 1 or data.get("total_engines") != len(engines):
     raise SystemExit("invalid fault-tolerance status schema")
 states = ",".join(f"{item['id']}={item['status']}" for item in engines)
+reported_request_ids = {item.get("last_ft_request_id") for item in engines}
+if request_id and reported_request_ids != {request_id}:
+    print(f"pending_request_id={','.join(str(value) for value in reported_request_ids)};states={states}")
+    raise SystemExit(0)
 errors = sorted(
     {
         item["ft_error"]

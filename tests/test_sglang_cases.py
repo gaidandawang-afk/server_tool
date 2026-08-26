@@ -28,6 +28,14 @@ RECOVERABLE_INJECT_ROOT = (
 
 
 class SGLangCaseContractTests(unittest.TestCase):
+    def test_ft_status_wait_correlates_successful_request_id(self):
+        helper = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('item.get("last_ft_request_id")', helper)
+        self.assertIn("reported_request_ids != {request_id}", helper)
+
     def test_ft_runtime_supports_explicit_tcp_fallback_mode(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
