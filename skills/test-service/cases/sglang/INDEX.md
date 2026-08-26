@@ -11,19 +11,23 @@ assertions. Inactive explicit routes now close at admission with HTTP 503 and ex
 or `detail`. A killed rank may be `dead` while every survivor remains `healthy`, so pause/rejoin
 contracts do not require an unrelated survivor to transiently report `unhealthy`.
 
-The remaining CUDA Graph rejoin contract is a product-code failure, not an API-contract
-mismatch. After scale-down completed, inactive DP3 routing returned the expected HTTP 503,
-DP0 inference and precision passed, and the replacement scheduler started. Replacement decode
-graph capture then failed with `cudaErrorStreamCaptureUnjoined` (`capturing stream has unjoined
-work`), preventing the deferred native fast path and rejoin. Evidence is
-`suite-7375c482ba-fault-kill-pause-scale-down-then-rejoin-cudagraph-r3` (53 passing assertions,
-failed gates `replacement_native_fast_path` and `case_result`).
+The remaining CUDA Graph rejoin run used an invalid dependency pairing rather than proving a
+SGLang API-refactor regression. The selected Mooncake `1569df4` predates both deferred-graph
+fixes used by the successful contract: `1ca33d50` prepares the replacement's local fast path
+before deferred connect, and `d727290c` skips inactive peers during graph capture. The exact
+historical pairing `f15b89fe4c + d727290c` passed the in-flight full-graph rejoin three times at
+83/83. With `7375c482ba + 1569df4`, the missing local-fast-path marker was followed by
+`cudaErrorStreamCaptureUnjoined` during replacement capture. Evidence is
+`suite-7375c482ba-fault-kill-pause-scale-down-then-rejoin-cudagraph-r3`; revalidate the API
+refactor with Mooncake `d727290c` or a descendant before classifying SGLang graph behavior.
 
-The asynchronous apply API also has an observability ambiguity requiring a design decision:
+The asynchronous apply API also has an observability ambiguity:
 the accepted response tells clients to poll `/fault_tolerance/status`, but a pre-existing
 `healthy,healthy,healthy,dead` state can satisfy that poll before the new scale-down request has
-actually completed, and the status response does not expose the accepted request ID on success.
-The rejoin contracts therefore use inactive-route admission as an additional completion barrier.
+actually completed, and source `7375c482ba` does not expose the accepted request ID on success.
+Debug commit `8a8860da82` retains successful request IDs in status with four product-code line
+changes; server_tool commit `d8ac716` requires the matching ID before accepting a status poll.
+Runtime validation is still required before promoting the SGLang change.
 
 **Historical new API validation state:** partial validation on exact source `41f28a8031`, 2026-08-25, using
 GPU 4,5,6,7. Retry passed 32/32, single scale-down passed 32/32, double scale-down passed
@@ -140,7 +144,7 @@ configuration.
 | Reject invalid FT API operations | `fault_rejection_contracts.sh` | `fault-rejection-contracts` | DP1 fault/scale-down with DP0 retained, 41/41 (`suite-7375c482ba-fault-rejection-contracts-r1`) | PASS ON `7375c482ba` |
 | Lose and rejoin a logical node with continue | `fault_kill_continue_whole_node_rejoin.sh` | `fault-kill-continue-whole-node-rejoin` | inactive admission, automatic recovery and precision, 50/50 (`suite-7375c482ba-fault-kill-continue-whole-node-rejoin-r1`) | PASS ON `7375c482ba` |
 | Scale down and rejoin a logical node with pause | `fault_kill_pause_scale_down_then_rejoin.sh` | `fault-kill-pause-scale-down-then-rejoin` | inactive admission, automatic recovery and precision, 62/62 (`suite-7375c482ba-fault-kill-pause-scale-down-then-rejoin-r2`) | PASS ON `7375c482ba` |
-| In-flight kill, explicit scale-down, and rejoin with decode-only CUDA Graph | `fault_kill_pause_scale_down_then_rejoin_cudagraph.sh` | `fault-kill-pause-scale-down-then-rejoin-cudagraph` | replacement decode graph capture failed with `cudaErrorStreamCaptureUnjoined`, 53 pass / 1 functional failure (`suite-7375c482ba-fault-kill-pause-scale-down-then-rejoin-cudagraph-r3`) | PRODUCT BUG / DECISION REQUIRED |
+| In-flight kill, explicit scale-down, and rejoin with decode-only CUDA Graph | `fault_kill_pause_scale_down_then_rejoin_cudagraph.sh` | `fault-kill-pause-scale-down-then-rejoin-cudagraph` | invalid pairing `7375c482ba + 1569df4` lacked Mooncake deferred-graph fixes and failed replacement capture; historical `f15b89fe4c + d727290c` passed three times at 83/83 | DEPENDENCY MISMATCH / REVALIDATION REQUIRED |
 | Recoverable exception with continue/discard | `fault_exception_continue_discard_resume.sh` | `fault-exception-continue-discard-resume` | 23/23 (`suite-7375c482ba-fault-exception-continue-discard-resume-r1`) | PASS ON `7375c482ba` |
 | Leave a self-paused exception unattended | `fault_exception_pause_retry_timeout.sh` | `fault-exception-pause-retry-timeout` | 22/22 (`suite-7375c482ba-fault-exception-pause-retry-timeout-r1`) | PASS ON `7375c482ba` |
 
