@@ -175,7 +175,7 @@
     "category": "test-script",
     "title": "Treat one FT pass as a flake until bounded reruns pass",
     "content": "Continuous scale_down can pass once and fail on the next run. Use bounded apply/generate steps with a 180s cap and require repeat success before calling a root cause fixed; unbounded scripts hide hangs and single-run success creates false groundtruth.",
-    "score": 7,
+    "score": 8,
     "votes": [
       {
         "delta": 2,
@@ -206,6 +206,11 @@
         "delta": 1,
         "reason": "Both reduced final-HEAD gates were accepted only after two independent clean passes; a single pass or construction run was retained as diagnostic evidence, not promoted to ground truth.",
         "date": "2026-07-22"
+      },
+      {
+        "delta": 1,
+        "reason": "Bounded 4-run A/B distinguished 2/4 immediate discard from 4/4 deferred discard; six repeat runs established the stable baseline.",
+        "date": "2026-09-02"
       }
     ]
   },
@@ -243,7 +248,7 @@
     "category": "scale-down",
     "title": "Validate the baseline before widening parameters or suite defaults",
     "content": "If historical/manual behavior says a case should pass with default parameters, rerun that exact baseline before treating a workaround as necessary. Keep any narrow parameter override scoped to the scenario that needs it; a failure under the normal baseline should trigger debugging of the new code or test change, not an automatic promotion of suite defaults until the run turns green.",
-    "score": 4,
+    "score": 5,
     "votes": [
       {
         "delta": 2,
@@ -259,6 +264,11 @@
         "delta": 1,
         "reason": "Returning to the exact Mooncake 0.3.11.post1 baseline and equivalent static deterministic controls separated FT precision from the incompatible Mooncake main upgrade.",
         "date": "2026-07-31"
+      },
+      {
+        "delta": 1,
+        "reason": "Validating 4-rank normal EPLB first ruled out general EPLB drift and narrowed the failure to sequential scale-down missing-expert reload.",
+        "date": "2026-09-02"
       }
     ]
   },
@@ -491,7 +501,7 @@
     "category": "scale-down",
     "title": "Reload fixing moved experts proves runtime-state inequivalence, not tensor corruption",
     "content": "When post-shrink output drift is fixed by reloading moved experts, do not overclaim that FP8 tensor P2P bytes are corrupted. Reload reconstructs weights plus quantization metadata, slot bindings, side tables, and kernel-visible state, so the proven boundary is that P2P/update did not recreate loader-equivalent expert runtime state.",
-    "score": 3,
+    "score": 4,
     "votes": [
       {
         "delta": 2,
@@ -502,6 +512,11 @@
         "delta": 1,
         "reason": "It kept the investigation from overclaiming FP8 metadata corruption; the final boundary was transport completion semantics before loader-equivalent reload.",
         "date": "2026-06-30"
+      },
+      {
+        "delta": 1,
+        "reason": "Prevented overclaiming P2P byte corruption from reload success alone; boundary tests then isolated the actual transport-version and merged-layout failures.",
+        "date": "2026-09-02"
       }
     ]
   },
@@ -714,6 +729,48 @@
         "delta": 2,
         "reason": "Initial entry from session",
         "date": "2026-08-25"
+      }
+    ]
+  },
+  {
+    "id": "exp-050",
+    "category": "environment",
+    "title": "TorchNPU 2.10.0 coalesced NZ P2P silently miscopies; require post2",
+    "content": "On TorchNPU 2.10.0, batch_isend_irecv with an offset-zero FRACTAL_NZ tensor can complete without error while the receiver's logical values are wrong; equivalent ND P2P passes. Ascend/pytorch 317ec7b restores the coalesced receive format-copyback and is present in 2.10.0.post2. Gate NZ P2P on post2 or newer, and still stage parent internal-format views because nonzero storage_offset remains invalid.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-09-02"
+      }
+    ]
+  },
+  {
+    "id": "exp-051",
+    "category": "code-pattern",
+    "title": "Raw internal-format copy requires physical-layout equivalence",
+    "content": "Matching logical shape, dtype, device, and ACL format does not prove that two internal-format tensors have equivalent physical blocked layouts. A standalone half-size NZ tensor raw-copied into a half view of a merged parent NZ expert produced target_equal=false. Use semantic copy or a full-expert ND roundtrip unless physical storage/layout equivalence is explicitly established.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-09-02"
+      }
+    ]
+  },
+  {
+    "id": "exp-052",
+    "category": "scale-down",
+    "title": "Defer NPU inflight discard until after device recovery",
+    "content": "Discarding in-flight requests at the NPU fault exception regressed to 2/4 because cleanup synchronized the faulted copy stream (507046) and prevented survivor group creation. Deferring cleanup until scale-down stop/restart/process-group reinit passed 4/4 in A/B and six consecutive validation runs. Record pending cleanup at exception, recover the device, then discard once; cleanup failure fails scale-down.",
+    "score": 2,
+    "votes": [
+      {
+        "delta": 2,
+        "reason": "Initial entry from session",
+        "date": "2026-09-02"
       }
     ]
   }
