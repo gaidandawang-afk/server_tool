@@ -14,10 +14,11 @@ Every selected source HEAD requires fresh validation.
 1. Verify dependency identities, reach four healthy schedulers, and complete a registered DP0
    baseline.
 2. While healthy, submit `scale_down([1])`. Require HTTP 202 acceptance followed by the
-   aggregate status error `scale_down_requires_incident`, correlated by request ID on all
-   engines. Require the removed `recover` instruction to return synchronous HTTP 400 with the
-   nested OpenAI error envelope and `Invalid instruction: 'recover'.`. Status must remain four
-   healthy engines. The contract does not submit a rank-0 fault or scale-down operation.
+   aggregate status error `scale_down_requires_unresolved_expected_dp_fault`, correlated by
+   request ID on all engines. Require the removed `recover` instruction to return synchronous
+   HTTP 400 with the nested OpenAI error envelope and `Invalid instruction: 'recover'.`. Status
+   must remain four healthy engines. The contract does not submit a rank-0 fault or scale-down
+   operation.
 3. Trigger the coordinated exception on DP1, observe its completion record, reach four `unhealthy`
    ranks, and prove admission returns HTTP 503.
 4. During that incident, submit `scale_down([])`, require HTTP 202, then poll the matching

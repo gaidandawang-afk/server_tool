@@ -37,8 +37,8 @@ mkdir -p "$run_dir"
 sg_prepare_dp4_runtime
 sg_write_rank_request "$run_dir/request-dp0.json" 0 10
 sg_write_rank_request "$run_dir/request-dp1.json" 1 10
-cat >"$run_dir/scale-down-no-incident-request.json" <<'JSON'
-{"instruction":"scale_down","params":{"removed_dp_ranks":[1]},"request_id":"scale-down-no-incident"}
+cat >"$run_dir/scale-down-no-fault-request.json" <<'JSON'
+{"instruction":"scale_down","params":{"removed_dp_ranks":[1]},"request_id":"scale-down-no-fault"}
 JSON
 cat >"$run_dir/scale-down-empty-request.json" <<'JSON'
 {"instruction":"scale_down","params":{"removed_dp_ranks":[]},"request_id":"scale-down-empty"}
@@ -67,16 +67,16 @@ sg_assert_known_output_ids \
   "$run_dir/baseline-dp0-precision.json"
 
 st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
-  "$run_dir/scale-down-no-incident-request.json" \
-  "$run_dir/scale-down-no-incident-response.json" 202 \
-  scale_down_no_incident_accepted 60
+  "$run_dir/scale-down-no-fault-request.json" \
+  "$run_dir/scale-down-no-fault-response.json" 202 \
+  scale_down_no_fault_accepted 60
 sg_assert_ft_accepted_response \
-  "$run_dir/scale-down-no-incident-response.json" scale-down-no-incident \
-  scale_down_no_incident_accepted_response
-sg_wait_ft_error "$port" "$run_dir/status-after-no-incident-rejection.json" \
-  scale-down-no-incident scale_down_requires_incident \
+  "$run_dir/scale-down-no-fault-response.json" scale-down-no-fault \
+  scale_down_no_fault_accepted_response
+sg_wait_ft_error "$port" "$run_dir/status-after-no-fault-rejection.json" \
+  scale-down-no-fault scale_down_requires_unresolved_expected_dp_fault \
   "0=healthy,1=healthy,2=healthy,3=healthy" 30 \
-  scale_down_requires_incident_reason
+  scale_down_requires_unresolved_expected_dp_fault_reason
 st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
   "$run_dir/recover-request.json" "$run_dir/recover-before-disabled-response.json" \
   400 recover_before_disabled 60
