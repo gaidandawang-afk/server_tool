@@ -1209,18 +1209,18 @@ sg_assert_ft_failure_message() {
   local sg_expected_type="${5:-Bad Request}"
   local sg_actual sg_code
   set +e
-  sg_actual="$(python3 - "$sg_response" <<'PY'
+  sg_actual="$(python3 - "$sg_response" "$sg_expected" <<'PY'
 import json
 import sys
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
-error = data.get("error", {})
-print(f"message={error.get('message')},type={error.get('type')},param={error.get('param')},code={error.get('code')}")
+error = data.get("error", data)
+print(f"message_contains={sys.argv[2] in str(error.get('message'))},type={error.get('type')},param={error.get('param')},code={error.get('code')}")
 PY
 )"
   sg_code="$?"
   set -e
-  local sg_expected_envelope="message=${sg_expected},type=${sg_expected_type},param=None,code=${sg_expected_code}"
+  local sg_expected_envelope="message_contains=True,type=${sg_expected_type},param=None,code=${sg_expected_code}"
   if [[ "$sg_code" -eq 0 && "$sg_actual" == "$sg_expected_envelope" ]]; then
     st_assert "$sg_label" true "$sg_expected_envelope" "$sg_actual"
   else

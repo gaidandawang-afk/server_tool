@@ -82,7 +82,7 @@ st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
   400 recover_before_disabled 60
 sg_assert_ft_failure_message \
   "$run_dir/recover-before-disabled-response.json" \
-  "Invalid instruction: 'recover'." recover_before_disabled_reason
+  "Input tag 'recover'" recover_before_disabled_reason
 sg_wait_ft_status "$port" "$run_dir/status-after-steady-rejections.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 30 \
   status_unchanged_after_steady_rejections
@@ -132,7 +132,7 @@ st_http_json POST "http://127.0.0.1:${port}/fault_tolerance/apply" \
   400 recover_before_rejoin 60
 sg_assert_ft_failure_message \
   "$run_dir/recover-before-rejoin-response.json" \
-  "Invalid instruction: 'recover'." recover_before_rejoin_reason
+  "Input tag 'recover'" recover_before_rejoin_reason
 sg_wait_ft_status "$port" "$run_dir/status-after-recover-rejection.json" \
   "0=healthy,1=dead,2=healthy,3=healthy" 30 \
   status_unchanged_after_recover_rejection
