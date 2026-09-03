@@ -180,7 +180,7 @@ class SGLangCaseContractTests(unittest.TestCase):
             (case_root / name).read_text(encoding="utf-8")
             for name in ("TEST.md", "run.sh")
         )
-        self.assertIn("Input tag 'recover'", content)
+        self.assertIn("Invalid instruction: 'recover'.", content)
         self.assertIn("no fault is injected on DP0", content)
         self.assertNotIn("scale_down_dp_rank_0_not_supported", content)
         self.assertNotIn('"removed_dp_ranks":[0]', content)

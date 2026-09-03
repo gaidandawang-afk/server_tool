@@ -16,7 +16,7 @@ Every selected source HEAD requires fresh validation.
 2. While healthy, submit `scale_down([1])`. Require HTTP 202 acceptance followed by the
    aggregate status error `scale_down_requires_incident`, correlated by request ID on all
    engines. Require the removed `recover` instruction to return synchronous HTTP 400 with the
-   standard SGLang error envelope and a Pydantic message containing `Input tag 'recover'`. Status must remain four
+   nested OpenAI error envelope and `Invalid instruction: 'recover'.`. Status must remain four
    healthy engines. The contract does not submit a rank-0 fault or scale-down operation.
 3. Trigger the coordinated exception on DP1, observe its completion record, reach four `unhealthy`
    ranks, and prove admission returns HTTP 503.
@@ -27,7 +27,7 @@ Every selected source HEAD requires fresh validation.
    Poll the first request to `healthy,dead,healthy,healthy`, and require whole-DP1 shutdown to
    leave three schedulers.
 6. Before any node-group rejoin, require the removed legacy `recover([1])` instruction to
-   remain rejected with HTTP 400 and a message containing `Input tag 'recover'`; status must remain
+   remain rejected with HTTP 400 and `Invalid instruction: 'recover'.`; status must remain
    unchanged, and DP1 routing must return HTTP 503 with an inactive-rank error. Recovery
    is automatic only after complete process and
    native data-plane readiness are observed.
