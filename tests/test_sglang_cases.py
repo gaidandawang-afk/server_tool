@@ -67,6 +67,33 @@ class SGLangCaseContractTests(unittest.TestCase):
         )
         self.assertIn('>"$SERVER_TOOL_OUTPUT_ROOT/ft-timeouts.env"', helper)
 
+    def test_ft_launcher_supports_explicit_overlap_schedule(self):
+        helper = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('SGLANG_FT_OVERLAP_SCHEDULE:-0', helper)
+        self.assertIn('sg_overlap_args+=(--disable-overlap-schedule)', helper)
+        self.assertIn('"${sg_overlap_args[@]}"', helper)
+
+    def test_overlap_scale_down_contract_has_concurrent_gates(self):
+        run_text = (
+            CASE_ROOT / "fault-exception-pause-scale-down" / "run.sh"
+        ).read_text(encoding="utf-8")
+        test_text = (
+            CASE_ROOT / "fault-exception-pause-scale-down" / "TEST.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("run_concurrent_burst before_fault 0 1 2 3", run_text)
+        self.assertIn("run_concurrent_burst after_scale_down 0 1 3", run_text)
+        self.assertIn("${phase}_concurrent_inflight", run_text)
+        self.assertIn('output_ids = response.get("output_ids")', run_text)
+        self.assertIn('record["completion_tokens"] == 64', run_text)
+        self.assertIn('2>/dev/null || true', run_text)
+        self.assertIn("st_assert overlap_schedule_mode true enabled enabled", run_text)
+        self.assertIn("SGLANG_FT_OVERLAP_SCHEDULE=0", test_text)
+        self.assertIn("for overlap", test_text)
+
     def test_ft_apply_cases_wait_longer_than_control_phase(self):
         for run_path in CASE_ROOT.glob("*/run.sh"):
             text = run_path.read_text(encoding="utf-8")

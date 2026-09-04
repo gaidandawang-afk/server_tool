@@ -52,6 +52,9 @@ Committed SGLang cases take the model from `MODEL_PATH`. A profile may also sele
   explicitly selected; rejoin launchers default to `static`);
 - `SGLANG_FT_DETERMINISTIC_INFERENCE` (`1` for ordinary FT launchers and `0`
   for native no-FT launchers unless explicitly selected);
+- `SGLANG_FT_OVERLAP_SCHEDULE` (`0` by default for ordinary FT launchers; set
+  `1` only in contracts that include concurrent requests and explicit overlap
+  coverage assertions);
 - `SGLANG_FT_RANDOM_SEED` for an optional fixed non-negative seed;
 - `SGLANG_FT_CUDA_GRAPH_MODE` (`disabled` by default, or `decode-only` for
   full decode CUDA Graph with prefill graphs disabled in rejoin launchers);

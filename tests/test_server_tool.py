@@ -24,6 +24,7 @@ class ServerToolTests(unittest.TestCase):
             "SGLANG_DEEPEP_BF16_DISPATCH",
             "SGLANG_FT_PRECISION_ORACLE_FAMILY",
             "SGLANG_FT_RELIABLE_ORACLE_ID",
+            "SGLANG_FT_OVERLAP_SCHEDULE",
         ):
             with self.subTest(key=key):
                 self.assertIn(key, server_tool.RUNTIME_PROFILE_KEYS)

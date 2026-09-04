@@ -165,8 +165,10 @@ sg_launch_ft() {
   local sg_elastic_ep_scale_timeout="${SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC:-150}"
   local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-dynamic}"
   local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
+  local sg_overlap_schedule="${SGLANG_FT_OVERLAP_SCHEDULE:-0}"
   local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
   local -a sg_deterministic_args=()
+  local -a sg_overlap_args=()
   local -a sg_random_seed_args=()
   case "$sg_strategy" in
     pause|continue) ;;
@@ -191,6 +193,16 @@ sg_launch_ft() {
     1) sg_deterministic_args+=(--enable-deterministic-inference) ;;
     *)
       st_assert launch_deterministic false "0|1" "$sg_deterministic"
+      return 1
+      ;;
+  esac
+  case "$sg_overlap_schedule" in
+    0)
+      sg_overlap_args+=(--disable-overlap-schedule)
+      ;;
+    1) ;;
+    *)
+      st_assert launch_overlap_schedule false "0|1" "$sg_overlap_schedule"
       return 1
       ;;
   esac
@@ -246,7 +258,7 @@ sg_launch_ft() {
     --disable-custom-all-reduce \
     "${sg_random_seed_args[@]}" \
     "${sg_deterministic_args[@]}" \
-    --disable-overlap-schedule \
+    "${sg_overlap_args[@]}" \
     --disable-cuda-graph \
     --disable-piecewise-cuda-graph \
     --skip-server-warmup \
