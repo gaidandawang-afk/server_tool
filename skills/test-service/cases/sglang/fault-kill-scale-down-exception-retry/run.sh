@@ -66,7 +66,7 @@ eplb_count_before_scale_down="$(sg_log_count "$log_path" '\[EPLBManager\] rebala
 sg_apply_scale_down "$port" 1 \
   "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json" \
   "$run_dir/status-after-scale-down.json" "0=healthy,1=dead,2=healthy,3=healthy" \
-  120 status_after_scale_down
+  "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC" status_after_scale_down
 sg_assert_log_count_increased "$log_path" '\[EPLBManager\] rebalance end' \
   "$eplb_count_before_scale_down" three_rank_topology_rebalanced
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
@@ -95,7 +95,7 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
 eplb_count_before="$(grep -c 'EPLB due to' "$log_path" 2>/dev/null || true)"
 sg_apply_retry "$port" "$run_dir/retry-request.json" "$run_dir/retry-response.json" \
   "$run_dir/status-after-retry.json" "0=healthy,1=dead,2=healthy,3=healthy" \
-  120 status_after_retry
+  "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC" status_after_retry
 eplb_count_after="$(grep -c 'EPLB due to' "$log_path" 2>/dev/null || true)"
 if [[ "$eplb_count_after" == "$eplb_count_before" ]]; then
   st_assert retry_does_not_run_eplb true "$eplb_count_before" "$eplb_count_after"

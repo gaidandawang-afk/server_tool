@@ -116,6 +116,44 @@ branch-usability acceptance gate.
   fault injection or FT operation. Failure at this gate is an environment or baseline-runtime
   blocker, not evidence about the scenario's FT operation.
 
+## Timeout contract
+
+The active contracts use the following current FT timeout model. Fixed runtime values are
+observed rather than overridden; configurable product deadlines are shortened explicitly for
+test runs, with a longer test-side observation window so the harness cannot time out before
+the product reports success or its own timeout error.
+
+| Timeout | Product value | Test contract |
+| --- | ---: | --- |
+| DPC heartbeat interval | 3 s, fixed | No direct wait; contributes to failure observation latency. |
+| Manager lease sweep interval | 1 s, fixed | No direct wait. |
+| Manager lease timeout | 60 s, fixed | Kill scenarios allow 120 s for `dead`/incident status, covering the worst-case approximately 60–61 s detection plus scheduling margin. |
+| Process-exit send timeout | 60 s, fixed; normal heartbeat is nonblocking | The same 120 s incident window accepts either prompt process-exit delivery or lease-expiry fallback. |
+| FT control phase timeout | 60 s target default, configurable | Launchers set 60 s explicitly so validation is stable across the default-value rollout. Apply completion waits 90 s and correlates the accepted request ID. Shutdown, command ACK and route ACK remain independently timed phases. |
+| Unattended pause timeout | 300 s default, configurable | Ordinary cases keep 300 s. `fault-exception-pause-retry-timeout` sets 30 s and allows 120 s for fail-stop cleanup. |
+| Elastic EP scale timeout | 600 s default, configurable | Launchers set 150 s for validation; rejoin recovery waits 180 s. This is independent of the FT API transaction. |
+| DPC worker-port exchange | 600 s, fixed | Used only by multi-node startup readiness; it is not accepted as a runtime FT completion signal. |
+
+Every run preserves the effective values in `ft-timeouts.env`. Profiles may override the
+configurable test values with `SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC`,
+`SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC`, `SGLANG_FT_PAUSE_TIMEOUT_SEC`,
+`SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC` and
+`SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC`. Each observation timeout must be greater than its
+corresponding product timeout.
+
+Scenario audit:
+
+- Exception `continue` cases do not wait for a lease or a control transaction; their bounded
+  fault-trigger and status waits are independent of the 60-second node-loss lease.
+- Exception `pause` retry/scale-down cases use the 90-second correlated control-completion
+  window. The unattended-pause case alone validates expiry with the 30-second override.
+- All FT process/node kill cases use a 120-second incident window before applying a command;
+  the no-FT native baseline has no Manager lease/status contract.
+- Scale-down and retry completion use the correlated 90-second window, including each round
+  of continuous scale-down and the valid operation inside the rejection contract.
+- Whole-node rejoin cases keep startup/model-readiness bounds separate, then use the
+  150-second Elastic EP product timeout and 180-second recovery observation window.
+
 ## Precision classification
 
 Control-flow success and precision success are separate results. A case that reaches the

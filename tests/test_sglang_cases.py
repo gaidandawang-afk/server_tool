@@ -36,6 +36,58 @@ class SGLangCaseContractTests(unittest.TestCase):
         self.assertIn('item.get("last_ft_request_id")', helper)
         self.assertIn("reported_request_ids != {request_id}", helper)
 
+    def test_ft_launchers_use_bounded_validation_timeouts(self):
+        helper = (
+            REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC:-60',
+            helper,
+        )
+        self.assertIn(
+            'SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC:-90',
+            helper,
+        )
+        self.assertIn(
+            'SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC:-150',
+            helper,
+        )
+        self.assertIn(
+            'SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC:-180',
+            helper,
+        )
+        self.assertEqual(
+            helper.count('--fault-tolerance-timeout "$sg_control_timeout"'),
+            2,
+        )
+        self.assertEqual(
+            helper.count('--elastic-ep-scale-timeout "$sg_elastic_ep_scale_timeout"'),
+            2,
+        )
+        self.assertIn('>"$SERVER_TOOL_OUTPUT_ROOT/ft-timeouts.env"', helper)
+
+    def test_ft_apply_cases_wait_longer_than_control_phase(self):
+        for run_path in CASE_ROOT.glob("*/run.sh"):
+            text = run_path.read_text(encoding="utf-8")
+            if "sg_apply_scale_down" not in text and "sg_apply_retry" not in text:
+                continue
+            self.assertIn(
+                "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC",
+                text,
+                run_path.parent.name,
+            )
+
+    def test_rejoin_recovery_uses_elastic_ep_observation_timeout(self):
+        for case_name in (
+            "fault-kill-continue-whole-node-rejoin",
+            "fault-kill-pause-scale-down-then-rejoin",
+            "fault-kill-pause-scale-down-then-rejoin-cudagraph",
+        ):
+            text = (CASE_ROOT / case_name / "run.sh").read_text(encoding="utf-8")
+            self.assertIn("$SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC", text)
+            self.assertNotIn("recovery_eplb_second_forward 600", text)
+
     def test_ft_runtime_supports_explicit_tcp_fallback_mode(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"

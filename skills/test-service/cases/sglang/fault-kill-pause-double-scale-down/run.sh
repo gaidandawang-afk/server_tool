@@ -66,7 +66,7 @@ eplb_count_before="$(sg_log_count "$log_path" '\[EPLBManager\] rebalance end')"
 sg_apply_scale_down_ranks "$port" "1,2" \
   "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json" \
   "$run_dir/status-scaled-down.json" "0=healthy,1=dead,2=dead,3=healthy" \
-  120 status_scaled_down
+  "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC" status_scaled_down
 sg_assert_log_count_increased "$log_path" '\[EPLBManager\] rebalance end' \
   "$eplb_count_before" multi_rank_scale_down_forced_eplb
 st_assert_process_count "$server_pgid" "sglang::scheduler" 2 schedulers_after_scale_down

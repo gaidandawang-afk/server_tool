@@ -103,7 +103,8 @@ for target in 1 2 3; do
     "$run_dir/scale-down-dp${target}-request.json" \
     "$run_dir/scale-down-dp${target}-response.json" \
     "$run_dir/status-dp${target}-scaled-down.json" \
-    "${healthy_states[$index]}" 120 "status_dp${target}_scaled_down"
+    "${healthy_states[$index]}" "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC" \
+    "status_dp${target}_scaled_down"
   st_http_json POST "http://127.0.0.1:${port}/generate" \
     "$request_dp0" "$run_dir/after-dp${target}-dp0.json" 200 \
     "after_dp${target}_dp0" 180

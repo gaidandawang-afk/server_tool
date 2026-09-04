@@ -122,7 +122,8 @@ sg_assert_ft_failure_message \
   "$run_dir/busy-retry-response.json" ft_operation_in_progress \
   concurrent_operation_reason 409 Conflict
 sg_wait_ft_status "$port" "$run_dir/status-scaled-down.json" \
-  "0=healthy,1=dead,2=healthy,3=healthy" 120 status_scaled_down \
+  "0=healthy,1=dead,2=healthy,3=healthy" \
+  "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC" status_scaled_down \
   scale-down-valid
 st_assert_process_count "$server_pgid" "sglang::scheduler" 3 \
   whole_dp1_shutdown_process_count

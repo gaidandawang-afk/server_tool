@@ -60,6 +60,14 @@ Committed SGLang cases take the model from `MODEL_PATH`. A profile may also sele
 - `SGLANG_FT_PRECISION_ORACLE_FAMILY` (default
   `qwen-fp8-d4t4e4-count10-no-overlap`);
 - `SGLANG_FT_RELIABLE_ORACLE_ID` for the optional four-token rejoin request.
+- `SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC` (test default `60`) and
+  `SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC` (test default `90`); the observation
+  timeout must be greater than the product control-phase timeout.
+- `SGLANG_FT_PAUSE_TIMEOUT_SEC` (default `300`; timeout-specific contracts may
+  shorten it explicitly).
+- `SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC` (test default `150`) and
+  `SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC` (test default `180`) for the separate
+  runtime Elastic EP scale/recovery path.
 Ordinary fault-scenario gates resolve their oracle as
 `<family>-rank<rank>-r<redundant-experts>` and accept only sequences already listed in that
 entry's `known_output_ids`. If an entry has no known-sequence list, the gate falls back to

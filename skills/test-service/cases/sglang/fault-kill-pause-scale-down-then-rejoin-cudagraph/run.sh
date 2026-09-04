@@ -165,7 +165,7 @@ st_http_json POST "http://127.0.0.1:${base_port}/generate" \
 sg_apply_scale_down "$base_port" 3 \
   "$run_dir/scale-down-request.json" "$run_dir/scale-down-response.json" \
   "$run_dir/status-scaled-down.json" "0=healthy,1=healthy,2=healthy,3=dead" \
-  120 status_scaled_down
+  "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC" status_scaled_down
 for node in 0 1 2; do
   st_assert_process_count "${node_pgids[$node]}" "sglang::scheduler" 1 \
     "node${node}_scheduler_after_scale_down"
@@ -213,7 +213,8 @@ sg_wait_log_contains "${node_logs[3]}" \
 
 sg_drive_generate_until_log \
   "$base_port" "${requests[0]}" "${node_logs[0]}" \
-  "recover ranks \\[3\\] done" "$run_dir/recovery-stage-drive" 600 \
+  "recover ranks \\[3\\] done" "$run_dir/recovery-stage-drive" \
+  "$SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC" \
   recovery_done_observed
 for node in 1 2; do
   sg_wait_log_contains "${node_logs[$node]}" \
@@ -221,7 +222,7 @@ for node in 1 2; do
 done
 st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   "${requests[0]}" "$run_dir/recovery-eplb-forward.json" 200 \
-  recovery_eplb_second_forward 600
+  recovery_eplb_second_forward "$SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC"
 sg_wait_ft_status "$base_port" "$run_dir/status-recovered.json" \
   "0=healthy,1=healthy,2=healthy,3=healthy" 120 status_auto_recovered
 sg_wait_health_generate "$((base_port + 3))" "${node_pgids[3]}" 600 \

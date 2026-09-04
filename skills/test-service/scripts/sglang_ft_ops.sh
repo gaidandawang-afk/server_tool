@@ -53,10 +53,60 @@ sg_prepare_ft_runtime() {
   export SGLANG_FT_TP_SIZE="$sg_tp_size"
   export SGLANG_FT_DP_SIZE="$sg_dp_size"
   export SGLANG_FT_EP_SIZE="$sg_ep_size"
+  export SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC="${SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC:-60}"
+  export SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC="${SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC:-90}"
+  export SGLANG_FT_PAUSE_TIMEOUT_SEC="${SGLANG_FT_PAUSE_TIMEOUT_SEC:-300}"
+  export SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC="${SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC:-150}"
+  export SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC="${SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC:-180}"
   export SGLANG_ENABLE_TP_MEMORY_INBALANCE_CHECK=false
   export TORCHINDUCTOR_CACHE_DIR=/data2/iws/cache/torch/inductor
   export TRITON_CACHE_DIR=/data2/iws/cache/triton
   mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR"
+
+  local sg_timeout_name sg_timeout_value
+  for sg_timeout_name in \
+    SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC \
+    SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC \
+    SGLANG_FT_PAUSE_TIMEOUT_SEC \
+    SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC \
+    SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC; do
+    sg_timeout_value="${!sg_timeout_name}"
+    if ! [[ "$sg_timeout_value" =~ ^[1-9][0-9]*$ ]]; then
+      st_assert ft_timeout_config false "positive integer" \
+        "${sg_timeout_name}=${sg_timeout_value}"
+      return 1
+    fi
+  done
+  if (( SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC <= SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC )); then
+    st_assert ft_control_wait_timeout false \
+      ">${SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC}" \
+      "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC"
+    return 1
+  fi
+  if (( SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC <= SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC )); then
+    st_assert ft_elastic_ep_wait_timeout false \
+      ">${SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC}" \
+      "$SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC"
+    return 1
+  fi
+  st_assert ft_control_wait_timeout true \
+    ">${SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC}" \
+    "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC"
+  st_assert ft_elastic_ep_wait_timeout true \
+    ">${SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC}" \
+    "$SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC"
+  {
+    printf 'heartbeat_interval_sec=3\n'
+    printf 'lease_sweep_interval_sec=1\n'
+    printf 'lease_timeout_sec=60\n'
+    printf 'process_exit_send_timeout_sec=60\n'
+    printf 'control_phase_timeout_sec=%s\n' "$SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC"
+    printf 'control_wait_timeout_sec=%s\n' "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC"
+    printf 'unattended_pause_timeout_sec=%s\n' "$SGLANG_FT_PAUSE_TIMEOUT_SEC"
+    printf 'elastic_ep_scale_timeout_sec=%s\n' "$SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC"
+    printf 'elastic_ep_wait_timeout_sec=%s\n' "$SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC"
+    printf 'dpc_worker_port_exchange_timeout_sec=600\n'
+  } >"$SERVER_TOOL_OUTPUT_ROOT/ft-timeouts.env"
 
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   if [[ "$sg_redundant_experts" =~ ^[0-9]+$ ]]; then
@@ -111,6 +161,8 @@ sg_launch_ft() {
   local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
   local sg_moe_runner_backend="${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"
   local sg_pause_timeout="${SGLANG_FT_PAUSE_TIMEOUT_SEC:-300}"
+  local sg_control_timeout="${SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC:-60}"
+  local sg_elastic_ep_scale_timeout="${SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC:-150}"
   local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-dynamic}"
   local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
   local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
@@ -200,8 +252,9 @@ sg_launch_ft() {
     --skip-server-warmup \
     --enable-fault-tolerance \
     --fault-tolerance-on-error-strategy "$sg_strategy" \
-    --fault-tolerance-timeout 600 \
-    --fault-tolerance-pause-timeout "$sg_pause_timeout"
+    --fault-tolerance-timeout "$sg_control_timeout" \
+    --fault-tolerance-pause-timeout "$sg_pause_timeout" \
+    --elastic-ep-scale-timeout "$sg_elastic_ep_scale_timeout"
 }
 
 sg_launch_dp4_ft() {
@@ -225,6 +278,9 @@ sg_launch_dp4_ft_rejoin_node() {
   local sg_redundant_experts="${SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS:-128}"
   local sg_mem_fraction_static="${SGLANG_FT_MEM_FRACTION_STATIC:-0.75}"
   local sg_moe_runner_backend="${SGLANG_FT_MOE_RUNNER_BACKEND:-deep_gemm}"
+  local sg_pause_timeout="${SGLANG_FT_PAUSE_TIMEOUT_SEC:-300}"
+  local sg_control_timeout="${SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC:-60}"
+  local sg_elastic_ep_scale_timeout="${SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC:-150}"
   local sg_dispatch_algorithm="${SGLANG_FT_EP_DISPATCH_ALGORITHM:-static}"
   local sg_deterministic="${SGLANG_FT_DETERMINISTIC_INFERENCE:-1}"
   local sg_random_seed="${SGLANG_FT_RANDOM_SEED:-}"
@@ -335,7 +391,9 @@ sg_launch_dp4_ft_rejoin_node() {
     "${sg_warmup_args[@]}" \
     --enable-fault-tolerance \
     --fault-tolerance-on-error-strategy "$sg_strategy" \
-    --fault-tolerance-timeout 600 \
+    --fault-tolerance-timeout "$sg_control_timeout" \
+    --fault-tolerance-pause-timeout "$sg_pause_timeout" \
+    --elastic-ep-scale-timeout "$sg_elastic_ep_scale_timeout" \
     --nnodes 4 \
     --node-rank "$sg_node_rank" \
     --base-gpu-id "$sg_node_rank" \
@@ -1073,7 +1131,7 @@ sg_apply_scale_down() {
   local sg_response="$4"
   local sg_status="$5"
   local sg_expected="$6"
-  local sg_timeout_sec="${7:-180}"
+  local sg_timeout_sec="${7:-${SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC:-90}}"
   local sg_label="${8:-scale_down}"
   sg_apply_scale_down_ranks "$sg_port" "$sg_rank" "$sg_request" "$sg_response" \
     "$sg_status" "$sg_expected" "$sg_timeout_sec" "$sg_label"
@@ -1086,7 +1144,7 @@ sg_apply_scale_down_ranks() {
   local sg_response="$4"
   local sg_status="$5"
   local sg_expected="$6"
-  local sg_timeout_sec="${7:-180}"
+  local sg_timeout_sec="${7:-${SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC:-90}}"
   local sg_label="${8:-scale_down}"
   local sg_request_id
   sg_request_id="$(python3 - "$sg_request" "$sg_ranks" <<'PY'
@@ -1122,7 +1180,7 @@ sg_apply_retry() {
   local sg_response="$3"
   local sg_status="$4"
   local sg_expected="$5"
-  local sg_timeout_sec="${6:-180}"
+  local sg_timeout_sec="${6:-${SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC:-90}}"
   local sg_label="${7:-retry}"
   local sg_request_id
   sg_request_id="$(python3 - "$sg_request" <<'PY'

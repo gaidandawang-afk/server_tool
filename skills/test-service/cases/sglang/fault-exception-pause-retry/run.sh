@@ -67,7 +67,7 @@ st_http_json POST "http://127.0.0.1:${port}/generate" \
 eplb_count_before="$(grep -c 'EPLB due to' "$log_path" 2>/dev/null || true)"
 sg_apply_retry "$port" "$run_dir/retry-request.json" "$run_dir/retry-response.json" \
   "$run_dir/status-after-retry.json" "0=healthy,1=healthy,2=healthy,3=healthy" \
-  120 status_after_retry
+  "$SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC" status_after_retry
 st_assert_process_count "$server_pgid" "sglang::scheduler" 4 retry_keeps_all_schedulers
 eplb_count_after="$(grep -c 'EPLB due to' "$log_path" 2>/dev/null || true)"
 if [[ "$eplb_count_after" == "$eplb_count_before" ]]; then
