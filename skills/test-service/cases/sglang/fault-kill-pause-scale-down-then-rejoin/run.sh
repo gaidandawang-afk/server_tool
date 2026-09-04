@@ -211,9 +211,6 @@ st_http_json POST "http://127.0.0.1:${base_port}/generate" \
   rejoin_waiting_keeps_dp3_closed 60
 sg_assert_inactive_route_error \
   "$run_dir/rejoin-waiting-dp3.json" 3 rejoin_waiting_dp3_inactive_error
-sg_wait_log_contains "${node_logs[3]}" \
-  "Elastic EP recovery join process groups begin" 180 \
-  rejoin_ready_for_recovery_forward
 
 sg_drive_generate_until_log \
   "$base_port" "${requests[0]}" "${node_logs[0]}" \

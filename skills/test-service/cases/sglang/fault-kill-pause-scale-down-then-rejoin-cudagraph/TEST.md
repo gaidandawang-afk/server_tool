@@ -34,9 +34,10 @@ begun, kill the complete rank-3 process group, explicitly apply
    inactive-rank error and a correct
    post-shrink DP0 generation.
 4. Start replacement rank 3. Require its deferred local native fast path and its
-   one decode graph capture to finish before process-group recovery join begins.
-5. Drive survivor recovery, require all four routes healthy, and validate DP3 and
-   DP0 generation against pre-registered precision oracles.
+   one decode graph capture to finish before survivor recovery driving begins.
+5. Drive recovery with serialized survivor forwards, checking for native recovery after each
+   response and waiting 10 seconds before retrying. Require all four routes healthy, and
+   validate DP3 and DP0 generation against pre-registered precision oracles.
 6. Require each survivor to retain exactly its one startup decode capture, the
    replacement to capture exactly once, and graph replay to occur without illegal
    address or Python fallback-dispatch errors.
@@ -46,7 +47,7 @@ begun, kill the complete rank-3 process group, explicitly apply
 ## Pass/fail gates and artifacts
 
 The run must pass every HTTP, status, process-count, precision, native recovery,
-capture-count, capture-before-join, replay, forbidden-error, cleanup, and source
+capture-count, capture-before-recovery-drive, replay, forbidden-error, cleanup, and source
 cleanliness assertion. Preserve provenance, inputs and hashes, request/response
 JSON, stream files, all initial and rejoin node logs, `assertions.jsonl`, and
 `result.json`. Repetition mode is cold; each repetition uses a distinct run name

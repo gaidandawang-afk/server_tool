@@ -207,9 +207,6 @@ sg_wait_log_contains "${node_logs[3]}" \
 sg_wait_log_contains "${node_logs[3]}" \
   "Capture target decode CUDA graph end" 180 \
   replacement_decode_graph_captured
-sg_wait_log_contains "${node_logs[3]}" \
-  "Elastic EP recovery join process groups begin" 180 \
-  rejoin_ready_for_recovery_forward
 
 sg_drive_generate_until_log \
   "$base_port" "${requests[0]}" "${node_logs[0]}" \
@@ -263,18 +260,6 @@ if [[ "$replacement_graph_count" == 1 ]]; then
   st_assert replacement_capture_count true 1 "$replacement_graph_count"
 else
   st_assert replacement_capture_count false 1 "$replacement_graph_count"
-fi
-replacement_capture_end_line="$(grep -n -m1 \
-  "Capture target decode CUDA graph end" "${node_logs[3]}" | cut -d: -f1)"
-replacement_join_begin_line="$(grep -n -m1 \
-  "Elastic EP recovery join process groups begin" "${node_logs[3]}" | cut -d: -f1)"
-if [[ -n "$replacement_capture_end_line" && -n "$replacement_join_begin_line" &&
-  "$replacement_capture_end_line" -lt "$replacement_join_begin_line" ]]; then
-  st_assert replacement_capture_before_join true true \
-    "capture=$replacement_capture_end_line join=$replacement_join_begin_line"
-else
-  st_assert replacement_capture_before_join false true \
-    "capture=${replacement_capture_end_line:-missing} join=${replacement_join_begin_line:-missing}"
 fi
 for graph_log in "${node_logs[0]}" "${node_logs[1]}" "${node_logs[2]}" \
   "$initial_node3_log" "${node_logs[3]}"; do

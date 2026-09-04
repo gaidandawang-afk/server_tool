@@ -575,30 +575,40 @@ sg_drive_generate_until_log() {
   local sg_output_prefix="$5"
   local sg_timeout_sec="$6"
   local sg_label="$7"
-  local sg_http_code="" sg_rc=0
+  local sg_http_code="" sg_rc=0 sg_attempt=0 sg_remaining=0 sg_sleep_sec=0
   local sg_end=$((SECONDS + sg_timeout_sec))
-  # One forward is sufficient to enter native recovery. Do not submit another
-  # request when a slow shared GPU exceeds a short client timeout: the original
-  # request keeps running server-side and retries only build an artificial queue.
-  set +e
-  sg_http_code="$(
-    timeout "$((sg_timeout_sec + 5))s" \
-      curl -sS --connect-timeout 5 --max-time "$sg_timeout_sec" \
-      -H "Content-Type: application/json" --data-binary "@$sg_request" \
-      -o "${sg_output_prefix}-1.json" -w "%{http_code}" \
-      "http://127.0.0.1:${sg_port}/generate"
-  )"
-  sg_rc="$?"
-  set -e
-  st_log "RECOVERY_DRIVE label=$sg_label attempt=1 curl_rc=$sg_rc HTTP=${sg_http_code:-none}"
+  # Recovery is request-driven, but the replacement may not have reached its
+  # Mooncake join yet. Keep forwards serialized and retry only after the prior
+  # request has returned and a ten-second quiet interval has elapsed.
   while (( SECONDS < sg_end )); do
-    if grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
-      st_assert "$sg_label" true observed observed
+    if (( sg_attempt > 0 )) && grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
+      st_assert "$sg_label" true observed "attempt=$sg_attempt"
       return 0
     fi
-    sleep 1
+    sg_attempt=$((sg_attempt + 1))
+    sg_remaining=$((sg_end - SECONDS))
+    set +e
+    sg_http_code="$(
+      timeout "$((sg_remaining + 5))s" \
+        curl -sS --connect-timeout 5 --max-time "$sg_remaining" \
+        -H "Content-Type: application/json" --data-binary "@$sg_request" \
+        -o "${sg_output_prefix}-${sg_attempt}.json" -w "%{http_code}" \
+        "http://127.0.0.1:${sg_port}/generate"
+    )"
+    sg_rc="$?"
+    set -e
+    st_log "RECOVERY_DRIVE label=$sg_label attempt=$sg_attempt curl_rc=$sg_rc HTTP=${sg_http_code:-none}"
+    if grep -Eq -- "$sg_pattern" "$sg_log_path" 2>/dev/null; then
+      st_assert "$sg_label" true observed "attempt=$sg_attempt"
+      return 0
+    fi
+    sg_remaining=$((sg_end - SECONDS))
+    (( sg_remaining > 0 )) || break
+    sg_sleep_sec=10
+    (( sg_remaining < sg_sleep_sec )) && sg_sleep_sec="$sg_remaining"
+    sleep "$sg_sleep_sec"
   done
-  st_assert "$sg_label" false observed timeout
+  st_assert "$sg_label" false observed "timeout attempts=$sg_attempt"
 }
 
 sg_find_scheduler_pid_by_global_rank() {

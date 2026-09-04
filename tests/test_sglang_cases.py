@@ -422,36 +422,49 @@ sg_launch_dp4_ft continue "$port" "$log_path"
         self.assertIn("--cuda-graph-backend-prefill disabled", unit)
         self.assertIn("--cuda-graph-bs-decode 1 2 4 8", unit)
 
-    def test_recovery_drive_uses_one_bounded_request(self):
+    def test_recovery_drive_retries_serially_until_log(self):
         unit = (
             REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         ).read_text(encoding="utf-8")
         function = unit.split("sg_drive_generate_until_log() {", 1)[1].split(
             "\n}\n", 1
         )[0]
-        self.assertIn('--max-time "$sg_timeout_sec"', function)
-        self.assertIn('${sg_output_prefix}-1.json', function)
-        self.assertNotIn("sg_attempt", function)
+        self.assertIn('--max-time "$sg_remaining"', function)
+        self.assertIn('${sg_output_prefix}-${sg_attempt}.json', function)
+        self.assertIn("sg_attempt=$((sg_attempt + 1))", function)
+        self.assertIn('sleep "$sg_sleep_sec"', function)
+        self.assertIn("sg_sleep_sec=10", function)
 
-    def test_recovery_drive_waits_for_log_after_request_returns(self):
+    def test_recovery_drive_retries_after_request_returns(self):
         unit = REPO_ROOT / "skills" / "test-service" / "scripts" / "sglang_ft_ops.sh"
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             log_path = (root / "node.log").as_posix()
             request_path = (root / "request.json").as_posix()
             output_prefix = (root / "response").as_posix()
+            counter_path = (root / "attempts").as_posix()
             command = rf"""
 set -Eeuo pipefail
 source {unit.as_posix()!r}
 timeout() {{ shift; "$@"; }}
-curl() {{ printf '200'; }}
+curl() {{
+  sg_count="$(cat {counter_path!r})"
+  sg_count=$((sg_count + 1))
+  printf '%s\n' "$sg_count" >{counter_path!r}
+  if [[ "$sg_count" == 2 ]]; then
+    printf '%s\n' 'recover ranks [3] done' >>{log_path!r}
+  fi
+  printf '200'
+}}
+sleep() {{ :; }}
 st_log() {{ :; }}
 st_assert() {{ test "$2" = true; }}
 printf '{{}}' >{request_path!r}
 : >{log_path!r}
-(sleep 1; printf '%s\n' 'recover ranks [3] done' >>{log_path!r}) &
+printf '0\n' >{counter_path!r}
 sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
   'recover ranks \[3\] done' {output_prefix!r} 3 recovery_done_observed
+test "$(cat {counter_path!r})" = 2
 """
             completed = subprocess.run(
                 ["bash", "-c", command],
@@ -556,8 +569,7 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertIn("rejoin_waiting_keeps_dp3_closed", case)
         self.assertEqual(case.count("sg_wait_inactive_route_error"), 1)
         self.assertEqual(case.count("sg_assert_inactive_route_error"), 1)
-        self.assertIn("rejoin_ready_for_recovery_forward", case)
-        self.assertIn("Elastic EP recovery join process groups begin", case)
+        self.assertNotIn("Elastic EP recovery join process groups begin", case)
         self.assertIn("recovery_done_observed", case)
         self.assertIn("recovery_eplb_second_forward", case)
         self.assertIn("status-recovered.json", case)
@@ -573,7 +585,7 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         rejoin_index = case.index(
             'node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"'
         )
-        rejoin_ready_index = case.index("rejoin_ready_for_recovery_forward")
+        recovery_drive_index = case.index("sg_drive_generate_until_log")
         recovery_done_index = case.index("recovery_done_observed")
         healthy_index = case.index("status-recovered.json")
         self.assertNotIn("st_kill_owned_process", case)
@@ -583,8 +595,8 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         self.assertLess(owner_group_kill_index, owner_group_gone_index)
         self.assertLess(owner_group_gone_index, scale_down_index)
         self.assertLess(scale_down_index, rejoin_index)
-        self.assertLess(rejoin_index, rejoin_ready_index)
-        self.assertLess(rejoin_ready_index, recovery_done_index)
+        self.assertLess(rejoin_index, recovery_drive_index)
+        self.assertLess(recovery_drive_index, recovery_done_index)
         self.assertLess(recovery_done_index, healthy_index)
 
     def test_cudagraph_rejoin_keeps_fault_scale_down_rejoin_order(self):
@@ -598,27 +610,27 @@ sg_drive_generate_until_log 6200 {request_path!r} {log_path!r} \
         scale_down_index = case.index("sg_apply_scale_down")
         rejoin_index = case.index('node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"')
         capture_index = case.index("replacement_decode_graph_captured")
-        join_index = case.index("rejoin_ready_for_recovery_forward")
+        recovery_drive_index = case.index("sg_drive_generate_until_log")
         self.assertIn("SGLANG_FT_CUDA_GRAPH_MODE=decode-only", case)
         self.assertIn("survivor_node${graph_node}_capture_count", case)
         self.assertIn("replacement_capture_count", case)
-        self.assertIn("replacement_capture_before_join", case)
+        self.assertNotIn("Elastic EP recovery join process groups begin", case)
         self.assertIn("sg_assert_inactive_route_error", case)
         self.assertIn("CUDA_ERROR_ILLEGAL_ADDRESS", case)
         self.assertLess(decode_index, kill_index)
         self.assertLess(kill_index, scale_down_index)
         self.assertLess(scale_down_index, rejoin_index)
         self.assertLess(rejoin_index, capture_index)
-        self.assertLess(capture_index, join_index)
+        self.assertLess(capture_index, recovery_drive_index)
 
-    def test_continue_rejoin_drives_recovery_after_joiner_is_ready(self):
+    def test_continue_rejoin_drives_recovery_without_join_log_barrier(self):
         case = (
             CASE_ROOT / "fault-kill-continue-whole-node-rejoin" / "run.sh"
         ).read_text(encoding="utf-8")
-        ready_index = case.index("rejoin_ready_for_recovery_forward")
         drive_index = case.index("sg_drive_generate_until_log")
-        self.assertIn("Elastic EP recovery join process groups begin", case)
-        self.assertLess(ready_index, drive_index)
+        rejoin_index = case.index('node_logs[3]="$SERVER_TOOL_OUTPUT_ROOT/node3-rejoin.log"')
+        self.assertNotIn("Elastic EP recovery join process groups begin", case)
+        self.assertLess(rejoin_index, drive_index)
 
     def test_noft_native_inflight_uses_current_mooncake_failure_log(self):
         case = (CASE_ROOT / "fault-kill-noft-native-inflight" / "run.sh").read_text(

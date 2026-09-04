@@ -41,10 +41,10 @@ but each variant requires its own run name and artifact directory.
    an inactive-rank error. Keep exactly the three survivor groups and generate correctly on DP0.
 4. Only after the loss is committed by scale-down, start a complete NNODES=4 node-3 rejoin
    process group. Require its Scheduler process to exist while DP3 remains `dead` and
-   unroutable, then wait for the joiner to log that it has entered process-group recovery
-   after model initialization.
-5. While DP3 is still `dead`, route exactly one survivor forward to DP0. Mooncake must
-   complete rank-3 recovery on every survivor before the bounded observation deadline, then
+   unroutable.
+5. While DP3 is still `dead`, route serialized survivor forwards to DP0. After each request
+   returns, check for rank-3 recovery; if it is not complete, wait 10 seconds before retrying
+   within the bounded Elastic EP recovery timeout. Require recovery on every survivor, then
    execute one post-recovery forward.
 6. After native join lets the replacement Scheduler become ready and the DPC reports
    ProcessUp, the existing FT observation chain must automatically restore the expected mask
@@ -59,7 +59,6 @@ and unroutable. There is no public `disabled` state and no explicit FT recover o
 ## Required artifacts
 
 Keep source/container/GPU provenance, effective case inputs, four initial node logs with
-mixed-transport assertions and the node-3 rejoin log with the process-group recovery entry
-marker, all owned PGIDs, process-group kill evidence, every request/response/status JSON,
-the single recovery-drive response, native recovery log evidence, precision JSON,
-`assertions.jsonl`, and `result.json`.
+mixed-transport assertions and the node-3 rejoin log, all owned PGIDs, process-group kill
+evidence, every request/response/status JSON, every recovery-drive response, native recovery
+log evidence, precision JSON, `assertions.jsonl`, and `result.json`.
