@@ -246,19 +246,23 @@ class Remote:
         else:
             client.load_system_host_keys()
             client.set_missing_host_key_policy(paramiko.WarningPolicy())
-        client.connect(
-            self.profile.require("REMOTE_HOST"),
-            port=int(self.profile.require("REMOTE_PORT")),
-            username=self.profile.require("REMOTE_USER"),
-            key_filename=self.profile.require("SSH_KEY"),
-            look_for_keys=False,
-            allow_agent=False,
-            timeout=20,
-            banner_timeout=20,
-            auth_timeout=20,
-        )
-        self.client = client
-        self.sftp = client.open_sftp()
+        try:
+            client.connect(
+                self.profile.require("REMOTE_HOST"),
+                port=int(self.profile.require("REMOTE_PORT")),
+                username=self.profile.require("REMOTE_USER"),
+                key_filename=self.profile.require("SSH_KEY"),
+                look_for_keys=False,
+                allow_agent=False,
+                timeout=20,
+                banner_timeout=20,
+                auth_timeout=20,
+            )
+            self.client = client
+            self.sftp = client.open_sftp()
+        except Exception:
+            client.close()
+            raise
         return self
 
     def __exit__(self, *_: object) -> None:
@@ -688,7 +692,11 @@ def cmd_wait(args: argparse.Namespace) -> int:
     profile = Profile.load(args.profile)
     deadline = time.monotonic() + args.timeout
     while True:
-        state = read_state(profile, args.name)
+        try:
+            state = read_state(profile, args.name)
+        except (EOFError, ConnectionError, TimeoutError) as exc:
+            print(f"status connection interrupted ({type(exc).__name__}); retrying within wait timeout", file=sys.stderr)
+            state = {}
         if state.get("state") in {"succeeded", "failed", "stopped"}:
             print(json.dumps(state, indent=2, sort_keys=True))
             return 0 if state.get("state") == "succeeded" else 1

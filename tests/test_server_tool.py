@@ -6,6 +6,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -18,6 +19,32 @@ SPEC.loader.exec_module(server_tool)
 
 
 class ServerToolTests(unittest.TestCase):
+    def test_wait_recovers_after_transient_connection_failure(self):
+        args = SimpleNamespace(profile="unused", name="run", timeout=10, poll=1)
+        for error in (EOFError(), ConnectionResetError(), TimeoutError()):
+            with self.subTest(error=type(error).__name__), patch.object(server_tool.Profile, "load"), patch.object(
+                server_tool, "read_state", side_effect=[error, {"state": "succeeded"}]
+            ) as read, patch.object(server_tool.time, "sleep"):
+                self.assertEqual(server_tool.cmd_wait(args), 0)
+                self.assertEqual(read.call_count, 2)
+
+    def test_wait_connection_failures_keep_original_deadline(self):
+        args = SimpleNamespace(profile="unused", name="run", timeout=10, poll=1)
+        with patch.object(server_tool.Profile, "load"), patch.object(
+            server_tool, "read_state", side_effect=EOFError()
+        ), patch.object(server_tool.time, "monotonic", side_effect=[0, 11]), self.assertRaisesRegex(
+            server_tool.ToolError, "wait timed out after 10s"
+        ):
+            server_tool.cmd_wait(args)
+
+    def test_wait_does_not_retry_authentication_failure(self):
+        args = SimpleNamespace(profile="unused", name="run", timeout=10, poll=1)
+        with patch.object(server_tool.Profile, "load"), patch.object(
+            server_tool, "read_state", side_effect=server_tool.paramiko.AuthenticationException()
+        ) as read, self.assertRaises(server_tool.paramiko.AuthenticationException):
+            server_tool.cmd_wait(args)
+        self.assertEqual(read.call_count, 1)
+
     def test_github_urls_reject_credentials_and_non_github_sources(self):
         self.assertEqual(server_tool.github_url("https://github.com/owner/repo.git"), "https://github.com/owner/repo.git")
         for url in ("https://token@github.com/owner/repo", "https://example.com/owner/repo", "-upload-pack=bad"):
