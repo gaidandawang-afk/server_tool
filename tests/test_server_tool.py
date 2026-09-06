@@ -21,7 +21,9 @@ SPEC.loader.exec_module(server_tool)
 class ServerToolTests(unittest.TestCase):
     def test_wait_recovers_after_transient_connection_failure(self):
         args = SimpleNamespace(profile="unused", name="run", timeout=10, poll=1)
-        for error in (EOFError(), ConnectionResetError(), TimeoutError()):
+        for error in (EOFError(), ConnectionResetError(), TimeoutError(),
+                      server_tool.paramiko.SSHException("No existing session"),
+                      server_tool.paramiko.SSHException("Error reading SSH protocol banner")):
             with self.subTest(error=type(error).__name__), patch.object(server_tool.Profile, "load"), patch.object(
                 server_tool, "read_state", side_effect=[error, {"state": "succeeded"}]
             ) as read, patch.object(server_tool.time, "sleep"):

@@ -694,7 +694,9 @@ def cmd_wait(args: argparse.Namespace) -> int:
     while True:
         try:
             state = read_state(profile, args.name)
-        except (EOFError, ConnectionError, TimeoutError) as exc:
+        except (paramiko.AuthenticationException, paramiko.BadHostKeyException):
+            raise
+        except (EOFError, ConnectionError, TimeoutError, paramiko.SSHException) as exc:
             print(f"status connection interrupted ({type(exc).__name__}); retrying within wait timeout", file=sys.stderr)
             state = {}
         if state.get("state") in {"succeeded", "failed", "stopped"}:
