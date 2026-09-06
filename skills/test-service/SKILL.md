@@ -1,84 +1,44 @@
 ---
 name: test-service
-description: Create, update, and execute committed service test contracts from reusable operation units while preserving structured evidence for every outcome.
+description: Select existing tests from source changes, execute their contracts, and interpret bounded evidence.
 ---
 
 # Test Service
 
-Use this skill to run a committed service test against the branch selected by the task profile.
+## 选例：模型负责判断
 
-## Contract
+1. 读用户指定提交的 diff 与必要调用路径；记录基线和目标提交。范围未给定时检查目标提交，避免擅自把整条分支当成范围。
+2. SGLang 先读 `cases/sglang/INDEX.md`，再只读候选用例的 `TEST.md`。其他组件只搜索对应 `cases/<component>/`。
+3. 用“改动 → 风险 → 能区分该行为的用例”说明最小集合，核对源码分支、拓扑、依赖、oracle、重复与变体要求。
+4. 尊重用户指定的场景，不能以邻近用例代替。缺失覆盖明确报告；历史通过不验证当前提交。
+5. 常规运行直接使用契约的 run.sh；仅在修改契约、排查具体失败或确认未写明的覆盖时读取实现和 helper。
 
-Each test is expressed by:
+## 执行：复用机械入口
 
-- `TEST.md`: goal, applicable branch, topology, phases, barriers, signals, pass/fail gates and required artifacts.
-- `run.sh`: mechanical setup, launch, requests, fault injection, collection and targeted cleanup.
+按 `../remote-ops/references/workflow.md` 的执行步骤与恢复规则操作；第一次远程执行还需读取 `../remote-ops/SKILL.md`。
+已有完整测试契约自己启动和清理服务，无需再加载 run-service、镜像或安装 skill，除非任务确实需要这些能力。
 
-Stable contracts live under `cases/<component>/<case>/`. Compose them from functions in
-`scripts/`; do not copy common curl, status, process or precision logic into every case.
+```powershell
+python skills/test-service/scripts/run-case.py --profile <profile> --case <component/case> --name <unique-run> --summary
+```
 
-## Rules
+用户已明确授权共享所选 GPU 时附加 `--allow-busy-gpus`。不根据 profile 或旧记录推断本次授权。
+用例按 TEST.md 保留因果 barrier、逐请求证据和冷启动独立目录，不把用例内的机械步骤搬回对话逐条执行。
 
-1. Locate the exact committed contract under `cases/` and verify that it applies to the selected source branch.
-2. Do not replace the requested scenario with a nearby test.
-3. Verify source HEAD, shared environment, selected GPU and port range.
-4. Parallelize only independent work inside the same phase.
-5. Preserve causal barriers between baseline, fault, recovery and validation stages.
-6. Save each parallel request's response and error independently before aggregation.
-7. Bound every readiness, request and outer test wait.
-8. Preserve output and provenance on both success and failure.
-9. Require at least one structured assertion; exit zero alone is never a pass.
-10. Keep every cold repetition in a distinct run and artifact directory.
-11. Read `references/evidence.md` before creating or changing a test contract.
+断线后先恢复连接，再观察同一 run，不能重发 run：
 
-Task-local exploratory tests go under ignored `work/<profile>/<task>/`. Stable behavioral
-contracts must be promoted into `cases/`; no committed case may source files from another project.
+```powershell
+python skills/test-service/scripts/run-case.py --profile <profile> --case <component/case> --name <existing-run> --resume --summary --destination work/<profile>/<task>/artifacts/<run>-final
+```
 
-Run a committed case with `scripts/run-case.py`. Use `tools/server_tool.py` directly only when
-the task needs nonstandard committed attachments.
+`--resume` 只等待并取回一个已有 run。提交是否成功不明时先 `status` 核对；没有状态不等于未提交。
+常规运行使用 `--summary` 只取摘要。用 `scripts/summarize-result.py <artifact-directory>` 读取已取回证据，无需连接 S；退出 0=PASS、1=FAIL、2=INCOMPLETE。
+摘要不完整时先恢复观察；准备失败先排查传输；实际用例失败再按失败断言读取对应日志片段，必要时进入 debug-service。
 
-For high-latency links, use the profile's `SOURCE_GIT_URL` / `TOOLS_GIT_URL` options
-after pushing the exact local commits. Add `--summary` to `run-case.py` to fetch only
-results and provenance; retrieve full logs separately when needed.
+## 按需加载与证据
 
-## Model-specific profile settings
-
-Committed SGLang cases take the model from `MODEL_PATH`. A profile may also select:
-
-- `SGLANG_KERNEL_REQUIRED_SYMBOL` (default `fp8_blockwise_scaled_mm`; main-based
-  SGLang with `sglang-kernel==0.4.5` uses `fp8_scaled_mm`);
-- `SGLANG_FT_EP_NUM_REDUNDANT_EXPERTS` (default `128`);
-- `SGLANG_FT_MEM_FRACTION_STATIC` (default `0.75`);
-- `SGLANG_FT_MOE_RUNNER_BACKEND` (default `deep_gemm`);
-- `SGLANG_FT_MOONCAKE_TRANSPORT_MODE` (`mixed-nvlink` by default, or
-  `tcp-fallback` to force TCP and the Mooncake EP Python fallback);
-- `SGLANG_FT_EP_DISPATCH_ALGORITHM` (`dynamic` for ordinary launchers unless
-  explicitly selected; rejoin launchers default to `static`);
-- `SGLANG_FT_DETERMINISTIC_INFERENCE` (`1` for ordinary FT launchers and `0`
-  for native no-FT launchers unless explicitly selected);
-- `SGLANG_FT_OVERLAP_SCHEDULE` (`0` by default for ordinary FT launchers; set
-  `1` only in contracts that include concurrent requests and explicit overlap
-  coverage assertions);
-- `SGLANG_FT_RANDOM_SEED` for an optional fixed non-negative seed;
-- `SGLANG_FT_CUDA_GRAPH_MODE` (`disabled` by default, or `decode-only` for
-  full decode CUDA Graph with prefill graphs disabled in rejoin launchers);
-- `SGLANG_DEEPEP_BF16_DISPATCH` (`0` by default; use `1` for a compatible
-  DeepSeek BF16/DeepGEMM environment);
-- `SGLANG_FT_PRECISION_ORACLE_FAMILY` (default
-  `qwen-fp8-d4t4e4-count10-no-overlap`);
-- `SGLANG_FT_RELIABLE_ORACLE_ID` for the optional four-token rejoin request.
-- `SGLANG_FT_CONTROL_PHASE_TIMEOUT_SEC` (test default `60`) and
-  `SGLANG_FT_CONTROL_WAIT_TIMEOUT_SEC` (test default `90`); the observation
-  timeout must be greater than the product control-phase timeout.
-- `SGLANG_FT_PAUSE_TIMEOUT_SEC` (default `300`; timeout-specific contracts may
-  shorten it explicitly).
-- `SGLANG_FT_ELASTIC_EP_SCALE_TIMEOUT_SEC` (test default `150`) and
-  `SGLANG_FT_ELASTIC_EP_WAIT_TIMEOUT_SEC` (test default `180`) for the separate
-  runtime Elastic EP scale/recovery path.
-Ordinary fault-scenario gates resolve their oracle as
-`<family>-rank<rank>-r<redundant-experts>` and accept only sequences already listed in that
-entry's `known_output_ids`. If an entry has no known-sequence list, the gate falls back to
-its canonical `output_ids`. A test run must never register its own output as passing.
-Strict token equality is reserved for dedicated precision-attribution runs with matched
-native no-FT controls. Use a distinct flat profile, task root and artifact root for each
-model and configuration.
+- 调整模型、依赖或超时参数时读 `references/profile-settings.md`；不默认加载全部选项。
+- 创建或修改契约时读 `references/evidence.md`。一个用例是 TEST.md + run.sh；公共机械操作属于本 skill 的 scripts/。
+- 通过必须有终态、exit 0、非空且全部通过的断言；阶段/接口/进程/精度证据不能互相替代。
+- 首个共同启动失败先定位，不堆更多 GPU 实验。单测与端到端覆盖分别报告。
+- 日志、历史和 profile 留在磁盘；在 task-local TASK.md 只保存目标、选例理由、run 名、已核验事实、证据路径与下一步。

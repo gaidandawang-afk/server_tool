@@ -3,6 +3,14 @@
 `server_tool` 是面向多人共享 GPU 服务器的轻量 agent 项目。它把长期安全规则、
 领域能力、确定性远程执行和一次性任务材料分开，避免为每次操作向根目录堆脚本。
 
+## Agent 入口
+
+进入项目遵循 AGENTS.md 的按需加载规则。验证任务从 test-service 开始：查看提交差异，
+用精简 INDEX 定位候选 TEST.md，保留 agent 的选例判断；历史报告与参数细节只在需要时展开。
+执行和网络切换遵循 [操作清单](skills/remote-ops/references/workflow.md)。
+任务目标、选例理由、run 名、证据路径和下一步保存在忽略的 `work/<profile>/<task>/TASK.md`，
+下一位 agent 可从该文件恢复，不需要重读对话或全部历史。
+
 ## 能力
 
 - `remote-ops`：安全连接、任务生命周期和 artifact。
@@ -78,3 +86,13 @@ GitHub URL 不接受内嵌凭据；此方式要求 S 已能读取对应仓库。
 安全解包；拒绝软链接、硬链接和路径逃逸。`fetch --summary` 仅取回结果、断言、提交和
 容器证据及控制状态。完整日志留在 S，可用 `logs` 查看，或另选 `--destination` 获取完整包。
 `run-case.py --summary` 可在常规用例结束后只取摘要。结果不需要上传 GitHub。
+
+用例入口会输出精简结果，完整断言与日志仍保留。断线后用相同 run 名恢复观察：
+
+```powershell
+python skills/test-service/scripts/run-case.py --profile <profile> --case <component/case> --name <existing-run> --resume --summary --destination work/<profile>/<task>/artifacts/<run>-final
+python skills/test-service/scripts/summarize-result.py work/<profile>/<task>/artifacts/<run>-final
+```
+
+`--resume` 不提交或重启实验；`--destination` 必须是新的目录。结果摘要区分 PASS、FAIL 和 INCOMPLETE，
+连接错误与未完成快照不能作为用例失败。模型只在相关失败出现时加载对应日志片段。

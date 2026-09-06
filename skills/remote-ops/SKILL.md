@@ -8,6 +8,10 @@ description: Safely inspect and operate task-scoped work on the configured share
 Use this skill for host inspection, task-scoped remote execution, status observation,
 artifact retrieval and targeted cleanup.
 
+Read `references/workflow.md` for the submission, observation and reconnect checklist.
+Keep run identity and evidence paths in the task-local TASK.md; do not reconstruct the
+workflow from old conversations or load all profiles.
+
 ## Rules
 
 1. Read the selected flat `.local.env` profile and verify all required paths before connecting.
