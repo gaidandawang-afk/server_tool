@@ -71,8 +71,40 @@ PY
 trap finish EXIT
 trap 'exit 143' TERM INT
 
-cp "$input_root/TEST.md" "$output_root/TEST.md"
 cp "$input_root/invocation.json" "$output_root/invocation.json"
+python3 - "$input_root" >>"$output_root/preparation.log" 2>&1 <<'PY'
+import hashlib
+import json
+import pathlib
+import shutil
+import subprocess
+import sys
+
+root = pathlib.Path(sys.argv[1])
+invocation = json.loads((root / "invocation.json").read_text())
+manifest = invocation.get("git_inputs")
+if manifest:
+    repo = root / "tools-repo"
+    subprocess.run(["git", "init", str(repo)], check=True, timeout=30)
+    subprocess.run(["git", "-C", str(repo), "fetch", "--depth=1", "--",
+                    invocation["tools_git_url"], manifest["head"]], check=True, timeout=180)
+    subprocess.run(["git", "-C", str(repo), "checkout", "--detach", "FETCH_HEAD"], check=True, timeout=60)
+    actual = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+    if actual != manifest["head"]:
+        raise ValueError("server_tool commit mismatch")
+    for item in manifest["files"]:
+        source = repo / item["source"]
+        target = root / item["destination"]
+        if not source.resolve().is_relative_to(repo.resolve()) or not target.resolve().is_relative_to(root.resolve()):
+            raise ValueError("Git input path escapes input root")
+        if source.is_symlink() or hashlib.sha256(source.read_bytes()).hexdigest() != item["sha256"]:
+            raise ValueError("Git input content mismatch: " + item["source"])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+    print("verified_tools_commit=" + actual, flush=True)
+PY
+
+cp "$input_root/TEST.md" "$output_root/TEST.md"
 sha256sum "$input_root"/* >"$output_root/input-sha256.txt" 2>/dev/null || true
 
 test -r "$CONTAINER_MANIFEST"
@@ -84,8 +116,17 @@ if test -e "$SERVER_TOOL_PROJECT_ROOT"; then
   test -f "$SERVER_TOOL_PROJECT_ROOT/.git/server-tool-owner"
   grep -Fqx "profile=$PROFILE_NAME" "$SERVER_TOOL_PROJECT_ROOT/.git/server-tool-owner"
 else
-  git clone --branch "$SERVER_TOOL_SOURCE_BRANCH" --single-branch \
-    "$input_root/source.bundle" "$SERVER_TOOL_PROJECT_ROOT"
+  if [[ -n "${SERVER_TOOL_SOURCE_GIT_URL:-}" ]]; then
+    {
+      git init "$SERVER_TOOL_PROJECT_ROOT"
+      timeout 180 git -C "$SERVER_TOOL_PROJECT_ROOT" fetch --depth=1 -- \
+        "$SERVER_TOOL_SOURCE_GIT_URL" "$SERVER_TOOL_EXPECTED_HEAD"
+      git -C "$SERVER_TOOL_PROJECT_ROOT" checkout -b "$SERVER_TOOL_SOURCE_BRANCH" FETCH_HEAD
+    } >>"$output_root/preparation.log" 2>&1
+  else
+    git clone --branch "$SERVER_TOOL_SOURCE_BRANCH" --single-branch \
+      "$input_root/source.bundle" "$SERVER_TOOL_PROJECT_ROOT"
+  fi
   printf 'profile=%s\n' "$PROFILE_NAME" >"$SERVER_TOOL_PROJECT_ROOT/.git/server-tool-owner"
 fi
 test "$(git -C "$SERVER_TOOL_PROJECT_ROOT" rev-parse HEAD)" = "$SERVER_TOOL_EXPECTED_HEAD"

@@ -37,6 +37,10 @@ contracts must be promoted into `cases/`; no committed case may source files fro
 Run a committed case with `scripts/run-case.py`. Use `tools/server_tool.py` directly only when
 the task needs nonstandard committed attachments.
 
+For high-latency links, use the profile's `SOURCE_GIT_URL` / `TOOLS_GIT_URL` options
+after pushing the exact local commits. Add `--summary` to `run-case.py` to fetch only
+results and provenance; retrieve full logs separately when needed.
+
 ## Model-specific profile settings
 
 Committed SGLang cases take the model from `MODEL_PATH`. A profile may also select:

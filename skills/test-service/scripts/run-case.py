@@ -16,6 +16,7 @@ def main() -> int:
     parser.add_argument("--name", required=True)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument("--summary", action="store_true", help="fetch only result/assertions/provenance; retain full logs remotely")
     parser.add_argument(
         "--allow-busy-gpus",
         action="store_true",
@@ -53,9 +54,12 @@ def main() -> int:
             run_command.append("--allow-busy-gpus")
         if subprocess.call(run_command):
             return 1
-        wait_command = cli + ["wait", "--name", name, "--timeout", str(args.timeout + 120)]
+        # Include bounded Git preparation before the test's own timeout starts.
+        wait_command = cli + ["wait", "--name", name, "--timeout", str(args.timeout + 600)]
         wait_code = subprocess.call(wait_command)
         fetch_command = cli + ["fetch", "--name", name]
+        if args.summary:
+            fetch_command.append("--summary")
         fetch_code = subprocess.call(fetch_command)
         if wait_code or fetch_code:
             return 1

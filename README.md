@@ -53,3 +53,28 @@ python skills\test-service\scripts\run-case.py `
 
 `--allow-busy-gpus` 保留为显式共享授权的兼容性确认项；当前 GPU 评审以可用显存门槛
 为准，不因其他进程存在而失败。
+
+## 经跳板传输与 GitHub 拉取
+
+当前 SSH 客户端使用 Paramiko，不会自动读取 OpenSSH `ProxyJump`。可先建立仅监听
+本机的 SSH 转发，再让本地 profile 指向该端口，并为该端点配置已核对的服务器主机密钥。
+
+在高延迟连接上，profile 可显式设置：
+
+```dotenv
+SOURCE_GIT_URL=https://github.com/owner/source.git
+TOOLS_GIT_URL=https://github.com/owner/server_tool.git
+```
+
+先将源码和 server_tool 的本地提交推送到对应 GitHub 仓库。执行仍以干净本地分支
+HEAD 为事实来源；S 浅拉取该提交，不追随远端最新分支。测试脚本和附件仅从 server_tool
+已提交文件中选择，按 Git blob 的 SHA256 校验，因此不受 Windows CRLF checkout 影响，
+也不会发送忽略的 profile、缓存或凭据。拉取失败会保存 preparation.log 和失败结果。
+GitHub URL 不接受内嵌凭据；此方式要求 S 已能读取对应仓库。
+
+未设置相应 URL 时，该部分继续使用原有上传方式，供 task-local 探针等输入使用。
+
+`fetch` 将 output 和 control 打包为单个 gzip tar，经一次 SFTP 下载，校验 SHA256 后
+安全解包；拒绝软链接、硬链接和路径逃逸。`fetch --summary` 仅取回结果、断言、提交和
+容器证据及控制状态。完整日志留在 S，可用 `logs` 查看，或另选 `--destination` 获取完整包。
+`run-case.py --summary` 可在常规用例结束后只取摘要。结果不需要上传 GitHub。
