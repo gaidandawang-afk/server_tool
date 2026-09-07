@@ -1,13 +1,8 @@
 import importlib.util
-import hashlib
-import io
 import sys
-import tarfile
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import patch
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "tools" / "server_tool.py"
@@ -19,101 +14,6 @@ SPEC.loader.exec_module(server_tool)
 
 
 class ServerToolTests(unittest.TestCase):
-    def test_wait_recovers_after_transient_connection_failure(self):
-        args = SimpleNamespace(profile="unused", name="run", timeout=10, poll=1)
-        for error in (EOFError(), ConnectionResetError(), TimeoutError(),
-                      server_tool.paramiko.ssh_exception.NoValidConnectionsError({("127.0.0.1", 16200): ConnectionRefusedError()}),
-                      server_tool.paramiko.SSHException("No existing session"),
-                      server_tool.paramiko.SSHException("Error reading SSH protocol banner")):
-            with self.subTest(error=type(error).__name__), patch.object(server_tool.Profile, "load"), patch.object(
-                server_tool, "read_state", side_effect=[error, {"state": "succeeded"}]
-            ) as read, patch.object(server_tool.time, "sleep"):
-                self.assertEqual(server_tool.cmd_wait(args), 0)
-                self.assertEqual(read.call_count, 2)
-
-    def test_wait_connection_failures_keep_original_deadline(self):
-        args = SimpleNamespace(profile="unused", name="run", timeout=10, poll=1)
-        with patch.object(server_tool.Profile, "load"), patch.object(
-            server_tool, "read_state", side_effect=EOFError()
-        ), patch.object(server_tool.time, "monotonic", side_effect=[0, 11]), self.assertRaisesRegex(
-            server_tool.ToolError, "wait timed out after 10s"
-        ):
-            server_tool.cmd_wait(args)
-
-    def test_wait_does_not_retry_authentication_failure(self):
-        args = SimpleNamespace(profile="unused", name="run", timeout=10, poll=1)
-        with patch.object(server_tool.Profile, "load"), patch.object(
-            server_tool, "read_state", side_effect=server_tool.paramiko.AuthenticationException()
-        ) as read, self.assertRaises(server_tool.paramiko.AuthenticationException):
-            server_tool.cmd_wait(args)
-        self.assertEqual(read.call_count, 1)
-
-    def test_github_urls_reject_credentials_and_non_github_sources(self):
-        self.assertEqual(server_tool.github_url("https://github.com/owner/repo.git"), "https://github.com/owner/repo.git")
-        for url in ("https://token@github.com/owner/repo", "https://example.com/owner/repo", "-upload-pack=bad"):
-            with self.subTest(url=url), self.assertRaises(server_tool.ToolError):
-                server_tool.github_url(url)
-
-    def test_git_inputs_use_committed_bytes_and_exclude_generated_files(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp).resolve()
-            def git(*args):
-                return server_tool.run_local(["git", *args], root)
-            git("init")
-            git("config", "user.name", "Test")
-            git("config", "user.email", "test@example.invalid")
-            git("config", "core.autocrlf", "true")
-            (root / ".gitignore").write_text("__pycache__/\n")
-            (root / ".gitattributes").write_text("*.sh text eol=lf\n*.md text\n")
-            (root / "run.sh").write_bytes(b"echo ok\n")
-            (root / "TEST.md").write_bytes(b"contract\n")
-            assets = root / "assets"
-            assets.mkdir()
-            (assets / "module.py").write_bytes(b"value = 1\n")
-            git("add", ".")
-            git("commit", "-m", "fixture")
-            (root / "TEST.md").write_bytes(b"contract\r\n")
-            git("add", "TEST.md")
-            (assets / "__pycache__").mkdir()
-            (assets / "__pycache__" / "ignored.pyc").write_bytes(b"generated")
-            with patch.object(server_tool, "REPO_ROOT", root):
-                manifest = server_tool.git_input_manifest(root / "run.sh", root / "TEST.md", [(assets, "assets")])
-                entries = {item["destination"]: item for item in manifest["files"]}
-                self.assertEqual(set(entries), {"run.sh", "TEST.md", "assets/module.py"})
-                self.assertEqual(entries["TEST.md"]["sha256"], hashlib.sha256(b"contract\n").hexdigest())
-                (root / "run.sh").write_bytes(b"echo changed\n")
-                with self.assertRaisesRegex(server_tool.ToolError, "commit server_tool"):
-                    server_tool.git_input_manifest(root / "run.sh", root / "TEST.md", [])
-
-    def test_artifact_extraction_rejects_traversal_links_and_windows_paths(self):
-        for name, kind in [("output/../escape", tarfile.REGTYPE), ("/absolute", tarfile.REGTYPE),
-                           ("output/link", tarfile.SYMTYPE), ("output/link", tarfile.LNKTYPE),
-                           ("output/C:escape", tarfile.REGTYPE), ("output/..\\escape", tarfile.REGTYPE)]:
-            with self.subTest(name=name, kind=kind), tempfile.TemporaryDirectory() as temp:
-                root = Path(temp)
-                archive = root / "bad.tar.gz"
-                with tarfile.open(archive, "w:gz") as handle:
-                    member = tarfile.TarInfo(name)
-                    member.type = kind
-                    member.linkname = "../../escape"
-                    handle.addfile(member)
-                with self.assertRaises(server_tool.ToolError):
-                    server_tool.extract_artifacts(archive, root / "result")
-
-    def test_artifact_extraction_preserves_result_and_binary_payload(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            archive = root / "valid.tar.gz"
-            files = {"output/result.json": b'{"exit_code":7}', "output/payload.bin": bytes(range(256)), "control/state": b"failed\n"}
-            with tarfile.open(archive, "w:gz") as handle:
-                for name, data in files.items():
-                    member = tarfile.TarInfo(name)
-                    member.size = len(data)
-                    handle.addfile(member, io.BytesIO(data))
-            server_tool.extract_artifacts(archive, root / "result")
-            for name, data in files.items():
-                self.assertEqual((root / "result" / name).read_bytes(), data)
-
     def test_runtime_profile_exposes_model_specific_ft_settings(self):
         for key in (
             "SGLANG_KERNEL_REQUIRED_SYMBOL",

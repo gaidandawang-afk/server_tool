@@ -8,10 +8,6 @@ description: Safely inspect and operate task-scoped work on the configured share
 Use this skill for host inspection, task-scoped remote execution, status observation,
 artifact retrieval and targeted cleanup.
 
-Read `references/workflow.md` for the submission, observation and reconnect checklist.
-Keep run identity and evidence paths in the task-local TASK.md; do not reconstruct the
-workflow from old conversations or load all profiles.
-
 ## Rules
 
 1. Read the selected flat `.local.env` profile and verify all required paths before connecting.
@@ -31,16 +27,8 @@ Use `tools/server_tool.py` for committed-input runs:
 - `check` verifies the profile, source HEAD, connection and container manifest.
 - `run` uploads a Git bundle, `TEST.md`, `run.sh` and explicit attachments, then starts
   `tools/remote_runner.sh` in a detached process group.
-- With `SOURCE_GIT_URL` and/or `TOOLS_GIT_URL`, the detached runner instead pulls the
-  corresponding exact local commits from GitHub. Push those commits first. Git mode
-  permits only committed server_tool inputs, verifies their blob hashes and excludes
-  generated files. Preparation logs and failures remain in the run output.
 - `status`, `logs`, `wait` and `fetch` use bounded short connections.
 - `stop` signals only the recorded process group after checking its run identity.
-
-`fetch` downloads one checksummed archive containing output and control; `--summary`
-limits it to results, assertions and provenance. Full logs stay on S. Fetch full evidence
-to a different destination when the summary identifies a failure needing investigation.
 
 Never invoke another project's runner. A reference project may inform implementation, but
 server_tool must transport and execute only files committed here or in the selected source repo.

@@ -198,16 +198,19 @@ class SGLangCaseContractTests(unittest.TestCase):
         self.assertLess(local_forward, injected)
         self.assertLess(injected, injected_raise)
 
-    def test_index_covers_existing_contracts_without_loading_history(self):
+    def test_index_contains_sixteen_active_new_architecture_contracts(self):
         index = (CASE_ROOT / "INDEX.md").read_text(encoding="utf-8")
-        identifiers = re.findall(r"`(fault-[a-z0-9-]+)`", index)
-        actual = {p.parent.name for p in CASE_ROOT.glob("*/run.sh")}
-        self.assertEqual(set(identifiers), actual)
-        self.assertEqual(len(identifiers), len(actual))
-        self.assertNotIn("PASS ON", index)
-        self.assertIn("VALIDATION-HISTORY.md", index)
-        for case in identifiers:
-            self.assertTrue((CASE_ROOT / case / "TEST.md").is_file())
+        identifiers = re.findall(r"`(fault_[a-z0-9_]+\.sh)`", index)
+        self.assertEqual(len(identifiers), 16)
+        self.assertEqual(len(set(identifiers)), 16)
+        self.assertNotIn("fault_kill_pause_retry.sh", identifiers)
+        self.assertNotIn("fault_kill_pause_inflight_retry.sh", identifiers)
+        self.assertIn("fault_exception_pause_retry.sh", identifiers)
+        self.assertIn("fault_kill_scale_down_exception_retry.sh", identifiers)
+        self.assertIn("fault_tpgt1_whole_dp_shutdown.sh", identifiers)
+        self.assertIn("**Validation state:**", index)
+        self.assertIn("exact source", index)
+        self.assertNotIn("All seventeen indexed contracts are recorded as PASS", index)
 
     def test_active_cases_complete_inference_before_fault(self):
         fault_markers = (

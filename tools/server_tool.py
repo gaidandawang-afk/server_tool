@@ -19,7 +19,6 @@ import shlex
 import stat
 import subprocess
 import sys
-import tarfile
 import tempfile
 import time
 from dataclasses import dataclass
@@ -246,23 +245,19 @@ class Remote:
         else:
             client.load_system_host_keys()
             client.set_missing_host_key_policy(paramiko.WarningPolicy())
-        try:
-            client.connect(
-                self.profile.require("REMOTE_HOST"),
-                port=int(self.profile.require("REMOTE_PORT")),
-                username=self.profile.require("REMOTE_USER"),
-                key_filename=self.profile.require("SSH_KEY"),
-                look_for_keys=False,
-                allow_agent=False,
-                timeout=20,
-                banner_timeout=20,
-                auth_timeout=20,
-            )
-            self.client = client
-            self.sftp = client.open_sftp()
-        except Exception:
-            client.close()
-            raise
+        client.connect(
+            self.profile.require("REMOTE_HOST"),
+            port=int(self.profile.require("REMOTE_PORT")),
+            username=self.profile.require("REMOTE_USER"),
+            key_filename=self.profile.require("SSH_KEY"),
+            look_for_keys=False,
+            allow_agent=False,
+            timeout=20,
+            banner_timeout=20,
+            auth_timeout=20,
+        )
+        self.client = client
+        self.sftp = client.open_sftp()
         return self
 
     def __exit__(self, *_: object) -> None:
@@ -467,7 +462,6 @@ def runtime_env(profile: Profile, expected_head: str, run_id: str, timeout: int)
             "SERVER_TOOL_PROJECT_ROOT": profile.project_root,
             "SERVER_TOOL_RUN_ID": run_id,
             "SERVER_TOOL_RUN_TIMEOUT_SEC": str(timeout),
-            "SERVER_TOOL_SOURCE_GIT_URL": profile.get("SOURCE_GIT_URL"),
         }
     )
     return "".join(f"export {key}={shell_quote(value)}\n" for key, value in values.items())
@@ -485,43 +479,6 @@ def input_hashes(local_paths: list[Path]) -> dict[str, str]:
         for file in files:
             hashes[str(file)] = hashlib.sha256(file.read_bytes()).hexdigest()
     return hashes
-
-
-def github_url(value: str) -> str:
-    if not re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?", value):
-        raise ToolError("Git pull URLs must be credential-free https://github.com/owner/repo URLs")
-    return value
-
-
-def git_input_manifest(script: Path, test_md: Path, attachments: list[tuple[Path, str]]) -> dict:
-    dirty = run_local(["git", "status", "--porcelain", "--untracked-files=no"], REPO_ROOT)
-    if dirty:
-        raise ToolError(f"commit server_tool changes before using TOOLS_GIT_URL:\n{dirty}")
-    tracked = set(run_local(["git", "ls-files"], REPO_ROOT).splitlines())
-    head = run_local(["git", "rev-parse", "HEAD"], REPO_ROOT)
-    entries = []
-    destinations = set()
-    for source, destination in [(script, "run.sh"), (test_md, "TEST.md"), *attachments]:
-        files = sorted(source.rglob("*")) if source.is_dir() else [source]
-        for file in files:
-            if file.is_symlink():
-                raise ToolError(f"refusing symlink input: {file}")
-            if not file.is_file():
-                continue
-            relative = file.resolve().relative_to(REPO_ROOT).as_posix()
-            if relative not in tracked:
-                if source.is_file():
-                    raise ToolError(f"Git input is not committed in server_tool: {file}")
-                continue
-            scan_script(file)
-            target = destination if source.is_file() else destination + "/" + file.relative_to(source).as_posix()
-            if target in destinations or target.split("/")[0] in {"runtime.env", "invocation.json", "remote_runner.sh", "tools-repo", "source.bundle"}:
-                raise ToolError(f"duplicate or reserved Git input destination: {target}")
-            destinations.add(target)
-            # Hash committed bytes, not a Windows checkout's CRLF conversion.
-            blob = subprocess.check_output(["git", "show", f"{head}:{relative}"], cwd=REPO_ROOT)
-            entries.append({"source": relative, "destination": target, "sha256": hashlib.sha256(blob).hexdigest()})
-    return {"head": head, "files": entries}
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -583,9 +540,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not test_md.is_file():
         raise ToolError(f"TEST.md must accompany run.sh: {test_md}")
     attachments = [parse_attachment(value) for value in args.attach]
-    source_url = github_url(profile.get("SOURCE_GIT_URL")) if profile.get("SOURCE_GIT_URL") else ""
-    tools_url = github_url(profile.get("TOOLS_GIT_URL")) if profile.get("TOOLS_GIT_URL") else ""
-    git_inputs = git_input_manifest(script, test_md, attachments) if tools_url else None
     name = safe_name(args.name, "run name")
     run_id = f"{profile.require('PROFILE_NAME')}.{name}.{time.time_ns()}"
     root = run_root(profile, name)
@@ -600,12 +554,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             "script": str(script),
             "attachments": [{"local": str(local), "remote": remote} for local, remote in attachments],
             "source_head": head,
-            "input_sha256": ({item["destination"]: item["sha256"] for item in git_inputs["files"]}
-                             if git_inputs else input_hashes(paths_for_hash)),
+            "input_sha256": input_hashes(paths_for_hash),
             "allow_busy_gpus": args.allow_busy_gpus,
-            "source_git_url": source_url,
-            "tools_git_url": tools_url,
-            "git_inputs": git_inputs,
         }
         with Remote(profile) as remote:
             invocation["gpu_preflight"] = require_idle_profile_gpus(
@@ -622,16 +572,14 @@ def cmd_run(args: argparse.Namespace) -> int:
             if code:
                 raise ToolError(f"run already exists: {root}")
             remote.run(f"umask 077; mkdir -p {shell_quote(root + '/input')} {shell_quote(root + '/control')}")
-            if source_mode == "absent" and not source_url:
+            if source_mode == "absent":
                 create_source_bundle(profile, bundle)
                 remote.put_file(bundle, root + "/input/source.bundle", 0o600)
-            if not tools_url:
-                remote.put_file(script, root + "/input/run.sh", 0o700)
-                remote.put_file(test_md, root + "/input/TEST.md", 0o600)
+            remote.put_file(script, root + "/input/run.sh", 0o700)
+            remote.put_file(test_md, root + "/input/TEST.md", 0o600)
             remote.put_file(REMOTE_RUNNER, root + "/input/remote_runner.sh", 0o700)
-            if not tools_url:
-                for local, destination in attachments:
-                    remote.put_tree(local, root + "/input/" + destination)
+            for local, destination in attachments:
+                remote.put_tree(local, root + "/input/" + destination)
             remote.put_text(runtime_env(profile, head, run_id, args.timeout), root + "/input/runtime.env", 0o600)
             remote.put_text(json.dumps(invocation, indent=2, sort_keys=True) + "\n", root + "/input/invocation.json", 0o600)
             launch = (
@@ -692,14 +640,7 @@ def cmd_wait(args: argparse.Namespace) -> int:
     profile = Profile.load(args.profile)
     deadline = time.monotonic() + args.timeout
     while True:
-        try:
-            state = read_state(profile, args.name)
-        except (paramiko.AuthenticationException, paramiko.BadHostKeyException):
-            raise
-        except (EOFError, ConnectionError, TimeoutError, paramiko.SSHException,
-                paramiko.ssh_exception.NoValidConnectionsError) as exc:
-            print(f"status connection interrupted ({type(exc).__name__}); retrying within wait timeout", file=sys.stderr)
-            state = {}
+        state = read_state(profile, args.name)
         if state.get("state") in {"succeeded", "failed", "stopped"}:
             print(json.dumps(state, indent=2, sort_keys=True))
             return 0 if state.get("state") == "succeeded" else 1
@@ -708,80 +649,16 @@ def cmd_wait(args: argparse.Namespace) -> int:
         time.sleep(min(args.poll, max(0.1, deadline - time.monotonic())))
 
 
-def artifact_archive_command(root: str, archive: str, summary: bool) -> str:
-    script = r'''
-import hashlib, pathlib, sys, tarfile
-root, archive = map(pathlib.Path, sys.argv[1:3])
-summary = sys.argv[3] == "1"
-selected = {"result.json", "assertions.jsonl", "provenance.env", "container.env", "invocation.json", "TEST.md", "input-sha256.txt"}
-paths = []
-for name in ("output", "control"):
-    base = root / name
-    if base.is_symlink() or not base.is_dir():
-        raise ValueError("invalid artifact root: " + str(base))
-    for path in base.rglob("*"):
-        if summary and name == "output" and path.relative_to(base).as_posix() not in selected:
-            continue
-        if path.is_symlink() or not (path.is_file() or path.is_dir()):
-            raise ValueError("unsafe artifact: " + str(path))
-        paths.append(path)
-with tarfile.open(archive, "w:gz") as handle:
-    for path in paths:
-        handle.add(path, arcname=path.relative_to(root).as_posix(), recursive=False)
-digest = hashlib.sha256()
-with archive.open("rb") as handle:
-    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-        digest.update(chunk)
-print(digest.hexdigest())
-'''
-    return f"python3 - {shell_quote(root)} {shell_quote(archive)} {'1' if summary else '0'} <<'PY'\n{script}\nPY"
-
-
-def extract_artifacts(archive: Path, destination: Path) -> None:
-    with tarfile.open(archive, "r:gz") as handle:
-        members = handle.getmembers()
-        for member in members:
-            parts = member.name.split("/")
-            if (parts[0] not in {"output", "control"} or ".." in parts
-                    or "\\" in member.name or ":" in member.name
-                    or not (member.isfile() or member.isdir())):
-                raise ToolError(f"unsafe archive member: {member.name}")
-            target = destination.joinpath(*parts)
-            if not target.resolve().is_relative_to(destination.resolve()):
-                raise ToolError(f"archive path escapes destination: {member.name}")
-        for member in members:
-            target = destination / member.name
-            if member.isdir():
-                target.mkdir(parents=True, exist_ok=True)
-            else:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                source = handle.extractfile(member)
-                assert source is not None
-                with source, target.open("wb") as output:
-                    for chunk in iter(lambda: source.read(1024 * 1024), b""):
-                        output.write(chunk)
-
-
 def cmd_fetch(args: argparse.Namespace) -> int:
     profile = Profile.load(args.profile)
     root = run_root(profile, args.name)
     destination = Path(args.destination).resolve() if args.destination else profile.artifact_root / args.name
     if destination.exists():
         raise ToolError(f"local artifact destination already exists: {destination}")
-    destination.mkdir(parents=True)
-    archive = destination / "artifacts.tar.gz"
-    remote_archive = root + f"/work/fetch-{time.time_ns()}.tar.gz"
     with Remote(profile) as remote:
         verify_task_owner(remote, profile)
-        _, digest, _ = remote.run(artifact_archive_command(root, remote_archive, args.summary), timeout=120)
-        assert remote.sftp is not None
-        remote.sftp.get(remote_archive, str(archive))
-        with archive.open("rb") as handle:
-            actual = hashlib.file_digest(handle, "sha256").hexdigest()
-        if actual != digest.strip():
-            raise ToolError("artifact archive SHA256 mismatch")
-        extract_artifacts(archive, destination)
-        remote.run(f"rm -f -- {shell_quote(remote_archive)}")
+        remote.get_tree(root + "/output", destination / "output")
+        remote.get_tree(root + "/control", destination / "control")
     print(destination)
     return 0
 
@@ -838,7 +715,6 @@ def build_parser() -> argparse.ArgumentParser:
             item.add_argument("--poll", type=float, default=5.0)
         if command == "fetch":
             item.add_argument("--destination")
-            item.add_argument("--summary", action="store_true", help="fetch result, assertions and provenance only")
         item.set_defaults(func=func)
     return parser
 
