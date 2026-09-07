@@ -43,6 +43,22 @@ class ResultSummaryTests(unittest.TestCase):
         value, code = summary.summarize(self.root)
         self.assertEqual((value["verdict"], code), ("PASS", 0))
 
+    def test_case_identity_uses_original_invocation_on_both_platforms(self):
+        self.write()
+        for prefix in ("D:\\old-checkout\\", "/old-checkout/"):
+            script = prefix + "skills/test-service/cases/transport/github-smoke/run.sh"
+            (self.root / "output/invocation.json").write_text(json.dumps({"script": script}))
+            value, code = summary.summarize(self.root, "transport/github-smoke")
+            self.assertEqual(code, 0)
+            self.assertEqual(value["case"], "transport/github-smoke")
+            value, code = summary.summarize(self.root, "sglang/fault-tpgt1-whole-dp-shutdown")
+            self.assertEqual((value["verdict"], code), ("INCOMPLETE", 2))
+            self.assertIn("case mismatch", value["issues"][0])
+
+    def test_expected_case_without_invocation_cannot_pass(self):
+        self.write()
+        self.assertEqual(summary.summarize(self.root, "transport/github-smoke")[1], 2)
+
     def test_running_snapshot_cannot_pass(self):
         self.write(state="running")
         self.assertEqual(summary.summarize(self.root)[1], 2)
@@ -93,6 +109,7 @@ class ResumeTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(commands[0][4], "wait")
         self.assertTrue(commands[1][1].endswith("summarize-result.py"))
+        self.assertEqual(commands[1][-2:], ["--expected-case", "sglang/fault-exception-pause-retry"])
         self.assertNotIn("run", [part for cmd in commands for part in cmd])
         self.assertIn("--destination", fetch.call_args.args[0])
 

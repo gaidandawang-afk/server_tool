@@ -79,11 +79,12 @@ def main() -> int:
             return 2
         # A terminal artifact can prove success even if the wait connection failed.
         result_code = subprocess.call([
-            sys.executable, str(skill_root / "scripts" / "summarize-result.py"), destination
+            sys.executable, str(skill_root / "scripts" / "summarize-result.py"), destination,
+            "--expected-case", args.case,
         ])
         if result_code:
             if result_code == 2:
-                print(f"Observation incomplete (wait exit={wait_code}); resume the same run.", file=sys.stderr)
+                print(f"Evidence incomplete (wait exit={wait_code}); check summary issues before resuming.", file=sys.stderr)
             return result_code
     return 0
 

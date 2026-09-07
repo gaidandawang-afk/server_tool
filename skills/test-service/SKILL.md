@@ -32,6 +32,7 @@ python skills/test-service/scripts/run-case.py --profile <profile> --case <compo
 ```
 
 `--resume` 只等待并取回一个已有 run。提交是否成功不明时先 `status` 核对；没有状态不等于未提交。
+结果会核对 `--case` 与原 invocation 的用例身份；不一致或缺少身份时返回 INCOMPLETE，不能算作所选用例通过。
 常规运行使用 `--summary` 只取摘要。用 `scripts/summarize-result.py <artifact-directory>` 读取已取回证据，无需连接 S；退出 0=PASS、1=FAIL、2=INCOMPLETE。
 摘要不完整时先恢复观察；准备失败先排查传输；实际用例失败再按失败断言读取对应日志片段，必要时进入 debug-service。
 

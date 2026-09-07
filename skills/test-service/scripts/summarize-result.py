@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 
-def summarize(root: Path) -> tuple[dict, int]:
+def summarize(root: Path, expected_case: str | None = None) -> tuple[dict, int]:
     root = root.resolve()
     issues = []
     state = "unknown"
@@ -28,6 +28,17 @@ def summarize(root: Path) -> tuple[dict, int]:
         assertions = []
     source = result.get("source") or {}
     commit = source.get("source_commit") if isinstance(source, dict) else None
+    case = None
+    try:
+        invocation = json.loads((root / "output/invocation.json").read_text(encoding="utf-8"))
+        script = invocation["script"].replace("\\", "/")
+        marker = "skills/test-service/cases/"
+        if marker in script and script.endswith("/run.sh"):
+            case = script.rsplit(marker, 1)[1][:-len("/run.sh")]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        pass
+    if expected_case is not None and case != expected_case.replace("\\", "/"):
+        issues.append(f"case mismatch: expected {expected_case}, recorded {case}")
     if state not in {"succeeded", "failed", "stopped"}:
         issues.append("no terminal state; resume observation")
     if result.get("exit_code") != control_exit:
@@ -45,6 +56,7 @@ def summarize(root: Path) -> tuple[dict, int]:
         "verdict": verdict,
         "state": state,
         "run_id": result.get("run_id"),
+        "case": case,
         "source_commit": commit,
         "exit_code": control_exit,
         "assertions": {"passed": len(assertions) - len(failed), "total": len(assertions)},
@@ -62,8 +74,9 @@ def summarize(root: Path) -> tuple[dict, int]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("artifact_directory", type=Path)
+    parser.add_argument("--expected-case", help="require the case recorded in the original invocation")
     args = parser.parse_args()
-    summary, code = summarize(args.artifact_directory)
+    summary, code = summarize(args.artifact_directory, args.expected_case)
     print(json.dumps(summary, indent=2, ensure_ascii=True))
     return code
 
